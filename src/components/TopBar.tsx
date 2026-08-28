@@ -15,8 +15,8 @@ export default function TopBar({ title, searchQuery = '', onSearchChange, radius
 
   return (
     <header className={`${title ? 'hidden lg:block' : ''} sticky top-0 z-30 border-b border-[#eceaf1] bg-white/95 backdrop-blur-xl`}>
-      <div className="mx-auto flex max-w-[1440px] flex-col gap-2 px-4 py-2 sm:px-6 lg:h-16 lg:flex-row lg:items-center lg:gap-4 lg:px-7 lg:py-0 xl:px-10">
-        <div className="flex items-center justify-between lg:w-[190px] lg:flex-shrink-0">
+      <div className="mx-auto grid max-w-[1440px] grid-cols-[minmax(0,1fr)_auto] gap-x-2 gap-y-1.5 px-4 py-1.5 sm:px-6 lg:flex lg:h-16 lg:items-center lg:gap-4 lg:px-7 lg:py-0 xl:px-10">
+        <div className="col-span-2 flex min-h-6 items-center justify-between lg:w-[190px] lg:flex-shrink-0">
           <div className="flex items-center gap-1.5 text-xs font-semibold text-brand-ink-soft">
             <Icon name="pin" className="h-4 w-4 text-brand-accent" />
             <span>Чернігів, Україна</span>
@@ -25,7 +25,7 @@ export default function TopBar({ title, searchQuery = '', onSearchChange, radius
           <span className="text-lg font-extrabold tracking-[-0.04em] text-brand-ink lg:hidden">porooch</span>
         </div>
 
-        {title ? <div className="min-w-0 flex-1 text-sm font-bold text-brand-ink">{title}</div> : <div id="search" className="relative min-w-0 flex-1">
+        {title ? <div className="min-w-0 flex-1 text-sm font-bold text-brand-ink">{title}</div> : <div id="search" className="relative min-w-0">
           <Icon name="search" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-brand-ink-muted" />
           <input
             type="search"
@@ -45,7 +45,7 @@ export default function TopBar({ title, searchQuery = '', onSearchChange, radius
           >
             {radiusOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
           </select>}
-          <button type="button" disabled title="Сповіщення з’являться незабаром" className="grid h-11 w-11 cursor-not-allowed place-items-center rounded-xl text-brand-ink-muted opacity-55" aria-label="Сповіщення — незабаром">
+          <button type="button" disabled title="Сповіщення з’являться незабаром" className="hidden h-9 w-9 cursor-not-allowed place-items-center rounded-xl text-brand-ink-muted opacity-55 sm:grid lg:h-11 lg:w-11" aria-label="Сповіщення — незабаром">
             <Icon name="bell" className="h-4.5 w-4.5" />
           </button>
           <div className="hidden h-9 w-9 overflow-hidden rounded-full bg-brand-accent-soft sm:block">
