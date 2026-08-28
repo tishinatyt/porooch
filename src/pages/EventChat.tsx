@@ -1,325 +1,160 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
+import TopBar from '@/components/TopBar'
+import ParticipantAvatars from '@/components/home/ParticipantAvatars'
+import { EventContextCard, formatMessageDay, MessageBubble, MessageComposer, MessageDateSeparator, type ChatMessage } from '@/components/chat/ChatComponents'
 
-// ── Types ──────────────────────────────────────────────────────────────────
+const MESSAGE_LIMIT = 2000
 
-interface Sender {
-  id: string
-  name: string
-  avatar_url: string | null
+interface EventChatContext { title: string; address: string; eventDatetime: string; organizerId: string }
+
+function normalizeMessage(row: Record<string, unknown>): ChatMessage {
+  const sender = row.sender
+  return { id: row.id as string, event_chat_id: row.event_chat_id as string, sender_id: row.sender_id as string, content: row.content as string, created_at: row.created_at as string, sender: Array.isArray(sender) ? sender[0] ?? null : (sender as ChatMessage['sender'] ?? null) }
 }
 
-interface ChatMessage {
-  id: string
-  event_chat_id: string
-  sender_id: string
-  content: string
-  created_at: string
-  sender: Sender | null
+function mergeMessages(current: ChatMessage[], incoming: ChatMessage[]) {
+  const byId = new Map(current.map((message) => [message.id, message]))
+  incoming.forEach((message) => byId.set(message.id, message))
+  return [...byId.values()].sort((left, right) => left.created_at.localeCompare(right.created_at) || left.id.localeCompare(right.id))
 }
 
-// ── Helpers ─────────────────────────────────────────────────────────────────
-
-function formatTime(iso: string) {
-  return new Date(iso).toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit' })
+function formatEventDate(iso: string) {
+  const date = new Date(iso)
+  return `${date.toLocaleDateString('uk-UA', { day: 'numeric', month: 'long' })}, ${date.toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit' })}`
 }
-
-// Supabase FK joins can return arrays — normalize to single object
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function normalize(p: any): ChatMessage {
-  return { ...p, sender: Array.isArray(p.sender) ? (p.sender[0] ?? null) : (p.sender ?? null) }
-}
-
-// ── Component ───────────────────────────────────────────────────────────────
 
 export default function EventChat() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const { supaUser } = useAuth()
-
-  const [eventTitle, setEventTitle] = useState('')
+  const [event, setEvent] = useState<EventChatContext | null>(null)
   const [participantCount, setParticipantCount] = useState(0)
+  const [participantUsers, setParticipantUsers] = useState<{ id: string; name?: string; avatar_url: string | null }[]>([])
   const [chatId, setChatId] = useState<string | null>(null)
   const [messages, setMessages] = useState<ChatMessage[]>([])
-  const [isParticipant, setIsParticipant] = useState<boolean | null>(null) // null = loading
+  const [hasAccess, setHasAccess] = useState<boolean | null>(null)
   const [loading, setLoading] = useState(true)
   const [text, setText] = useState('')
   const [sending, setSending] = useState(false)
   const [sendError, setSendError] = useState<string | null>(null)
-
+  const [hasNewMessages, setHasNewMessages] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
+  const nearBottomRef = useRef(true)
+  const initialScrollRef = useRef(true)
 
-  // ── Load ──────────────────────────────────────────────────────────────────
-
-  const load = useCallback(async () => {
-    if (!id || !supaUser) return
-    setLoading(true)
-
-    const [eventRes, participantCheckRes, chatRes, countRes] = await Promise.all([
-      supabase.from('events').select('title').eq('id', id).single(),
-      // Check if current user is a participant (will fail/empty if not, due to RLS)
-      supabase
-        .from('event_participants')
-        .select('id')
-        .eq('event_id', id)
-        .eq('user_id', supaUser.id)
-        .eq('status', 'joined')
-        .maybeSingle(),
-      // Get the group chat row (RLS ec_select requires being a participant)
-      supabase.from('event_chats').select('id').eq('event_id', id).maybeSingle(),
-      // Count participants (use head:true for count-only query)
-      supabase
-        .from('event_participants')
-        .select('*', { count: 'exact', head: true })
-        .eq('event_id', id)
-        .eq('status', 'joined'),
+  const checkAccess = useCallback(async () => {
+    if (!id || !supaUser) return false
+    const [{ data: eventRow }, { data: membership }] = await Promise.all([
+      supabase.from('events').select('organizer_id').eq('id', id).maybeSingle(),
+      supabase.from('event_participants').select('status').eq('event_id', id).eq('user_id', supaUser.id).eq('status', 'joined').maybeSingle(),
     ])
+    const allowed = eventRow?.organizer_id === supaUser.id || Boolean(membership)
+    setHasAccess(allowed)
+    if (!allowed) { setChatId(null); setMessages([]); setSendError(null) }
+    return allowed
+  }, [id, supaUser])
 
-    setEventTitle(eventRes.data?.title ?? 'Подія')
-    setParticipantCount(countRes.count ?? 0)
-
-    const userIsParticipant = !!participantCheckRes.data
-    setIsParticipant(userIsParticipant)
-
-    if (!userIsParticipant || !chatRes.data) {
-      setLoading(false)
-      return
-    }
-
-    const cid = chatRes.data.id
-    setChatId(cid)
-
-    const { data: msgs } = await supabase
-      .from('event_chat_messages')
-      .select('*, sender:users!event_chat_messages_sender_id_fkey(id, name, avatar_url)')
-      .eq('event_chat_id', cid)
-      .order('created_at', { ascending: true })
-
-    setMessages((msgs ?? []).map(normalize))
+  const load = useCallback(async (showLoading = true) => {
+    if (!id || !supaUser) return
+    if (showLoading) setLoading(true)
+    setSendError(null)
+    const [eventResult, membershipResult, participantsResult] = await Promise.all([
+      supabase.from('events').select('title, address_text, event_datetime, organizer_id').eq('id', id).single(),
+      supabase.from('event_participants').select('status').eq('event_id', id).eq('user_id', supaUser.id).eq('status', 'joined').maybeSingle(),
+      supabase.from('event_participants').select('user_id, user:users!event_participants_user_id_fkey(name, avatar_url)').eq('event_id', id).eq('status', 'joined'),
+    ])
+    if (!eventResult.data) { setHasAccess(false); setLoading(false); return }
+    const eventData = eventResult.data
+    setEvent({ title: eventData.title, address: eventData.address_text ?? '', eventDatetime: eventData.event_datetime, organizerId: eventData.organizer_id })
+    const allowed = eventData.organizer_id === supaUser.id || Boolean(membershipResult.data)
+    setHasAccess(allowed)
+    const normalizedUsers = (participantsResult.data ?? []).map((participant) => {
+      const user = Array.isArray(participant.user) ? participant.user[0] : participant.user
+      return { id: participant.user_id, name: user?.name, avatar_url: user?.avatar_url ?? null }
+    })
+    setParticipantUsers(normalizedUsers)
+    setParticipantCount(normalizedUsers.length)
+    if (!allowed) { setChatId(null); setMessages([]); setLoading(false); return }
+    const { data: chat } = await supabase.from('event_chats').select('id').eq('event_id', id).maybeSingle()
+    if (!chat) { setLoading(false); return }
+    setChatId(chat.id)
+    const { data: rows } = await supabase.from('event_chat_messages').select('id, event_chat_id, sender_id, content, created_at, sender:users!event_chat_messages_sender_id_fkey(id, name, avatar_url)').eq('event_chat_id', chat.id).order('created_at', { ascending: true }).order('id', { ascending: true })
+    const loadedMessages = (rows ?? []).map((row) => normalizeMessage(row as unknown as Record<string, unknown>))
+    setMessages((current) => mergeMessages(current.filter((message) => message.event_chat_id === chat.id), loadedMessages))
+    initialScrollRef.current = true
     setLoading(false)
   }, [id, supaUser])
 
-  useEffect(() => { load() }, [load])
-
-  // ── Realtime subscription ──────────────────────────────────────────────────
+  useEffect(() => { void load() }, [load])
 
   useEffect(() => {
-    if (!chatId) return
-
-    const channel = supabase
-      .channel(`event-chat:${chatId}`)
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'event_chat_messages', filter: `event_chat_id=eq.${chatId}` },
-        async (payload) => {
-          // Fetch full row with sender info (payload.new lacks joined columns)
-          const { data } = await supabase
-            .from('event_chat_messages')
-            .select('*, sender:users!event_chat_messages_sender_id_fkey(id, name, avatar_url)')
-            .eq('id', (payload.new as { id: string }).id)
-            .single()
-          if (data) setMessages((prev) => [...prev, normalize(data)])
-        },
-      )
-      .subscribe()
-
-    return () => { supabase.removeChannel(channel) }
-  }, [chatId])
-
-  // ── Auto-scroll on new messages ────────────────────────────────────────────
+    if (!id || !supaUser) return
+    const channel = supabase.channel(`event-chat-access:${id}:${supaUser.id}`).on('postgres_changes', { event: '*', schema: 'public', table: 'event_participants', filter: `event_id=eq.${id}` }, () => { void load(false) }).subscribe()
+    return () => { void supabase.removeChannel(channel) }
+  }, [checkAccess, id, load, supaUser])
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: messages.length <= 1 ? 'instant' : 'smooth' })
+    if (!chatId || !supaUser) return
+    const channel = supabase.channel(`event-chat:${chatId}`).on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'event_chat_messages', filter: `event_chat_id=eq.${chatId}` }, async (payload) => {
+      const { data } = await supabase.from('event_chat_messages').select('id, event_chat_id, sender_id, content, created_at, sender:users!event_chat_messages_sender_id_fkey(id, name, avatar_url)').eq('id', (payload.new as { id: string }).id).maybeSingle()
+      if (!data) { void checkAccess(); return }
+      const message = normalizeMessage(data as unknown as Record<string, unknown>)
+      if (message.sender_id === supaUser.id) nearBottomRef.current = true
+      else if (!nearBottomRef.current) setHasNewMessages(true)
+      setMessages((current) => mergeMessages(current, [message]))
+    }).subscribe()
+    return () => { void supabase.removeChannel(channel) }
+  }, [chatId, checkAccess, supaUser])
+
+  useEffect(() => {
+    if (initialScrollRef.current || nearBottomRef.current) {
+      bottomRef.current?.scrollIntoView({ behavior: initialScrollRef.current ? 'auto' : 'smooth' })
+      initialScrollRef.current = false
+      setHasNewMessages(false)
+    }
   }, [messages])
 
-  // ── Send ───────────────────────────────────────────────────────────────────
+  function scrollToNewest() { nearBottomRef.current = true; setHasNewMessages(false); bottomRef.current?.scrollIntoView({ behavior: 'smooth' }) }
 
   async function handleSend() {
-    const trimmed = text.trim()
-    if (!trimmed || !chatId || !supaUser || sending) return
-    setSending(true)
-    setSendError(null)
-    const { error } = await supabase.from('event_chat_messages').insert({
-      event_chat_id: chatId,
-      sender_id: supaUser.id,
-      content: trimmed,
-    })
-    if (error) setSendError(error.message)
-    else setText('')
+    const content = text.trim()
+    if (!content || content.length > MESSAGE_LIMIT || !chatId || !supaUser || sending || !hasAccess) return
+    setSending(true); setSendError(null); nearBottomRef.current = true
+    const { error } = await supabase.from('event_chat_messages').insert({ event_chat_id: chatId, sender_id: supaUser.id, content })
+    if (error) { setSendError('Не вдалося надіслати повідомлення'); await checkAccess() } else setText('')
     setSending(false)
   }
 
-  // ── Render states ──────────────────────────────────────────────────────────
+  if (loading || hasAccess === null) return <div className="min-h-screen bg-brand-bg"><TopBar title="Чат події" /><div className="mx-auto max-w-5xl space-y-3 px-4 py-6">{[1, 2, 3, 4].map((item) => <div key={item} className="h-16 animate-pulse rounded-2xl border border-brand-border bg-white" />)}</div></div>
+  if (!hasAccess) return <div className="min-h-screen bg-brand-bg text-brand-ink"><TopBar title="Чат події" /><div className="flex min-h-[70vh] flex-col items-center justify-center px-6 text-center"><div className="mb-4 grid h-14 w-14 place-items-center rounded-full bg-brand-accent-soft text-2xl">🔒</div><h1 className="text-xl font-extrabold">Чат доступний учасникам події</h1><p className="mt-2 max-w-sm text-sm leading-6 text-brand-ink-muted">Доступ мають організатор і підтверджені учасники зі статусом участі.</p><button type="button" onClick={() => navigate(`/event/${id}`)} className="mt-6 h-12 rounded-xl bg-brand-accent px-6 text-sm font-bold text-white">До події</button></div></div>
 
-  if (loading || isParticipant === null) {
-    return (
-      <div className="min-h-screen bg-brand-bg flex flex-col">
-        <div className="h-14 bg-white border-b border-brand-border animate-pulse" />
-        <div className="flex-1 p-4 space-y-3">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="h-14 bg-white rounded-2xl animate-pulse border border-brand-border" />
-          ))}
-        </div>
-      </div>
-    )
-  }
-
-  // Not a participant — show gate
-  if (!isParticipant) {
-    return (
-      <div className="min-h-screen bg-brand-bg text-brand-ink flex flex-col">
-        <div className="flex items-center gap-3 px-4 py-3 border-b border-brand-border bg-white shadow-sm">
-          <button
-            onClick={() => navigate(`/event/${id}`)}
-            className="text-brand-ink-muted hover:text-brand-ink p-1 -ml-1"
-          >
-            ←
-          </button>
-          <span className="font-semibold text-brand-ink truncate">{eventTitle}</span>
-        </div>
-        <div className="flex-1 flex flex-col items-center justify-center px-6 text-center">
-          <div className="text-5xl mb-4">🔒</div>
-          <h2 className="text-lg font-bold text-brand-ink mb-2 font-display">
-            Чат доступний тільки учасникам
-          </h2>
-          <p className="text-brand-ink-soft text-sm mb-6">
-            Приєднайтесь до події щоб побачити чат
-          </p>
-          <button
-            onClick={() => navigate(`/event/${id}`)}
-            className="bg-brand-petrol hover:bg-brand-petrol-light text-white font-semibold px-6 py-3 rounded-2xl transition-all active:scale-95"
-          >
-            Приєднатись
-          </button>
-        </div>
-      </div>
-    )
-  }
-
-  // ── Main chat UI ──────────────────────────────────────────────────────────
-
+  const eventTitle = event?.title ?? 'Подія'
   return (
-    <div className="min-h-screen bg-brand-bg text-brand-ink flex flex-col">
-
-      {/* Header */}
-      <div className="sticky top-0 bg-brand-bg/95 backdrop-blur z-10 border-b border-brand-border px-4 py-3 flex items-center gap-3 shadow-sm">
-        <button
-          onClick={() => navigate(`/event/${id}`)}
-          className="text-brand-ink-muted hover:text-brand-ink transition-colors p-1 -ml-1"
-          aria-label="Назад"
-        >
-          ←
-        </button>
-        <div className="flex-1 min-w-0">
-          <div className="font-semibold text-brand-ink truncate text-sm leading-tight">
-            {eventTitle}
-          </div>
-          <div className="text-xs text-brand-ink-muted mt-0.5">
-            {participantCount} {participantCount === 1 ? 'учасник' : 'учасників'}
-          </div>
+    <div className="flex h-[100dvh] min-h-0 flex-col overflow-hidden bg-brand-bg text-brand-ink">
+      <TopBar title={eventTitle} />
+      <header className="sticky top-0 z-30 flex h-14 items-center gap-2 border-b border-brand-border bg-white/95 px-2.5 backdrop-blur-xl lg:hidden">
+        <button type="button" onClick={() => navigate(`/event/${id}`)} aria-label="Назад" className="grid h-11 w-11 flex-shrink-0 place-items-center rounded-xl text-xl hover:bg-brand-surface-muted focus-visible:outline-2 focus-visible:outline-brand-accent">←</button>
+        <div className="min-w-0 flex-1"><h1 className="truncate text-sm font-extrabold">{eventTitle}</h1><p className="mt-0.5 text-xs text-brand-ink-muted">{participantCount} учасників</p></div>
+        <ParticipantAvatars users={participantUsers} totalCount={participantCount} max={2} />
+        <button type="button" onClick={() => navigate(`/event/${id}`)} className="h-9 rounded-xl px-2 text-xs font-bold text-brand-accent hover:bg-brand-accent-soft">Деталі</button>
+      </header>
+      <div className="mx-auto flex min-h-0 w-full max-w-[960px] flex-1 flex-col lg:px-6 lg:pb-6">
+        <div onScroll={(scrollEvent) => { const element = scrollEvent.currentTarget; nearBottomRef.current = element.scrollHeight - element.scrollTop - element.clientHeight < 120; if (nearBottomRef.current) setHasNewMessages(false) }} className="relative min-h-0 flex-1 overflow-y-auto px-3 py-4 sm:px-6 lg:rounded-t-2xl lg:border-x lg:border-t lg:border-brand-border lg:bg-white/50">
+          {event && <EventContextCard title={eventTitle} date={formatEventDate(event.eventDatetime)} address={event.address} participantCount={participantCount} onDetails={() => navigate(`/event/${id}`)} />}
+          {messages.length === 0 ? <div className="grid min-h-56 place-items-center text-center"><div><div className="mx-auto mb-3 grid h-12 w-12 place-items-center rounded-full bg-brand-accent-soft text-xl">💬</div><h2 className="font-extrabold">Почніть розмову</h2><p className="mt-1 max-w-sm text-sm leading-6 text-brand-ink-muted">Домовтесь про деталі зустрічі з іншими учасниками.</p></div></div> : messages.map((message, index) => {
+            const day = formatMessageDay(message.created_at)
+            const showDay = !messages[index - 1] || formatMessageDay(messages[index - 1].created_at) !== day
+            const showSender = showDay || !messages[index - 1] || messages[index - 1].sender_id !== message.sender_id
+            return <div key={message.id}>{showDay && <MessageDateSeparator date={day} />}<div className={showSender ? 'mb-2.5' : 'mb-1'}><MessageBubble message={message} isMine={message.sender_id === supaUser?.id} showSender={showSender} /></div></div>
+          })}
+          <div ref={bottomRef} />
+          {hasNewMessages && <button type="button" onClick={scrollToNewest} className="sticky bottom-3 mx-auto block rounded-full bg-brand-accent px-4 py-2 text-xs font-bold text-white shadow-lg">Нові повідомлення</button>}
         </div>
-        <button
-          onClick={() => navigate('/')}
-          className="text-brand-ink-muted hover:text-brand-ink transition-colors p-1"
-          aria-label="На головну"
-        >
-          🏠
-        </button>
+        <div className="sticky bottom-0 z-20 flex-shrink-0 lg:static"><MessageComposer value={text} sending={sending} disabled={!hasAccess} error={sendError} maxLength={MESSAGE_LIMIT} onChange={setText} onSend={() => { void handleSend() }} /></div>
       </div>
-
-      {/* Messages list */}
-      <div className="flex-1 overflow-y-auto px-4 pt-4 pb-24 space-y-3">
-        {messages.length === 0 && (
-          <div className="flex flex-col items-center justify-center py-16 text-center">
-            <div className="text-4xl mb-3">💬</div>
-            <p className="text-brand-ink-soft text-sm">
-              Поки що немає повідомлень — напишіть перше!
-            </p>
-          </div>
-        )}
-
-        {messages.map((msg) => {
-          const isMe = msg.sender_id === supaUser!.id
-          return (
-            <div
-              key={msg.id}
-              className={`flex items-end gap-2 ${isMe ? 'flex-row-reverse' : 'flex-row'}`}
-            >
-              {/* Avatar — only for others */}
-              {!isMe && (
-                <div className="w-8 h-8 rounded-full bg-gray-200 overflow-hidden flex-shrink-0 self-end">
-                  {msg.sender?.avatar_url ? (
-                    <img
-                      src={msg.sender.avatar_url}
-                      alt={msg.sender.name}
-                      className="w-8 h-8 object-cover"
-                    />
-                  ) : (
-                    <div className="w-8 h-8 flex items-center justify-center text-xs">👤</div>
-                  )}
-                </div>
-              )}
-
-              {/* Bubble + meta */}
-              <div className={`max-w-[72%] flex flex-col gap-0.5 ${isMe ? 'items-end' : 'items-start'}`}>
-                {!isMe && (
-                  <span className="text-xs text-brand-ink-muted px-1 leading-none">
-                    {msg.sender?.name ?? 'Учасник'}
-                  </span>
-                )}
-                <div
-                  className={`px-3 py-2 rounded-2xl text-sm leading-relaxed break-words ${
-                    isMe
-                      ? 'bg-brand-petrol text-white rounded-br-sm'
-                      : 'bg-white border border-brand-border text-brand-ink rounded-bl-sm shadow-sm'
-                  }`}
-                >
-                  {msg.content}
-                </div>
-                <span className={`text-xs text-brand-ink-muted px-1 ${isMe ? 'text-right' : 'text-left'}`}>
-                  {formatTime(msg.created_at)}
-                </span>
-              </div>
-            </div>
-          )
-        })}
-
-        {/* Scroll anchor */}
-        <div ref={bottomRef} />
-      </div>
-
-      {/* Input bar */}
-      <div className="fixed bottom-0 inset-x-0 bg-brand-bg/95 backdrop-blur border-t border-brand-border px-4 py-3 safe-area-bottom">
-        <div className="max-w-lg mx-auto flex flex-col gap-1">
-          {sendError && (
-            <p className="text-red-500 text-xs px-1">{sendError}</p>
-          )}
-          <div className="flex items-center gap-2">
-            <input
-              type="text"
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() }
-              }}
-              placeholder="Написати повідомлення..."
-              maxLength={4000}
-              className="flex-1 bg-white border border-brand-border rounded-2xl px-4 py-2.5 text-sm text-brand-ink placeholder-brand-ink-muted focus:outline-none focus:border-brand-petrol focus:bg-white transition-colors"
-            />
-            <button
-              onClick={handleSend}
-              disabled={!text.trim() || sending}
-              className="w-10 h-10 bg-brand-petrol hover:bg-brand-petrol-light disabled:opacity-40 text-white rounded-2xl flex items-center justify-center transition-all active:scale-95 flex-shrink-0"
-              aria-label="Відправити"
-            >
-              ↑
-            </button>
-          </div>
-        </div>
-      </div>
-
     </div>
   )
 }

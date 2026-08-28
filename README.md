@@ -1,90 +1,82 @@
 # porooch
 
-PWA для ситуативних зустрічей. React + Vite + Supabase + Tailwind CSS.
+porooch is a mobile-first social events PWA for finding real-world activities, joining them, coordinating in an event chat, and meeting offline.
 
-## Швидкий старт
+## MVP features
 
-### 1. Налаштування оточення
+- Google authentication and short profile onboarding
+- Public and personal event discovery
+- Event creation with date, capacity, location, map, and join mode
+- Open joining and organizer-approved participation requests
+- Participant leave/rejoin lifecycle with database-enforced capacity
+- Event-scoped realtime chat for organizers and joined participants
+- Profiles with avatar, city, bio, age, and interests
+- Responsive desktop shell and mobile navigation
+
+## Stack
+
+- React 19 and TypeScript
+- Vite 6 and Tailwind CSS 4
+- Supabase Auth, Postgres, RLS, Storage, and Realtime
+- Leaflet and OpenStreetMap
+- `vite-plugin-pwa` with generated service worker
+
+## Local setup
+
+Requirements: Node.js 22 or a compatible current Node.js release, npm, and access to the intended Supabase project.
 
 ```bash
 cp .env.example .env
-# Відкрий .env та встав свої Supabase URL та Anon Key
-```
-
-Ключі знайдеш у Supabase Dashboard → Project Settings → API.
-
-### 2. База даних
-
-Відкрий **Supabase Dashboard → SQL Editor** і виконай файл:
-
-```
-supabase/migrations/001_initial.sql
-```
-
-Він створить всі таблиці, тригери, RLS-правила та PostGIS функції.
-
-### 3. Google OAuth
-
-У Supabase Dashboard → Authentication → Providers → Google:
-- Увімкни Google provider
-- Додай Client ID і Client Secret з Google Cloud Console
-- Redirect URL: `https://your-project.supabase.co/auth/v1/callback`
-
-У Google Cloud Console → OAuth 2.0 → Authorized redirect URIs:
-```
-https://your-project.supabase.co/auth/v1/callback
-```
-
-### 4. Storage (для аватарів)
-
-У Supabase Dashboard → Storage → New bucket:
-- Name: `avatars`
-- Public: ✅
-
-### 5. Запуск
-
-```bash
 npm install
 npm run dev
 ```
 
-Відкрий http://localhost:5173
+Open `http://localhost:5173/`.
 
-## Структура
+The frontend requires:
 
-```
-src/
-├── contexts/AuthContext.tsx   # Auth стан + Google OAuth
-├── hooks/
-│   ├── useActivities.ts       # Лента + геофільтрація
-│   ├── useMatches.ts          # Список мэтчів
-│   └── useMessages.ts         # Realtime чат
-├── pages/
-│   ├── Onboarding.tsx         # Google sign-in
-│   ├── Onboarding/CompleteProfile.tsx
-│   ├── Feed.tsx               # Лента активностей
-│   ├── CreateActivity.tsx     # Форма створення
-│   ├── Matches.tsx            # Список мэтчів
-│   ├── Chat.tsx               # Realtime чат
-│   └── Profile.tsx            # Профіль
-├── components/
-│   ├── ActivityCard.tsx       # Картка активності
-│   ├── AdCard.tsx             # Рекламна картка
-│   ├── BottomNav.tsx          # Нижня навігація
-│   └── ProtectedRoute.tsx     # Захист маршрутів
-└── lib/
-    ├── supabase.ts            # Supabase клієнт
-    ├── geo.ts                 # Геолокація (fallback: Чернігів)
-    └── activityMeta.ts        # Типи активностей
+```dotenv
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_ANON_KEY=your-publishable-key
+VITE_APP_URL=http://localhost:5173/
 ```
 
-## PWA іконки
+Only the public/publishable Supabase key belongs in frontend environment files. Never commit a database password, service-role key, personal access token, or OAuth client secret.
 
-Замінити `public/icons/icon-192.png` та `public/icons/icon-512.png` на реальні PNG перед виходом в прод.
-
-## Build
+## Commands
 
 ```bash
+npm run dev
 npm run build
 npm run preview
 ```
+
+The production build is written to `dist/`.
+
+## Supabase migrations
+
+Migrations live in `supabase/migrations/`. The hosted project treats migrations 001–005 as the reconciled historical baseline; 006–010 contain the current event, approval, chat, profile, storage, and policy changes.
+
+Always link and inspect the intended project before applying migrations:
+
+```bash
+npx supabase@latest link --project-ref <project-ref>
+npx supabase@latest migration list --linked
+npx supabase@latest db push --linked --dry-run
+npx supabase@latest db push --linked
+```
+
+Do not run the historical seed migrations against production or reset a hosted database. Migration 002 and migrations 004–005 contain legacy sample data.
+
+## Deployment
+
+Production builds use the GitHub Pages project base `/porooch/`; local development uses `/`. The router, PWA scope/start URL, asset URLs, and GitHub Pages fallback in `public/404.html` follow that base.
+
+Configure Supabase Auth redirect allow-list entries for both `http://localhost:5173/` and the deployed `https://<owner>.github.io/porooch/` URL. The app derives its OAuth return URL from Vite's configured base.
+
+## Current limitations
+
+- Event invitations, notifications, unread counters, and direct messages are not part of the MVP.
+- Location search uses OpenStreetMap/Nominatim and depends on network availability.
+- Organizer request management is available on Event Detail; there is no separate moderation dashboard.
+- Historical activity/match database tables remain for compatibility but are not used by the porooch UI.

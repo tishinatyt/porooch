@@ -1,136 +1,113 @@
-import { useState, useRef } from 'react'
+import { useEffect, useRef, useState, type ChangeEvent } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
+import TopBar from '@/components/TopBar'
+import { InterestChips } from '@/components/profile/ProfileComponents'
 
 export default function Profile() {
   const { profile, supaUser, signOut, refreshProfile } = useAuth()
   const [editing, setEditing] = useState(false)
-  const [name, setName] = useState(profile?.name ?? '')
-  const [age, setAge] = useState(String(profile?.age ?? ''))
+  const [name, setName] = useState('')
+  const [age, setAge] = useState('')
+  const [city, setCity] = useState('')
+  const [bio, setBio] = useState('')
+  const [interests, setInterests] = useState<string[]>([])
   const [saving, setSaving] = useState(false)
   const [uploading, setUploading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
 
+  useEffect(() => {
+    if (!profile) return
+    setName(profile.name)
+    setAge(String(profile.age))
+    setCity(profile.city ?? '')
+    setBio(profile.bio ?? '')
+    setInterests(profile.interests ?? [])
+  }, [profile])
+
   async function handleSave() {
-    if (!supaUser) return
-    setSaving(true)
-    await supabase.from('users').update({ name: name.trim(), age: parseInt(age) }).eq('id', supaUser.id)
+    if (!supaUser || saving) return
+    const cleanName = name.trim()
+    const cleanCity = city.trim()
+    const cleanBio = bio.trim()
+    const ageNumber = Number(age)
+    if (!cleanName) { setError('Вкажіть ім’я'); return }
+    if (!Number.isInteger(ageNumber) || ageNumber < 16 || ageNumber > 100) { setError('Вік має бути від 16 до 100 років'); return }
+    if (cleanBio.length > 300) { setError('Опис може містити до 300 символів'); return }
+    setSaving(true); setError(null)
+    const { error: updateError } = await supabase.from('users').update({ name: cleanName, age: ageNumber, city: cleanCity || null, bio: cleanBio || null, interests }).eq('id', supaUser.id)
+    if (updateError) {
+      console.error('Profile update failed', updateError)
+      setError('Не вдалося зберегти профіль. Спробуйте ще раз')
+      setSaving(false)
+      return
+    }
     await refreshProfile()
-    setSaving(false)
-    setEditing(false)
+    setSaving(false); setEditing(false)
   }
 
-  async function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    if (!file || !supaUser) return
-    setUploading(true)
-    const path = `${supaUser.id}/${Date.now()}_${file.name}`
-    const { error: upErr } = await supabase.storage.from('avatars').upload(path, file, { upsert: true })
-    if (upErr) {
-      console.error('Avatar upload error:', upErr.message)
+  async function handleAvatarChange(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0]
+    if (!file || !supaUser || uploading) return
+    if (file.size > 5 * 1024 * 1024) { setError('Зображення має бути менше 5 МБ'); return }
+    setUploading(true); setError(null)
+    const extension = file.name.split('.').pop()?.toLowerCase() || 'jpg'
+    const path = `${supaUser.id}/${crypto.randomUUID()}.${extension}`
+    const { error: uploadError } = await supabase.storage.from('avatars').upload(path, file, { upsert: false })
+    if (uploadError) {
+      console.error('Avatar upload failed', uploadError)
+      setError('Не вдалося завантажити фото. Спробуйте ще раз')
       setUploading(false)
       return
     }
-    const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(path)
-    await supabase.from('users').update({ avatar_url: urlData.publicUrl }).eq('id', supaUser.id)
-    await refreshProfile()
+    const { data } = supabase.storage.from('avatars').getPublicUrl(path)
+    const { error: updateError } = await supabase.from('users').update({ avatar_url: data.publicUrl }).eq('id', supaUser.id)
+    if (updateError) { console.error('Avatar profile update failed', updateError); setError('Не вдалося зберегти фото') }
+    else await refreshProfile()
     setUploading(false)
   }
 
-  if (!profile) return null
+  if (!profile) return <div className="min-h-screen bg-brand-bg"><TopBar title="Профіль" /><div className="mx-auto max-w-[960px] px-4 py-6 sm:px-6 lg:px-8"><div className="h-48 animate-pulse rounded-2xl border border-brand-border bg-white" /><div className="mt-4 grid gap-4 sm:grid-cols-2"><div className="h-36 animate-pulse rounded-2xl border border-brand-border bg-white" /><div className="h-36 animate-pulse rounded-2xl border border-brand-border bg-white" /></div></div></div>
 
   return (
-    <div className="min-h-screen bg-brand-bg text-brand-ink pb-24">
-      <div className="sticky top-0 bg-brand-bg/95 backdrop-blur border-b border-brand-border px-4 py-4 flex items-center justify-between">
-        <h1 className="text-xl font-bold font-display">👤 Профіль</h1>
-        <button
-          onClick={() => editing ? handleSave() : setEditing(true)}
-          className="text-brand-petrol text-sm font-medium"
-        >
-          {saving ? 'Зберігаємо...' : editing ? 'Зберегти' : 'Редагувати'}
-        </button>
-      </div>
-
-      <div className="px-4 pt-6 max-w-lg mx-auto">
-        {/* Avatar */}
-        <div className="flex flex-col items-center mb-8">
-          <div className="relative">
-            <div className="w-24 h-24 rounded-full bg-gray-200 overflow-hidden">
-              {profile.avatar_url ? (
-                <img src={profile.avatar_url} alt="" className="w-24 h-24 object-cover" />
-              ) : (
-                <div className="w-24 h-24 flex items-center justify-center text-5xl">👤</div>
-              )}
+    <div className="min-h-screen bg-brand-bg pb-24 text-brand-ink lg:pb-10">
+      <TopBar title="Профіль" />
+      <header className="sticky top-0 z-20 flex h-14 items-center justify-between border-b border-brand-border bg-white/95 px-4 backdrop-blur-xl lg:hidden"><h1 className="text-base font-extrabold">Профіль</h1>{!editing && <button type="button" onClick={() => setEditing(true)} className="h-9 rounded-xl px-3 text-sm font-bold text-brand-accent">Редагувати</button>}</header>
+      <div className="mx-auto max-w-[960px] px-4 py-5 sm:px-6 lg:px-8 lg:py-7">
+        <section className="rounded-2xl border border-brand-accent/10 bg-gradient-to-br from-white to-brand-accent-soft/55 p-5 sm:p-6">
+          <div className="flex flex-col items-center text-center sm:flex-row sm:text-left">
+            <div className="relative">
+              <div className="grid h-24 w-24 place-items-center overflow-hidden rounded-full border-4 border-white bg-brand-accent-soft text-3xl font-extrabold text-brand-accent sm:h-28 sm:w-28">{profile.avatar_url ? <img src={profile.avatar_url} alt={profile.name} className="h-full w-full object-cover" /> : profile.name.charAt(0).toUpperCase()}</div>
+              <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif" className="hidden" onChange={handleAvatarChange} />
             </div>
-            {editing && (
-              <button
-                onClick={() => fileRef.current?.click()}
-                className="absolute bottom-0 right-0 bg-brand-petrol rounded-full p-1.5 text-sm"
-              >
-                {uploading ? '⏳' : '📷'}
-              </button>
-            )}
-          </div>
-          <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} />
-
-          {!editing && (
-            <>
-              <h2 className="text-2xl font-bold mt-3 text-brand-ink font-display">{profile.name}</h2>
-              <div className="flex items-center gap-2 mt-1 text-brand-ink-soft">
-                <span>{profile.age} р.</span>
-                <span>·</span>
-                <span>{profile.gender === 'male' ? 'Чоловік' : 'Жінка'}</span>
-                {profile.google_verified && (
-                  <span className="text-brand-petrol text-xs bg-brand-petrol/10 px-2 py-0.5 rounded-full">✓ Google</span>
-                )}
-              </div>
-            </>
-          )}
-        </div>
-
-        {/* Edit form */}
-        {editing && (
-          <div className="space-y-4 mb-8">
-            <div>
-              <label className="block text-sm text-brand-ink-soft mb-1.5 font-medium">Ім'я</label>
-              <input
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="w-full bg-white border border-brand-border rounded-xl px-4 py-3 text-brand-ink focus:outline-none focus:border-brand-petrol transition-colors"
-              />
-            </div>
-            <div>
-              <label className="block text-sm text-brand-ink-soft mb-1.5 font-medium">Вік</label>
-              <input
-                type="number"
-                value={age}
-                onChange={(e) => setAge(e.target.value)}
-                className="w-full bg-white border border-brand-border rounded-xl px-4 py-3 text-brand-ink focus:outline-none focus:border-brand-petrol transition-colors"
-              />
+            <div className="mt-4 min-w-0 flex-1 sm:ml-6 sm:mt-0">
+              <h1 className="text-2xl font-extrabold tracking-[-0.03em]">{profile.name}</h1>
+              <p className="mt-1 text-sm text-brand-ink-muted">{[profile.city, `${profile.age} років`].filter(Boolean).join(' · ')}</p>
+              {!editing && <button type="button" onClick={() => setEditing(true)} className="mt-4 h-10 rounded-xl bg-brand-accent px-4 text-sm font-bold text-white hover:bg-brand-accent-hover">Редагувати профіль</button>}
+              {editing && <button type="button" onClick={() => fileRef.current?.click()} disabled={uploading} className="mt-3 h-10 rounded-xl border border-brand-accent/20 bg-white px-4 text-sm font-bold text-brand-accent transition hover:bg-brand-accent-soft disabled:cursor-wait disabled:opacity-60">{uploading ? 'Завантажуємо...' : 'Змінити фото'}</button>}
             </div>
           </div>
-        )}
+        </section>
 
-        {/* Stats */}
-        <div className="grid grid-cols-2 gap-3 mb-6">
-          <div className="bg-white rounded-2xl p-4 border border-brand-border shadow-sm text-center">
-            <div className="text-3xl font-bold text-brand-petrol font-display">0</div>
-            <div className="text-sm text-brand-ink-soft mt-1">Зустрічей</div>
-          </div>
-          <div className="bg-white rounded-2xl p-4 border border-brand-border shadow-sm text-center">
-            <div className="text-3xl font-bold text-brand-amber font-display">5.0</div>
-            <div className="text-sm text-brand-ink-soft mt-1">⭐ Рейтинг</div>
-          </div>
-        </div>
+        {error && <div role="alert" className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
 
-        {/* Sign out */}
-        <button
-          onClick={signOut}
-          className="w-full border border-red-200 text-red-500 py-3 rounded-2xl hover:bg-red-50 transition-colors"
-        >
-          Вийти
-        </button>
+        {editing ? <section className="mt-4 space-y-5 rounded-2xl border border-brand-border bg-white p-4 sm:p-6">
+          <div><h2 className="text-base font-extrabold">Основна інформація</h2><p className="mt-1 text-xs text-brand-ink-muted">Ці дані бачать організатори подій.</p></div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <label className="text-xs font-bold text-brand-ink-soft">Ім’я<input value={name} maxLength={80} onChange={(event) => setName(event.target.value)} className="mt-1.5 h-11 w-full rounded-xl border border-brand-border bg-brand-bg px-3.5 text-sm font-normal text-brand-ink outline-none focus:border-brand-accent focus:bg-white focus:ring-3 focus:ring-brand-accent/10" /></label>
+            <label className="text-xs font-bold text-brand-ink-soft">Вік<input type="number" min={16} max={100} value={age} onChange={(event) => setAge(event.target.value)} className="mt-1.5 h-11 w-full rounded-xl border border-brand-border bg-brand-bg px-3.5 text-sm font-normal text-brand-ink outline-none focus:border-brand-accent focus:bg-white focus:ring-3 focus:ring-brand-accent/10" /></label>
+            <label className="text-xs font-bold text-brand-ink-soft sm:col-span-2">Місто<input value={city} maxLength={80} onChange={(event) => setCity(event.target.value)} placeholder="Наприклад, Чернігів" className="mt-1.5 h-11 w-full rounded-xl border border-brand-border bg-brand-bg px-3.5 text-sm font-normal text-brand-ink outline-none focus:border-brand-accent focus:bg-white focus:ring-3 focus:ring-brand-accent/10" /></label>
+          </div>
+          <label className="block text-xs font-bold text-brand-ink-soft">Про себе<textarea value={bio} maxLength={300} rows={4} onChange={(event) => setBio(event.target.value)} placeholder="Кілька слів про вас" className="mt-1.5 w-full resize-none rounded-xl border border-brand-border bg-brand-bg px-3.5 py-3 text-sm font-normal leading-6 text-brand-ink outline-none focus:border-brand-accent focus:bg-white focus:ring-3 focus:ring-brand-accent/10" /><span className="mt-1 block text-right text-xs font-normal text-brand-ink-muted">{bio.length}/300</span></label>
+          <div className="border-t border-brand-border pt-5"><div className="mb-3 flex justify-between gap-3"><h2 className="text-sm font-extrabold text-brand-ink">Інтереси</h2><span className="rounded-full bg-brand-accent-soft px-2 py-0.5 text-xs font-bold text-brand-accent">{interests.length} з 8</span></div><InterestChips selected={interests} editable onChange={setInterests} />{interests.length >= 8 && <p className="mt-2 text-xs text-brand-ink-muted">Можна вибрати до 8 інтересів</p>}</div>
+          <div className="flex flex-col-reverse gap-2 border-t border-brand-border pt-5 sm:flex-row sm:justify-end"><button type="button" onClick={() => { setName(profile.name); setAge(String(profile.age)); setCity(profile.city ?? ''); setBio(profile.bio ?? ''); setInterests(profile.interests ?? []); setEditing(false); setError(null) }} className="h-11 rounded-xl border border-brand-border px-5 text-sm font-bold text-brand-ink-soft hover:bg-brand-surface-muted">Скасувати</button><button type="button" onClick={() => { void handleSave() }} disabled={saving || uploading} className="h-11 rounded-xl bg-brand-accent px-6 text-sm font-bold text-white hover:bg-brand-accent-hover disabled:cursor-wait disabled:opacity-60">{saving ? 'Зберігаємо...' : 'Зберегти'}</button></div>
+        </section> : <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          <section className="rounded-2xl border border-brand-border bg-white p-5"><h2 className="text-base font-extrabold">Про себе</h2>{profile.bio ? <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-brand-ink-soft">{profile.bio}</p> : <button type="button" onClick={() => setEditing(true)} className="mt-3 text-left text-sm text-brand-ink-muted hover:text-brand-accent">Розкажіть трохи про себе <span className="font-bold text-brand-accent">Редагувати</span></button>}</section>
+          <section className="rounded-2xl border border-brand-border bg-white p-5"><h2 className="mb-3 text-base font-extrabold">Інтереси</h2>{profile.interests?.length ? <InterestChips selected={profile.interests.slice(0, 8)} /> : <button type="button" onClick={() => setEditing(true)} className="text-left text-sm text-brand-ink-muted hover:text-brand-accent">Інтереси ще не додані. <span className="font-bold text-brand-accent">Додати</span></button>}</section>
+        </div>}
+
+        <button type="button" onClick={() => { void signOut() }} className="mt-4 h-11 w-full rounded-xl border border-brand-border bg-white text-sm font-bold text-brand-ink-muted transition hover:border-red-200 hover:bg-red-50 hover:text-red-600">Вийти</button>
       </div>
     </div>
   )

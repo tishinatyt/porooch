@@ -1,30 +1,35 @@
+import { Icon, type IconName } from '@/components/icons'
+
 interface Props {
   category: string
   /** Tailwind height + width classes, e.g. "h-32 w-full" or "h-52 w-full" */
   className?: string
 }
 
-// Each entry: full Tailwind gradient string + emoji for this category
-const META: Record<string, { gradient: string; emoji: string }> = {
-  cinema:  { gradient: 'from-blue-900 via-indigo-800 to-violet-900',  emoji: '🎬' },
-  theatre: { gradient: 'from-rose-900 via-red-800 to-amber-700',      emoji: '🎭' },
-  bar:     { gradient: 'from-amber-700 via-yellow-700 to-amber-900',  emoji: '🍺' },
-  sport:   { gradient: 'from-green-600 via-emerald-600 to-lime-600',  emoji: '🏃' },
-  music:   { gradient: 'from-pink-600 via-fuchsia-700 to-purple-800', emoji: '🎵' },
-  food:    { gradient: 'from-orange-500 via-red-500 to-yellow-500',   emoji: '🍕' },
-  games:   { gradient: 'from-indigo-700 via-blue-700 to-cyan-600',    emoji: '🎲' },
-  walk:    { gradient: 'from-teal-500 via-cyan-500 to-sky-500',       emoji: '🚶' },
-  art:     { gradient: 'from-red-400 via-pink-500 to-rose-600',       emoji: '🎨' },
-  other:   { gradient: 'from-gray-500 via-slate-500 to-gray-600',     emoji: '✨' },
+const META: Record<string, { icon: IconName; label: string }> = {
+  cinema: { icon: 'film', label: 'Кіно' },
+  theatre: { icon: 'theatre', label: 'Театр' },
+  bar: { icon: 'martini', label: 'Бар' },
+  sport: { icon: 'dumbbell', label: 'Спорт' },
+  music: { icon: 'music', label: 'Музика' },
+  food: { icon: 'utensils', label: 'Їжа' },
+  games: { icon: 'gamepad', label: 'Ігри' },
+  walk: { icon: 'footprints', label: 'Прогулянка' },
+  art: { icon: 'palette', label: 'Мистецтво' },
+  communication: { icon: 'users', label: 'Спілкування' },
+  other: { icon: 'sparkles', label: 'Інше' },
 }
 
 export default function CategoryPlaceholder({ category, className = 'h-32 w-full' }: Props) {
   const meta = META[category] ?? META.other
   return (
-    <div
-      className={`${className} bg-gradient-to-br ${meta.gradient} flex items-center justify-center opacity-90`}
-    >
-      <span className="text-5xl opacity-30 select-none">{meta.emoji}</span>
+    <div className={`${className} relative flex items-center justify-center overflow-hidden bg-gradient-to-br from-[#ede9ff] via-[#ddd6ff] to-[#c8bcff] text-brand-accent`}>
+      <div className="absolute -right-8 -top-8 h-28 w-28 rounded-full bg-white/25" />
+      <div className="absolute -bottom-10 -left-8 h-28 w-28 rounded-full bg-brand-accent/10" />
+      <div className="relative flex flex-col items-center gap-2 px-3 text-center">
+        <Icon name={meta.icon} className="h-11 w-11 drop-shadow-sm" />
+        <span className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-brand-accent/75">{meta.label}</span>
+      </div>
     </div>
   )
 }

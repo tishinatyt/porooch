@@ -1,776 +1,383 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { useCallback, useMemo, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
-
-// ── Constants ─────────────────────────────────────────────────────────────────
+import { getCurrentPosition } from '@/lib/geo'
+import { Icon } from '@/components/icons'
+import EventMedia from '@/components/EventMedia'
+import TopBar from '@/components/TopBar'
+import CreateEventMap from '@/components/CreateEventMap'
 
 const CATEGORIES = [
-  { value: 'cinema',  label: 'Кіно',        emoji: '🎬' },
-  { value: 'theatre', label: 'Театр',        emoji: '🎭' },
-  { value: 'bar',     label: 'Бар',          emoji: '🍺' },
-  { value: 'sport',   label: 'Спорт',        emoji: '🏃' },
-  { value: 'music',   label: 'Музика',       emoji: '🎵' },
-  { value: 'food',    label: 'Їжа',          emoji: '🍕' },
-  { value: 'games',   label: 'Ігри',         emoji: '🎲' },
-  { value: 'walk',    label: 'Прогулянка',   emoji: '🚶' },
-  { value: 'art',     label: 'Мистецтво',    emoji: '🎨' },
-  { value: 'other',   label: 'Інше',         emoji: '✨' },
+  { value: 'other', label: 'Спілкування', emoji: '💬' },
+  { value: 'food', label: 'Кава та їжа', emoji: '☕' },
+  { value: 'cinema', label: 'Кіно', emoji: '🎬' },
+  { value: 'theatre', label: 'Театр', emoji: '🎭' },
+  { value: 'bar', label: 'Бар', emoji: '🍸' },
+  { value: 'sport', label: 'Спорт', emoji: '🏃' },
+  { value: 'music', label: 'Музика', emoji: '🎵' },
+  { value: 'games', label: 'Ігри', emoji: '🎲' },
+  { value: 'walk', label: 'Прогулянка', emoji: '🚶' },
+  { value: 'art', label: 'Мистецтво', emoji: '🎨' },
 ] as const
 
-const GENDER_OPTIONS = [
-  { value: 'any',    label: 'Будь-хто' },
-  { value: 'male',   label: 'Чоловіки' },
-  { value: 'female', label: 'Жінки' },
-] as const
+const CAPACITY_OPTIONS = [2, 4, 6, 10]
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-/** Returns local datetime string compatible with <input type="datetime-local"> */
-function toLocalDatetimeString(date: Date): string {
-  const pad = (n: number) => String(n).padStart(2, '0')
-  return (
-    `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}` +
-    `T${pad(date.getHours())}:${pad(date.getMinutes())}`
-  )
-}
-
-/** Default start: 1 hour from now, rounded to the next full hour */
-function defaultStart(): string {
-  const d = new Date()
-  d.setHours(d.getHours() + 1, 0, 0, 0)
-  return toLocalDatetimeString(d)
-}
-
-/** Default end: 2 hours from now */
-function defaultEnd(): string {
-  const d = new Date()
-  d.setHours(d.getHours() + 2, 0, 0, 0)
-  return toLocalDatetimeString(d)
-}
-
-// ── Leaflet CSS injected once (mirrors EventMap.tsx pattern) ──────────────────
-
-let cssInjected = false
-function injectLeafletCSS() {
-  if (cssInjected) return
-  cssInjected = true
-  const link = document.createElement('link')
-  link.rel = 'stylesheet'
-  link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css'
-  document.head.appendChild(link)
-}
-
-// ── CreateMap component ───────────────────────────────────────────────────────
-
-interface CreateMapProps {
-  lat: number | null
-  lng: number | null
-  onPick: (lat: number, lng: number) => void
-}
-
-function CreateMap({ lat, lng, onPick }: CreateMapProps) {
-  const containerRef = useRef<HTMLDivElement>(null)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const mapRef = useRef<any>(null)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const markerRef = useRef<any>(null)
-
-  // Store onPick in a ref so the click handler closure stays current without
-  // needing to re-create the map on every render.
-  const onPickRef = useRef(onPick)
-  useEffect(() => { onPickRef.current = onPick }, [onPick])
-
-  useEffect(() => {
-    if (!containerRef.current || mapRef.current) return
-
-    injectLeafletCSS()
-
-    import('leaflet').then((L) => {
-      if (!containerRef.current || mapRef.current) return
-
-      // Fix default icon paths broken by bundlers
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      delete (L.Icon.Default.prototype as any)._getIconUrl
-      L.Icon.Default.mergeOptions({
-        iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
-        iconUrl:       'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
-        shadowUrl:     'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
-      })
-
-      // Default center: Chernihiv, Ukraine
-      const initLat = lat ?? 51.4982
-      const initLng = lng ?? 31.2893
-
-      const map = L.map(containerRef.current!, {
-        center:           [initLat, initLng],
-        zoom:             14,
-        zoomControl:      true,
-        scrollWheelZoom:  false,
-        attributionControl: false,
-      })
-
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 19,
-      }).addTo(map)
-
-      // Place marker at initial coords if already set
-      if (lat !== null && lng !== null) {
-        markerRef.current = L.marker([lat, lng])
-          .addTo(map)
-          .bindPopup('Місце події', { closeButton: false })
-          .openPopup()
-      }
-
-      // Click handler: place / move marker
-      map.on('click', (e: { latlng: { lat: number; lng: number } }) => {
-        const { lat: clickLat, lng: clickLng } = e.latlng
-
-        if (markerRef.current) {
-          markerRef.current.setLatLng([clickLat, clickLng])
-        } else {
-          markerRef.current = L.marker([clickLat, clickLng])
-            .addTo(map)
-            .bindPopup('Місце події', { closeButton: false })
-            .openPopup()
-        }
-
-        onPickRef.current(clickLat, clickLng)
-      })
-
-      mapRef.current = map
-    })
-
-    return () => {
-      if (mapRef.current) {
-        mapRef.current.remove()
-        mapRef.current = null
-        markerRef.current = null
-      }
-    }
-    // Intentionally run once on mount — marker updates handled separately
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
-  // Sync marker position when lat/lng change from outside (e.g. clear)
-  useEffect(() => {
-    if (!mapRef.current) return
-    import('leaflet').then((L) => {
-      if (lat === null || lng === null) {
-        if (markerRef.current) {
-          markerRef.current.remove()
-          markerRef.current = null
-        }
-      } else if (markerRef.current) {
-        markerRef.current.setLatLng([lat, lng])
-        mapRef.current?.panTo([lat, lng])
-      } else {
-        markerRef.current = L.marker([lat, lng])
-          .addTo(mapRef.current)
-          .bindPopup('Місце події', { closeButton: false })
-          .openPopup()
-        mapRef.current?.panTo([lat, lng])
-      }
-    })
-  }, [lat, lng])
-
-  return (
-    <div
-      ref={containerRef}
-      className="w-full h-56 rounded-2xl overflow-hidden border border-brand-border cursor-crosshair"
-      style={{ zIndex: 0 }}
-    />
-  )
-}
-
-// ── Form state type ───────────────────────────────────────────────────────────
+type EventType = 'personal' | 'public'
+type JoinMode = 'open' | 'approval'
+type GenderFilter = 'any' | 'female' | 'male'
 
 interface FormState {
-  is_public:       boolean
-  title:           string
-  description:     string
-  category:        string
+  event_type: EventType
+  is_public: boolean
+  join_mode: JoinMode
+  title: string
+  description: string
+  category: string
   cover_photo_url: string
-  event_datetime:  string
-  end_datetime:    string
-  address_text:    string
-  lat:             number | null
-  lng:             number | null
+  event_date: string
+  event_time: string
+  venue_name: string
+  address: string
+  lat: number | null
+  lng: number | null
   max_participants: number
-  min_age:         number
-  max_age:         number
-  gender_filter:   'any' | 'male' | 'female'
+  min_age: number
+  max_age: number
+  gender_filter: GenderFilter
+}
+type FormErrors = Partial<Record<keyof FormState | 'submit', string>>
+
+interface EventInsertPayload {
+  organizer_id: string
+  event_type: EventType
+  is_public: boolean
+  join_mode: JoinMode
+  title: string
+  description: string
+  category: string
+  cover_photo_url: string | null
+  event_datetime: string
+  address_text: string
+  location: string
+  max_participants: number
+  min_age: number
+  max_age: number
+  gender_filter: GenderFilter
+  status: 'upcoming'
 }
 
-// ── CreateEvent ───────────────────────────────────────────────────────────────
+function pad(value: number) {
+  return String(value).padStart(2, '0')
+}
+
+function defaultDateTime() {
+  const date = new Date()
+  date.setHours(date.getHours() + 1, 0, 0, 0)
+  return {
+    date: `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`,
+    time: `${pad(date.getHours())}:${pad(date.getMinutes())}`,
+  }
+}
+
+function todayInputValue() {
+  const today = new Date()
+  return `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`
+}
+
+function SectionCard({ number, title, description, children }: { number: string; title: string; description?: string; children: React.ReactNode }) {
+  return (
+    <section className="rounded-2xl border border-[#ebe9f0] bg-white p-4 sm:p-5">
+      <div className="mb-4 flex items-start gap-2.5">
+        <span className="grid h-6 w-6 flex-shrink-0 place-items-center rounded-md bg-brand-accent-soft text-[10px] font-extrabold text-brand-accent">{number}</span>
+        <div><h2 className="text-[15px] font-extrabold text-brand-ink">{title}</h2>{description && <p className="mt-0.5 text-[11px] leading-5 text-brand-ink-muted">{description}</p>}</div>
+      </div>
+      {children}
+    </section>
+  )
+}
 
 export default function CreateEvent() {
   const navigate = useNavigate()
   const { supaUser } = useAuth()
-
+  const defaults = useMemo(defaultDateTime, [])
+  const submittingRef = useRef(false)
   const [form, setForm] = useState<FormState>({
-    is_public:        true,
-    title:            '',
-    description:      '',
-    category:         'other',
-    cover_photo_url:  '',
-    event_datetime:   defaultStart(),
-    end_datetime:     defaultEnd(),
-    address_text:     '',
-    lat:              null,
-    lng:              null,
-    max_participants: 10,
-    min_age:          16,
-    max_age:          99,
-    gender_filter:    'any',
+    event_type: 'personal', is_public: true, join_mode: 'open', title: '', description: '', category: 'other',
+    cover_photo_url: '', event_date: defaults.date, event_time: defaults.time, venue_name: '', address: '',
+    lat: null, lng: null, max_participants: 10, min_age: 18, max_age: 60, gender_filter: 'any',
   })
-
-  const [errors, setErrors]     = useState<Partial<Record<keyof FormState | 'submit', string>>>({})
+  const [errors, setErrors] = useState<FormErrors>({})
   const [submitting, setSubmitting] = useState(false)
   const [geocoding, setGeocoding] = useState(false)
+  const [locating, setLocating] = useState(false)
 
-  // When event_datetime changes for a PRIVATE event, auto-set end_datetime = start + 1h
-  useEffect(() => {
-    if (!form.is_public && form.event_datetime) {
-      const start = new Date(form.event_datetime)
-      if (!isNaN(start.getTime())) {
-        const end = new Date(start.getTime() + 60 * 60 * 1000)
-        setForm((f) => ({ ...f, end_datetime: toLocalDatetimeString(end) }))
-      }
-    }
-  }, [form.event_datetime, form.is_public])
-
-  // When switching public → private, recalculate end from current start
-  useEffect(() => {
-    if (!form.is_public && form.event_datetime) {
-      const start = new Date(form.event_datetime)
-      if (!isNaN(start.getTime())) {
-        const end = new Date(start.getTime() + 60 * 60 * 1000)
-        setForm((f) => ({ ...f, end_datetime: toLocalDatetimeString(end) }))
-      }
-    }
-  // Only re-run when is_public toggles
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [form.is_public])
-
-  const set = useCallback(<K extends keyof FormState>(key: K, value: FormState[K]) => {
-    setForm((f) => ({ ...f, [key]: value }))
-    setErrors((e) => ({ ...e, [key]: undefined }))
+  const set = useCallback(<Key extends keyof FormState>(key: Key, value: FormState[Key]) => {
+    setForm((current) => ({ ...current, [key]: value }))
+    setErrors((current) => ({ ...current, [key]: undefined, submit: undefined }))
   }, [])
 
-  const handleMapPick = useCallback(async (lat: number, lng: number) => {
-    setForm((f) => ({ ...f, lat, lng }))
-    setErrors((e) => ({ ...e, lat: undefined }))
+  const selectEventType = (eventType: EventType) => {
+    setForm((current) => ({ ...current, event_type: eventType }))
+  }
 
-    // Reverse-geocode via Nominatim (OSM) to auto-fill address_text.
-    // Guaranteed fallback: always sets address_text to coordinates if geocoding fails.
-    const coordFallback = `${lat.toFixed(5)}, ${lng.toFixed(5)}`
+  const reverseGeocode = useCallback(async (lat: number, lng: number) => {
+    const coordinateFallback = `${lat.toFixed(5)}, ${lng.toFixed(5)}`
     setGeocoding(true)
     try {
-      const res = await fetch(
-        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&accept-language=uk`,
-        { headers: { 'User-Agent': 'meetnow-app/1.0 (porooch)' } }
-      )
-      if (res.ok) {
-        const json = await res.json()
-        const address = (json.display_name as string | undefined) || coordFallback
-        setForm((f) => ({ ...f, address_text: address }))
-      } else {
-        // Non-2xx (rate limit, server error, etc.) — use coordinate fallback
-        console.warn('[CreateEvent] Nominatim returned', res.status, '— using coord fallback')
-        setForm((f) => ({ ...f, address_text: f.address_text || coordFallback }))
-      }
-      setErrors((e) => ({ ...e, address_text: undefined }))
-    } catch (err) {
-      // Network error (CORS, offline, etc.) — guaranteed fallback
-      console.warn('[CreateEvent] Nominatim fetch failed:', err)
-      setForm((f) => ({ ...f, address_text: f.address_text || coordFallback }))
-      setErrors((e) => ({ ...e, address_text: undefined }))
+      const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&accept-language=uk`)
+      if (!response.ok) throw new Error(`Nominatim ${response.status}`)
+      const result = await response.json() as { display_name?: string }
+      setForm((current) => ({ ...current, address: result.display_name || current.address || coordinateFallback }))
+    } catch (error) {
+      console.warn('[CreateEvent] Reverse geocoding failed:', error)
+      setForm((current) => ({ ...current, address: current.address || coordinateFallback }))
     } finally {
+      setErrors((current) => ({ ...current, address: undefined, lat: undefined, lng: undefined }))
       setGeocoding(false)
     }
   }, [])
 
-  // ── Validation ──────────────────────────────────────────────────────────────
+  const handleMapPick = useCallback((lat: number, lng: number) => {
+    setForm((current) => ({ ...current, lat, lng }))
+    void reverseGeocode(lat, lng)
+  }, [reverseGeocode])
 
-  function validate(): boolean {
-    const errs: typeof errors = {}
-
-    if (!form.title.trim()) {
-      errs.title = 'Назва події обовʼязкова'
-    }
-
-    if (!form.event_datetime) {
-      errs.event_datetime = 'Вкажіть дату і час початку'
-    } else {
-      const start = new Date(form.event_datetime)
-      if (isNaN(start.getTime())) {
-        errs.event_datetime = 'Невірний формат дати'
-      } else if (start <= new Date()) {
-        errs.event_datetime = 'Дата початку повинна бути у майбутньому'
-      }
-    }
-
-    if (form.is_public && form.end_datetime) {
-      const start = new Date(form.event_datetime)
-      const end   = new Date(form.end_datetime)
-      if (!isNaN(start.getTime()) && !isNaN(end.getTime()) && end <= start) {
-        errs.end_datetime = 'Час завершення повинен бути пізніше початку'
-      }
-    }
-
-    if (form.min_age > form.max_age) {
-      errs.min_age = 'Мінімальний вік не може перевищувати максимальний'
-    }
-
-    if (!form.address_text.trim()) {
-      errs.address_text = 'Вкажіть адресу або клікніть на карті — вона підставиться автоматично'
-    }
-
-    if (form.lat === null || form.lng === null) {
-      errs.lat = 'Клікніть на карту, щоб вказати місце події'
-    }
-
-    setErrors(errs)
-    return Object.keys(errs).length === 0
+  async function useCurrentLocation() {
+    setLocating(true)
+    const position = await getCurrentPosition()
+    setForm((current) => ({ ...current, lat: position.lat, lng: position.lng }))
+    await reverseGeocode(position.lat, position.lng)
+    setLocating(false)
   }
 
-  // ── Submit ──────────────────────────────────────────────────────────────────
+  function validate() {
+    const nextErrors: FormErrors = {}
+    if (!form.title.trim()) nextErrors.title = 'Вкажіть назву події'
+    if (!form.event_date) nextErrors.event_date = 'Оберіть дату'
+    if (!form.event_time) nextErrors.event_time = 'Оберіть час'
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    if (!supaUser) return
-    if (!validate()) return
+    if (form.event_date && form.event_time) {
+      const eventDateTime = new Date(`${form.event_date}T${form.event_time}`)
+      if (Number.isNaN(eventDateTime.getTime())) nextErrors.event_date = 'Перевірте дату й час'
+      else if (eventDateTime <= new Date()) nextErrors.event_date = 'Подія має починатися в майбутньому'
+    }
 
+    if (!Number.isInteger(form.max_participants) || form.max_participants < 1 || form.max_participants > 1000) nextErrors.max_participants = 'Вкажіть від 1 до 1000 учасників'
+    if (form.min_age < 16 || form.max_age > 100) nextErrors.min_age = 'Допустимий вік — від 16 до 100 років'
+    else if (form.min_age > form.max_age) nextErrors.min_age = 'Мінімальний вік не може бути більшим за максимальний'
+    if (!form.address.trim()) nextErrors.address = 'Вкажіть адресу події'
+    if ((form.lat === null) !== (form.lng === null)) nextErrors.lat = 'Координати мають бути вказані повністю'
+    else if (form.lat === null || form.lng === null) nextErrors.lat = 'Позначте місце на карті'
+
+    setErrors(nextErrors)
+    return Object.keys(nextErrors).length === 0
+  }
+
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!supaUser || submittingRef.current || !validate()) return
+    submittingRef.current = true
     setSubmitting(true)
-    setErrors({})
 
-    const locationWKT = form.lat !== null && form.lng !== null
-      ? `POINT(${form.lng} ${form.lat})`
-      : null
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const payload: Record<string, any> = {
-      organizer_id:     supaUser.id,
-      title:            form.title.trim(),
-      description:      form.description.trim() || null,
-      category:         form.category,
-      is_public:        form.is_public,
-      cover_photo_url:  form.cover_photo_url.trim() || null,
-      event_datetime:   new Date(form.event_datetime).toISOString(),
-      end_datetime:     form.end_datetime ? new Date(form.end_datetime).toISOString() : null,
-      address_text:     form.address_text.trim(),
-      location:         locationWKT,
+    const addressText = [form.venue_name.trim(), form.address.trim()].filter(Boolean).join(', ')
+    const payload: EventInsertPayload = {
+      organizer_id: supaUser.id,
+      event_type: form.event_type,
+      is_public: form.is_public,
+      join_mode: form.join_mode,
+      title: form.title.trim(),
+      description: form.description.trim(),
+      category: form.category,
+      cover_photo_url: form.cover_photo_url.trim() || null,
+      event_datetime: new Date(`${form.event_date}T${form.event_time}`).toISOString(),
+      address_text: addressText,
+      location: `POINT(${form.lng} ${form.lat})`,
       max_participants: form.max_participants,
-      min_age:          form.min_age,
-      max_age:          form.max_age,
-      gender_filter:    form.gender_filter,
-      status:           'upcoming',
+      min_age: form.min_age,
+      max_age: form.max_age,
+      gender_filter: form.gender_filter,
+      status: 'upcoming',
     }
 
-    // Defensive guard — block if address_text is still empty despite validation
-    if (!payload.address_text) {
-      console.error('[CreateEvent] address_text is empty at INSERT time — blocked')
-      setErrors({ submit: 'Вкажіть адресу події перед відправкою' })
-      setSubmitting(false)
-      return
-    }
-
-    // DEBUG: session validity + organizer_id check before INSERT
-    const { data: sessionData } = await supabase.auth.getSession()
-    const { data: { user: authUser } } = await supabase.auth.getUser()
-    const now = Math.floor(Date.now() / 1000)
-    const expiresAt = sessionData.session?.expires_at ?? 0
-    console.log('[CreateEvent] session before insert:', {
-      has_access_token: !!sessionData.session?.access_token,
-      expires_at: expiresAt,
-      now_unix: now,
-      token_expired: expiresAt < now,
-      seconds_until_expiry: expiresAt - now,
-      organizer_id_being_sent: payload.organizer_id,
-      current_auth_uid: authUser?.id,
-      ids_match: payload.organizer_id === authUser?.id,
-    })
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data, error } = await (supabase as any)
-      .from('events')
-      .insert(payload)
-      .select('id')
-      .single()
-
+    const { data, error } = await supabase.from('events').insert(payload).select('id').single()
     if (error || !data?.id) {
-      console.error('[CreateEvent] insert error:', error)
-      setErrors({ submit: error?.message ?? 'Не вдалося створити подію. Спробуйте ще раз.' })
+      console.error('[CreateEvent] Insert failed:', error)
+      setErrors({ submit: 'Не вдалося створити подію. Перевірте дані та спробуйте ще раз.' })
       setSubmitting(false)
+      submittingRef.current = false
       return
     }
-
     navigate(`/event/${data.id}`)
   }
 
-  // ── Shared input classes ────────────────────────────────────────────────────
-
-  const inputCls = (field: keyof FormState) =>
-    `w-full bg-white border ${errors[field] ? 'border-red-400' : 'border-brand-border'} ` +
-    `rounded-xl px-4 py-2.5 text-sm text-brand-ink placeholder-brand-ink-muted ` +
-    `focus:outline-none focus:border-brand-petrol transition-colors`
-
-  // ── Render ──────────────────────────────────────────────────────────────────
+  const selectedCategory = CATEGORIES.find((category) => category.value === form.category)
+  const previewDate = form.event_date && form.event_time ? new Date(`${form.event_date}T${form.event_time}`) : null
+  const inputClass = (field: keyof FormState) => `h-11 w-full rounded-xl border bg-[#fcfcfe] px-3.5 text-sm text-brand-ink outline-none transition placeholder:text-brand-ink-muted focus:bg-white focus:ring-2 focus:ring-brand-accent/10 ${errors[field] ? 'border-red-400 focus:border-red-400' : 'border-brand-border focus:border-brand-accent'}`
+  const labelClass = 'mb-1.5 block text-xs font-bold text-brand-ink-soft'
 
   return (
-    <div className="min-h-screen bg-brand-bg text-brand-ink pb-32">
-
-      {/* ── Sticky header ──────────────────────────────────────────────────── */}
-      <div className="sticky top-0 bg-brand-bg/95 backdrop-blur z-20 border-b border-brand-border px-4 py-3 flex items-center gap-3 shadow-sm">
-        <button
-          type="button"
-          onClick={() => navigate(-1)}
-          className="text-brand-ink-muted hover:text-brand-ink transition-colors p-1 -ml-1"
-          aria-label="Назад"
-        >
-          ←
-        </button>
-        <span className="font-semibold text-base flex-1 text-brand-ink font-display">Нова подія</span>
-        <Link
-          to="/"
-          className="text-brand-ink-muted hover:text-brand-ink transition-colors p-1"
-          aria-label="На головну"
-        >
-          🏠
-        </Link>
-      </div>
+    <div className="min-h-screen bg-brand-bg pb-28 text-brand-ink lg:pb-10">
+      <TopBar title="Створити подію" />
+      <header className="sticky top-0 z-30 flex h-14 items-center border-b border-brand-border bg-white/95 px-2.5 backdrop-blur-xl lg:hidden">
+        <button type="button" onClick={() => navigate(-1)} className="grid h-11 w-11 place-items-center rounded-xl text-2xl focus-visible:outline-2 focus-visible:outline-brand-accent" aria-label="Назад">←</button>
+        <p className="ml-1 text-sm font-extrabold">Створити подію</p>
+      </header>
 
       <form onSubmit={handleSubmit} noValidate>
-        <div className="px-4 pt-5 space-y-5 max-w-lg mx-auto">
-
-          {/* ── Public / Private toggle ─────────────────────────────────────── */}
-          <div className="bg-white rounded-2xl border border-brand-border shadow-sm p-4">
-            <p className="text-xs text-brand-ink-muted uppercase tracking-wider mb-3">Тип події</p>
-            <div className="flex rounded-xl overflow-hidden border border-brand-border">
-              <button
-                type="button"
-                onClick={() => set('is_public', true)}
-                className={`flex-1 py-2.5 text-sm font-medium transition-all ${
-                  form.is_public
-                    ? 'bg-brand-petrol text-white'
-                    : 'bg-white text-brand-ink-soft hover:bg-brand-bg'
-                }`}
-              >
-                🌐 Публічна подія
-              </button>
-              <button
-                type="button"
-                onClick={() => set('is_public', false)}
-                className={`flex-1 py-2.5 text-sm font-medium transition-all border-l border-brand-border ${
-                  !form.is_public
-                    ? 'bg-brand-amber text-white'
-                    : 'bg-white text-brand-ink-soft hover:bg-brand-bg'
-                }`}
-              >
-                🔒 Приватна подія
-              </button>
-            </div>
-            <p className="text-xs text-brand-ink-muted mt-2">
-              {form.is_public
-                ? 'Видима всім у стрічці подій. Будь-хто може приєднатись.'
-                : 'Видима тільки запрошеним. Тривалість — 1 година.'}
-            </p>
+        <div className="mx-auto max-w-[880px] px-4 py-5 sm:px-6 md:py-7">
+          <div className="mb-5">
+            <h1 className="text-2xl font-extrabold tracking-[-0.035em] sm:text-[28px]">Створити подію</h1>
+            <p className="mt-1 text-xs leading-5 text-brand-ink-muted">Заповніть деталі — і ваша зустріч з’явиться в porooch</p>
           </div>
 
-          {/* ── Title ──────────────────────────────────────────────────────── */}
-          <div className="bg-white rounded-2xl border border-brand-border shadow-sm p-4 space-y-1">
-            <label className="text-xs text-brand-ink-muted uppercase tracking-wider" htmlFor="title">
-              Назва події <span className="text-red-400">*</span>
-            </label>
-            <input
-              id="title"
-              type="text"
-              placeholder="Наприклад: Кіно в суботу ввечері"
-              value={form.title}
-              onChange={(e) => set('title', e.target.value)}
-              maxLength={120}
-              className={inputCls('title')}
-            />
-            {errors.title && <p className="text-xs text-red-500 mt-1">{errors.title}</p>}
-          </div>
-
-          {/* ── Description ────────────────────────────────────────────────── */}
-          <div className="bg-white rounded-2xl border border-brand-border shadow-sm p-4 space-y-1">
-            <label className="text-xs text-brand-ink-muted uppercase tracking-wider" htmlFor="description">
-              Опис
-            </label>
-            <textarea
-              id="description"
-              rows={3}
-              placeholder="Розкажіть детальніше про подію..."
-              value={form.description}
-              onChange={(e) => set('description', e.target.value)}
-              maxLength={1000}
-              className={`${inputCls('description')} resize-none`}
-            />
-          </div>
-
-          {/* ── Category ───────────────────────────────────────────────────── */}
-          <div className="bg-white rounded-2xl border border-brand-border shadow-sm p-4">
-            <p className="text-xs text-brand-ink-muted uppercase tracking-wider mb-3">Категорія</p>
-            <div className="grid grid-cols-5 gap-2">
-              {CATEGORIES.map((cat) => (
-                <button
-                  key={cat.value}
-                  type="button"
-                  onClick={() => set('category', cat.value)}
-                  className={`flex flex-col items-center gap-1 py-2.5 rounded-xl border transition-all ${
-                    form.category === cat.value
-                      ? 'border-brand-petrol bg-brand-petrol/10 text-brand-petrol'
-                      : 'border-brand-border bg-brand-bg text-brand-ink-soft hover:border-brand-border-strong hover:bg-white'
-                  }`}
-                >
-                  <span className="text-xl">{cat.emoji}</span>
-                  <span className="text-[10px] font-medium leading-tight text-center">{cat.label}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* ── Cover photo URL ─────────────────────────────────────────────── */}
-          <div className="bg-white rounded-2xl border border-brand-border shadow-sm p-4 space-y-1">
-            <label className="text-xs text-brand-ink-muted uppercase tracking-wider" htmlFor="cover_photo_url">
-              Фото обкладинки (URL, необовʼязково)
-            </label>
-            <input
-              id="cover_photo_url"
-              type="url"
-              placeholder="https://..."
-              value={form.cover_photo_url}
-              onChange={(e) => set('cover_photo_url', e.target.value)}
-              className={inputCls('cover_photo_url')}
-            />
-            {form.cover_photo_url && (
-              <div className="mt-2 h-28 rounded-xl overflow-hidden border border-brand-border">
-                <img
-                  src={form.cover_photo_url}
-                  alt="Прев'ю"
-                  className="w-full h-full object-cover"
-                  onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
-                />
+          <div className="space-y-3.5">
+            <SectionCard number="1" title="Яку подію ви створюєте?" description="Тип описує формат зустрічі, а не її видимість.">
+              <div className="grid gap-2.5 sm:grid-cols-2">
+                {([
+                  { value: 'personal' as const, title: 'Особиста подія', text: 'Зустріч із людьми поруч — кава, прогулянка, спорт або спільні інтереси.', icon: 'user' as const },
+                  { value: 'public' as const, title: 'Громадська подія', text: 'Подія для ширшої аудиторії — кіно, театр, бар, концерт, спорт та інше.', icon: 'calendar' as const },
+                ]).map((option) => {
+                  const selected = form.event_type === option.value
+                  return (
+                    <button key={option.value} type="button" onClick={() => selectEventType(option.value)} aria-pressed={selected} className={`flex min-h-[104px] items-start gap-3 rounded-2xl border p-3.5 text-left transition ${selected ? 'border-brand-accent bg-brand-accent-soft ring-1 ring-brand-accent/10' : 'border-brand-border bg-[#fcfcfe] hover:border-brand-border-strong'}`}>
+                      <span className={`grid h-9 w-9 flex-shrink-0 place-items-center rounded-xl ${selected ? 'bg-brand-accent text-white' : 'bg-brand-surface-muted text-brand-ink-soft'}`}><Icon name={option.icon} className="h-4.5 w-4.5"/></span>
+                      <span><strong className="block text-sm text-brand-ink">{option.title}</strong><span className="mt-1 block text-[11px] leading-[18px] text-brand-ink-muted">{option.text}</span></span>
+                    </button>
+                  )
+                })}
               </div>
-            )}
-          </div>
+            </SectionCard>
 
-          {/* ── Date & time ─────────────────────────────────────────────────── */}
-          <div className="bg-white rounded-2xl border border-brand-border shadow-sm p-4 space-y-3">
-            <p className="text-xs text-brand-ink-muted uppercase tracking-wider">Дата і час</p>
-
-            {/* Start */}
-            <div className="space-y-1">
-              <label className="text-xs text-brand-ink-soft" htmlFor="event_datetime">
-                Початок <span className="text-red-400">*</span>
-              </label>
-              <input
-                id="event_datetime"
-                type="datetime-local"
-                value={form.event_datetime}
-                min={toLocalDatetimeString(new Date())}
-                onChange={(e) => set('event_datetime', e.target.value)}
-                className={inputCls('event_datetime')}
-              />
-              {errors.event_datetime && (
-                <p className="text-xs text-red-500">{errors.event_datetime}</p>
-              )}
-            </div>
-
-            {/* End */}
-            {form.is_public ? (
-              <div className="space-y-1">
-                <label className="text-xs text-brand-ink-soft" htmlFor="end_datetime">
-                  Завершення
-                </label>
-                <input
-                  id="end_datetime"
-                  type="datetime-local"
-                  value={form.end_datetime}
-                  min={form.event_datetime}
-                  onChange={(e) => set('end_datetime', e.target.value)}
-                  className={inputCls('end_datetime')}
-                />
-                {errors.end_datetime && (
-                  <p className="text-xs text-red-500">{errors.end_datetime}</p>
-                )}
+            <SectionCard number="2" title="Про подію">
+              <div className="space-y-4">
+                <div>
+                  <label className={labelClass} htmlFor="title">Назва *</label>
+                  <input id="title" value={form.title} onChange={(event) => set('title', event.target.value)} maxLength={120} placeholder="Наприклад, Кава та розмови" className={inputClass('title')} />
+                  {errors.title && <p className="mt-1.5 text-xs text-red-600">{errors.title}</p>}
+                </div>
+                <div>
+                  <div className="flex items-center justify-between"><label className={labelClass} htmlFor="description">Опис</label><span className="mb-1.5 text-[10px] text-brand-ink-muted">{form.description.length}/1000</span></div>
+                  <textarea id="description" value={form.description} onChange={(event) => set('description', event.target.value)} maxLength={1000} rows={4} placeholder="Розкажіть, що плануєте і кого хочете бачити на зустрічі" className={`${inputClass('description')} h-auto min-h-24 resize-y py-2.5 leading-5`} />
+                </div>
+                <div>
+                  <p className={labelClass}>Категорія</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {CATEGORIES.map((category) => <button key={category.value} type="button" onClick={() => set('category', category.value)} className={`h-8 rounded-lg border px-2.5 text-[11px] font-bold transition ${form.category === category.value ? 'border-brand-accent bg-brand-accent text-white' : 'border-[#eeebf8] bg-[#f7f5fc] text-brand-ink-soft hover:border-[#ddd6f8]'}`}>{category.emoji} {category.label}</button>)}
+                  </div>
+                </div>
+                <div className="rounded-xl bg-[#faf9fd] p-3">
+                  <label className={labelClass} htmlFor="cover_photo_url">Обкладинка <span className="font-normal text-brand-ink-muted">(необов’язково)</span></label>
+                  <input id="cover_photo_url" type="url" value={form.cover_photo_url} onChange={(event) => set('cover_photo_url', event.target.value)} placeholder="Посилання на зображення https://..." className={inputClass('cover_photo_url')} />
+                  {form.cover_photo_url && <div className="mt-2.5 h-28 overflow-hidden rounded-xl border border-brand-border bg-brand-surface-muted"><img src={form.cover_photo_url} alt="Попередній перегляд обкладинки" className="h-full w-full object-cover" /></div>}
+                </div>
               </div>
-            ) : (
-              <div className="flex items-center gap-2 bg-brand-amber/10 border border-brand-amber/20 rounded-xl px-4 py-2.5">
-                <span className="text-brand-amber">⏱</span>
-                <span className="text-sm text-brand-amber font-medium">Тривалість: 1 година</span>
+            </SectionCard>
+
+            <SectionCard number="3" title="Коли?">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <label className={labelClass} htmlFor="event_date">Дата *</label>
+                  <input id="event_date" type="date" min={todayInputValue()} value={form.event_date} onChange={(event) => set('event_date', event.target.value)} className={inputClass('event_date')} />
+                  {errors.event_date && <p className="mt-1.5 text-xs text-red-600">{errors.event_date}</p>}
+                </div>
+                <div>
+                  <label className={labelClass} htmlFor="event_time">Час *</label>
+                  <input id="event_time" type="time" value={form.event_time} onChange={(event) => set('event_time', event.target.value)} className={inputClass('event_time')} />
+                  {errors.event_time && <p className="mt-1.5 text-xs text-red-600">{errors.event_time}</p>}
+                </div>
               </div>
-            )}
-          </div>
+            </SectionCard>
 
-          {/* ── Location ────────────────────────────────────────────────────── */}
-          <div className="bg-white rounded-2xl border border-brand-border shadow-sm p-4 space-y-3">
-            <p className="text-xs text-brand-ink-muted uppercase tracking-wider">Місце</p>
-
-            <div className="space-y-1">
-              <label className="text-xs text-brand-ink-soft" htmlFor="address_text">
-                Адреса <span className="text-red-400">*</span>
-              </label>
-              <div className="relative">
-                <input
-                  id="address_text"
-                  type="text"
-                  placeholder="Вул. Шевченка, 10, Чернігів"
-                  value={form.address_text}
-                  onChange={(e) => set('address_text', e.target.value)}
-                  className={`${inputCls('address_text')} ${geocoding ? 'pr-8' : ''}`}
-                />
-                {geocoding && (
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-brand-ink-muted text-xs animate-pulse">
-                    ⏳
-                  </span>
-                )}
+            <SectionCard number="4" title="Де?" description="Вкажіть адресу й позначте точку зустрічі на карті.">
+              <div className="space-y-3.5">
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div><label className={labelClass} htmlFor="venue_name">Назва місця</label><input id="venue_name" value={form.venue_name} onChange={(event) => set('venue_name', event.target.value)} placeholder="Кав’ярня White Cup" className={inputClass('venue_name')} /></div>
+                  <div>
+                    <label className={labelClass} htmlFor="address">Адреса *</label>
+                    <div className="relative"><input id="address" value={form.address} onChange={(event) => set('address', event.target.value)} placeholder="вул. Шевченка, 12" className={inputClass('address')} />{geocoding && <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-brand-ink-muted">Шукаємо…</span>}</div>
+                    {errors.address && <p className="mt-1.5 text-xs text-red-600">{errors.address}</p>}
+                  </div>
+                </div>
+                <button type="button" onClick={useCurrentLocation} disabled={locating} className="inline-flex h-10 items-center gap-2 rounded-xl border border-brand-border bg-white px-3.5 text-[11px] font-bold text-brand-accent transition hover:border-brand-accent disabled:opacity-60"><Icon name="pin" className="h-4 w-4"/>{locating ? 'Визначаємо…' : 'Використати моє місцезнаходження'}</button>
+                <CreateEventMap lat={form.lat} lng={form.lng} onPick={handleMapPick} />
+                <div>{form.lat !== null && form.lng !== null ? <p className="text-[11px] font-semibold text-brand-accent">✓ Точку вибрано</p> : <p className="text-[11px] text-brand-ink-muted">Натисніть на карту, щоб вибрати точне місце.</p>}{errors.lat && <p className="mt-1 text-xs text-red-600">{errors.lat}</p>}</div>
               </div>
-              {geocoding && (
-                <p className="text-xs text-brand-ink-muted">Визначаємо адресу…</p>
-              )}
-              {errors.address_text && (
-                <p className="text-xs text-red-500">{errors.address_text}</p>
-              )}
-            </div>
+            </SectionCard>
 
-            <div className="space-y-1.5">
-              <p className="text-xs text-brand-ink-soft">
-                Клікніть на карту, щоб вказати точне місце{' '}
-                <span className="text-red-400">*</span>
-              </p>
-
-              <CreateMap lat={form.lat} lng={form.lng} onPick={handleMapPick} />
-
-              {form.lat !== null && form.lng !== null ? (
-                <p className="text-xs text-green-600 flex items-center gap-1">
-                  <span>✓</span>
-                  Координати вказані: {form.lat.toFixed(5)}, {form.lng.toFixed(5)}
-                </p>
-              ) : (
-                <p className="text-xs text-brand-ink-muted">Місце не вибрано</p>
-              )}
-              {errors.lat && <p className="text-xs text-red-500">{errors.lat}</p>}
-            </div>
-          </div>
-
-          {/* ── Max participants ─────────────────────────────────────────────── */}
-          <div className="bg-white rounded-2xl border border-brand-border shadow-sm p-4 space-y-3">
-            <div className="flex items-center justify-between">
-              <p className="text-xs text-brand-ink-muted uppercase tracking-wider">Максимум учасників</p>
-              <span className="text-sm font-bold text-brand-petrol">{form.max_participants}</span>
-            </div>
-            <input
-              type="range"
-              min={2}
-              max={1000}
-              step={1}
-              value={form.max_participants}
-              onChange={(e) => set('max_participants', Number(e.target.value))}
-              className="w-full accent-brand-petrol"
-            />
-            <div className="flex justify-between text-xs text-brand-ink-muted">
-              <span>2</span>
-              <span>1000</span>
-            </div>
-            <div className="flex gap-2 flex-wrap">
-              {[5, 10, 20, 50, 100].map((n) => (
-                <button
-                  key={n}
-                  type="button"
-                  onClick={() => set('max_participants', n)}
-                  className={`px-3 py-1 rounded-lg text-xs font-medium border transition-all ${
-                    form.max_participants === n
-                      ? 'bg-brand-petrol text-white border-brand-petrol'
-                      : 'bg-brand-bg text-brand-ink-soft border-brand-border hover:border-brand-border-strong'
-                  }`}
-                >
-                  {n}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* ── Age range ───────────────────────────────────────────────────── */}
-          <div className="bg-white rounded-2xl border border-brand-border shadow-sm p-4 space-y-3">
-            <p className="text-xs text-brand-ink-muted uppercase tracking-wider">Віковий діапазон</p>
-            <div className="flex items-center gap-3">
-              <div className="flex-1 space-y-1">
-                <label className="text-xs text-brand-ink-soft" htmlFor="min_age">Від</label>
-                <input
-                  id="min_age"
-                  type="number"
-                  min={16}
-                  max={100}
-                  value={form.min_age}
-                  onChange={(e) => set('min_age', Number(e.target.value))}
-                  className={inputCls('min_age')}
-                />
+            <SectionCard number="5" title="Хто може приєднатися?">
+              <div className="space-y-4">
+                <div>
+                  <label className={labelClass} htmlFor="max_participants">Кількість учасників</label>
+                  <div className="flex flex-wrap gap-1.5">
+                    {CAPACITY_OPTIONS.map((capacity) => <button key={capacity} type="button" onClick={() => set('max_participants', capacity)} className={`h-9 min-w-10 rounded-lg border px-2.5 text-[11px] font-bold ${form.max_participants === capacity ? 'border-brand-accent bg-brand-accent text-white' : 'border-[#eeebf8] bg-[#f7f5fc] text-brand-ink-soft'}`}>{capacity}</button>)}
+                    <input id="max_participants" type="number" min={1} max={1000} value={form.max_participants} onChange={(event) => set('max_participants', Number(event.target.value))} aria-label="Інша кількість учасників" className="h-9 w-24 rounded-lg border border-brand-border bg-white px-3 text-xs outline-none focus:border-brand-accent" />
+                  </div>
+                  {errors.max_participants && <p className="mt-1.5 text-xs text-red-600">{errors.max_participants}</p>}
+                </div>
+                <div>
+                  <p className={labelClass}>Стать</p>
+                  <div className="flex flex-wrap gap-1.5">{([{ value: 'any', label: 'Усі' }, { value: 'female', label: 'Жінки' }, { value: 'male', label: 'Чоловіки' }] as const).map((option) => <button key={option.value} type="button" onClick={() => set('gender_filter', option.value)} className={`h-9 rounded-lg border px-3 text-[11px] font-bold ${form.gender_filter === option.value ? 'border-brand-accent bg-brand-accent-soft text-brand-accent' : 'border-brand-border bg-white text-brand-ink-soft'}`}>{option.label}</button>)}</div>
+                </div>
+                <div>
+                  <p className={labelClass}>Віковий діапазон</p>
+                  <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2.5">
+                    <div><label className="sr-only" htmlFor="min_age">Мінімальний вік</label><input id="min_age" type="number" min={16} max={100} value={form.min_age} onChange={(event) => set('min_age', Number(event.target.value))} className={inputClass('min_age')} /></div>
+                    <span className="text-brand-ink-muted">—</span>
+                    <div><label className="sr-only" htmlFor="max_age">Максимальний вік</label><input id="max_age" type="number" min={16} max={100} value={form.max_age} onChange={(event) => set('max_age', Number(event.target.value))} className={inputClass('max_age')} /></div>
+                  </div>
+                  {errors.min_age && <p className="mt-1.5 text-xs text-red-600">{errors.min_age}</p>}
+                </div>
+                <p className="rounded-lg bg-brand-accent-soft px-3 py-2 text-[10px] leading-4 text-brand-ink-muted">Ці параметри впливають на те, кому подія показується у стрічці.</p>
               </div>
-              <span className="text-brand-ink-muted mt-5">—</span>
-              <div className="flex-1 space-y-1">
-                <label className="text-xs text-brand-ink-soft" htmlFor="max_age">До</label>
-                <input
-                  id="max_age"
-                  type="number"
-                  min={16}
-                  max={100}
-                  value={form.max_age}
-                  onChange={(e) => set('max_age', Number(e.target.value))}
-                  className={inputCls('max_age')}
-                />
+            </SectionCard>
+
+            <SectionCard number="6" title="Хто побачить подію?">
+              <div className="grid gap-2.5 sm:grid-cols-2">
+                {([
+                  { value: true, title: 'У стрічці', text: 'Подія з’явиться у стрічці відповідних користувачів поруч.' },
+                  { value: false, title: 'Лише за запрошенням', text: 'Подія не показуватиметься у загальній стрічці.' },
+                ]).map((option) => {
+                  const selected = form.is_public === option.value
+                  return <button key={String(option.value)} type="button" onClick={() => set('is_public', option.value)} aria-pressed={selected} className={`rounded-2xl border p-3.5 text-left transition ${selected ? 'border-brand-accent bg-brand-accent-soft' : 'border-brand-border bg-[#fcfcfe]'}`}><span className="flex items-center gap-2"><span className={`grid h-4 w-4 place-items-center rounded-full border ${selected ? 'border-brand-accent' : 'border-brand-border-strong'}`}>{selected && <span className="h-2 w-2 rounded-full bg-brand-accent"/>}</span><strong className="text-xs text-brand-ink">{option.title}</strong></span><span className="mt-2 block pl-6 text-[11px] leading-[18px] text-brand-ink-muted">{option.text}</span></button>
+                })}
               </div>
-            </div>
-            {errors.min_age && <p className="text-xs text-red-500">{errors.min_age}</p>}
-            <p className="text-xs text-brand-ink-muted">Учасники поза цим діапазоном не зможуть приєднатись</p>
+            </SectionCard>
+
+            <SectionCard number="7" title="Як люди приєднуються?">
+              <div className="grid gap-2.5 sm:grid-cols-2">
+                {([
+                  { value: 'open' as const, title: 'Одразу', text: 'Людина одразу стає учасником, якщо є вільні місця.' },
+                  { value: 'approval' as const, title: 'Після підтвердження', text: 'Ви переглядаєте заявку та вирішуєте, кого прийняти.' },
+                ]).map((option) => {
+                  const selected = form.join_mode === option.value
+                  return <button key={option.value} type="button" onClick={() => set('join_mode', option.value)} aria-pressed={selected} className={`rounded-2xl border p-3.5 text-left transition ${selected ? 'border-brand-accent bg-brand-accent-soft' : 'border-brand-border bg-[#fcfcfe]'}`}><span className="flex items-center gap-2"><span className={`grid h-4 w-4 place-items-center rounded-full border ${selected ? 'border-brand-accent' : 'border-brand-border-strong'}`}>{selected && <span className="h-2 w-2 rounded-full bg-brand-accent"/>}</span><strong className="text-xs text-brand-ink">{option.title}</strong></span><span className="mt-2 block pl-6 text-[11px] leading-[18px] text-brand-ink-muted">{option.text}</span></button>
+                })}
+              </div>
+            </SectionCard>
+
+            <section className={`rounded-2xl border p-4 ${form.event_type === 'personal' ? 'border-[#e9e3ff] bg-[#f8f6ff]' : 'border-brand-border bg-white'}`}>
+              <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.12em] text-brand-ink-muted">Як це виглядатиме</p>
+              <div className={`flex min-w-0 gap-3 ${form.event_type === 'public' ? 'items-stretch' : 'items-start'}`}>
+                {form.event_type === 'public' && <div className="h-24 w-24 flex-shrink-0 overflow-hidden rounded-xl"><EventMedia category={form.category} coverUrl={form.cover_photo_url} alt={form.cover_photo_url ? 'Попередній перегляд обкладинки' : ''} className="h-full w-full" /></div>}
+                {form.event_type === 'personal' && <div className="grid h-9 w-9 flex-shrink-0 place-items-center rounded-full bg-white text-lg">{selectedCategory?.emoji}</div>}
+                <div className="min-w-0 flex-1">
+                  <span className="rounded-md bg-white px-2 py-1 text-[10px] font-bold text-brand-accent">{selectedCategory?.label}</span>
+                  <h3 className="mt-2 truncate text-sm font-extrabold">{form.title.trim() || 'Назва вашої події'}</h3>
+                  {previewDate && !Number.isNaN(previewDate.getTime()) && <p className="mt-1 text-[11px] text-brand-ink-muted">{previewDate.toLocaleString('uk-UA', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })}</p>}
+                  <p className="mt-1 truncate text-[11px] text-brand-ink-muted">{[form.venue_name, form.address].filter(Boolean).join(', ') || 'Місце ще не вказано'}</p>
+                  <p className="mt-1 text-[10px] font-semibold text-brand-ink-muted">{form.max_participants} учасників</p>
+                </div>
+              </div>
+            </section>
+
+            {errors.submit && <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{errors.submit}</div>}
+            <div className="hidden justify-end lg:flex"><button type="submit" disabled={submitting} className="h-12 min-w-52 rounded-xl bg-brand-accent px-6 text-sm font-extrabold text-white transition hover:bg-brand-accent-hover disabled:cursor-wait disabled:opacity-60">{submitting ? 'Створюємо...' : 'Створити подію'}</button></div>
           </div>
-
-          {/* ── Gender filter ───────────────────────────────────────────────── */}
-          <div className="bg-white rounded-2xl border border-brand-border shadow-sm p-4">
-            <p className="text-xs text-brand-ink-muted uppercase tracking-wider mb-3">Стать учасників</p>
-            <div className="flex rounded-xl overflow-hidden border border-brand-border">
-              {GENDER_OPTIONS.map((opt, idx) => (
-                <button
-                  key={opt.value}
-                  type="button"
-                  onClick={() => set('gender_filter', opt.value)}
-                  className={`flex-1 py-2.5 text-sm font-medium transition-all ${
-                    idx > 0 ? 'border-l border-brand-border' : ''
-                  } ${
-                    form.gender_filter === opt.value
-                      ? 'bg-brand-petrol text-white'
-                      : 'bg-white text-brand-ink-soft hover:bg-brand-bg'
-                  }`}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* ── Submit error ────────────────────────────────────────────────── */}
-          {errors.submit && (
-            <div className="text-red-600 text-sm bg-red-50 px-4 py-3 rounded-xl border border-red-100">
-              {errors.submit}
-            </div>
-          )}
-
         </div>
 
-        {/* ── Bottom CTA ──────────────────────────────────────────────────── */}
-        <div className="fixed bottom-0 inset-x-0 bg-brand-bg/95 backdrop-blur border-t border-brand-border px-4 py-4 safe-area-bottom shadow-sm z-20">
-          <div className="max-w-lg mx-auto">
-            <button
-              type="submit"
-              disabled={submitting}
-              className="w-full bg-brand-petrol hover:bg-brand-petrol-light disabled:opacity-50 text-white font-semibold py-4 rounded-2xl transition-all active:scale-95"
-            >
-              {submitting ? 'Створюємо подію...' : '✨ Створити подію'}
-            </button>
-          </div>
+        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-brand-border bg-white/95 px-4 py-3 shadow-[0_-8px_30px_rgba(23,23,28,0.06)] backdrop-blur-xl lg:hidden">
+          <button type="submit" disabled={submitting} className="mx-auto block h-13 w-full max-w-lg rounded-xl bg-brand-accent text-sm font-extrabold text-white disabled:cursor-wait disabled:opacity-60">{submitting ? 'Створюємо...' : 'Створити подію'}</button>
         </div>
       </form>
     </div>

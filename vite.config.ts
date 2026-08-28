@@ -8,39 +8,37 @@ import { dirname, resolve } from 'path'
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
 
-export default defineConfig({
-  base: '/meetnow/',
+export default defineConfig(({ command }) => {
+  const base = command === 'build' ? '/porooch/' : '/'
+
+  return {
+  base,
   plugins: [
     react(),
     tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.ico', 'icons/*.png'],
+      includeAssets: ['favicon.svg', 'icons/*.svg'],
       manifest: {
         name: 'porooch',
         short_name: 'porooch',
-        description: 'Ситуативні зустрічі поруч із тобою',
-        theme_color: '#0F4C4C',
-        background_color: '#FBF9F6',
+        description: 'Події та люди поруч',
+        lang: 'uk',
+        theme_color: '#6846FF',
+        background_color: '#F7F7FA',
         display: 'standalone',
         orientation: 'portrait',
-        scope: '/meetnow/',
-        start_url: '/meetnow/',
+        scope: base,
+        start_url: base,
         icons: [
-          { src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' },
-          { src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png' },
-          { src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' }
+          { src: 'icons/icon-192.svg', sizes: '192x192', type: 'image/svg+xml' },
+          { src: 'icons/icon-512.svg', sizes: '512x512', type: 'image/svg+xml', purpose: 'any maskable' }
         ]
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
-        runtimeCaching: [
-          {
-            urlPattern: /^https:\/\/.*\.supabase\.co\/.*/,
-            handler: 'NetworkFirst',
-            options: { cacheName: 'supabase-cache', networkTimeoutSeconds: 5 }
-          }
-        ]
+        globIgnores: ['demo-avatars/**', 'icons/*.png'],
+        cleanupOutdatedCaches: true,
       }
     })
   ],
@@ -56,5 +54,6 @@ export default defineConfig({
         }
       }
     }
+  }
   }
 })

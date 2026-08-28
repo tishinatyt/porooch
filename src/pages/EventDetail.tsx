@@ -1,394 +1,276 @@
-import { useState, useEffect, useRef, lazy, Suspense } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { lazy, Suspense, useEffect, useRef, useState } from 'react'
+import { useNavigate, useParams } from 'react-router-dom'
 import { useEvent } from '@/hooks/useEvent'
 import { useAuth } from '@/contexts/AuthContext'
 import { getCurrentPosition } from '@/lib/geo'
-import CategoryPlaceholder from '@/components/CategoryPlaceholder'
+import { supabase } from '@/lib/supabase'
+import { Icon } from '@/components/icons'
+import TopBar from '@/components/TopBar'
+import EventMedia from '@/components/EventMedia'
+import { EventActionContent, EventInfoRow, EventRequirements, OrganizerHeader, ParticipantList, PendingRequestList } from '@/components/event-detail/EventDetailSections'
+import { getDemoEvent } from '@/components/home/demoEvents'
+import type { EventDetail as EventDetailData, EventParticipant } from '@/hooks/useEvent'
 
 const EventMap = lazy(() => import('@/components/EventMap'))
 
-// ── helpers ─────────────────────────────────────────────────────────────────
-
-const CATEGORY_EMOJI: Record<string, string> = {
-  cinema:  '🎬',
-  theatre: '🎭',
-  bar:     '🍺',
-  sport:   '🏃',
-  music:   '🎵',
-  food:    '🍕',
-  games:   '🎲',
-  walk:    '🚶',
-  art:     '🎨',
-  other:   '💬',
-}
-
 const CATEGORY_LABEL: Record<string, string> = {
-  cinema:  'Кіно',
-  theatre: 'Театр',
-  bar:     'Бар',
-  sport:   'Спорт',
-  music:   'Музика',
-  food:    'Їжа',
-  games:   'Ігри',
-  walk:    'Прогулянка',
-  art:     'Мистецтво',
-  other:   'Інше',
+  cinema: 'Кіно', theatre: 'Театр', bar: 'Бар', sport: 'Спорт', music: 'Музика',
+  food: 'Їжа', games: 'Ігри', walk: 'Прогулянка', art: 'Мистецтво', communication: 'Спілкування', other: 'Інше',
 }
 
 const GENDER_LABEL: Record<string, string> = {
-  any:    '🙋 Будь-хто',
-  male:   '👨 Хлопці',
-  female: '👩 Дівчата',
+  any: 'Чоловіки та жінки', male: 'Чоловіки', female: 'Жінки',
 }
 
-function formatDateTime(iso: string) {
-  const d = new Date(iso)
-  return d.toLocaleString('uk-UA', {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
+function formatEventDate(iso: string) {
+  const date = new Date(iso)
+  const today = new Date()
+  const tomorrow = new Date(today)
+  tomorrow.setDate(today.getDate() + 1)
+  const sameDay = (left: Date, right: Date) => left.getFullYear() === right.getFullYear() && left.getMonth() === right.getMonth() && left.getDate() === right.getDate()
+  const dayLabel = sameDay(date, today) ? 'Сьогодні' : sameDay(date, tomorrow) ? 'Завтра' : date.toLocaleDateString('uk-UA', { weekday: 'long', day: 'numeric', month: 'long' })
+  return {
+    day: dayLabel.charAt(0).toUpperCase() + dayLabel.slice(1),
+    time: date.toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit' }),
+  }
 }
 
 function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
-  const R = 6371
-  const dLat = ((lat2 - lat1) * Math.PI) / 180
-  const dLng = ((lng2 - lng1) * Math.PI) / 180
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLng / 2) ** 2
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+  const earthRadiusKm = 6371
+  const latitudeDelta = ((lat2 - lat1) * Math.PI) / 180
+  const longitudeDelta = ((lng2 - lng1) * Math.PI) / 180
+  const value = Math.sin(latitudeDelta / 2) ** 2
+    + Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(longitudeDelta / 2) ** 2
+  return earthRadiusKm * 2 * Math.atan2(Math.sqrt(value), Math.sqrt(1 - value))
 }
-
-// ── component ────────────────────────────────────────────────────────────────
 
 export default function EventDetail() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const { supaUser } = useAuth()
-  const { event, participants, loading, error, joinEvent } = useEvent(id!)
-
+  const demoEvent = getDemoEvent(id)
+  const { event: liveEvent, participants: liveParticipants, loading, error, joinEvent, reviewRequest, leaveEvent } = useEvent(demoEvent ? '' : id!)
+  const event: EventDetailData | null = demoEvent ? {
+    id: demoEvent.id,
+    title: demoEvent.title,
+    description: demoEvent.description ?? '',
+    category: demoEvent.category,
+    is_public: true,
+    event_type: demoEvent.event_type ?? 'public',
+    join_mode: demoEvent.join_mode ?? 'open',
+    organizer_id: demoEvent.organizer?.id ?? 'demo-organizer',
+    cover_photo_url: demoEvent.cover_photo_url,
+    address_text: demoEvent.address_text,
+    event_datetime: demoEvent.event_datetime,
+    max_participants: demoEvent.max_participants,
+    min_age: demoEvent.min_age,
+    max_age: demoEvent.max_age,
+    gender_filter: demoEvent.gender_filter,
+    status: 'active',
+    created_at: demoEvent.created_at ?? '',
+    location_lat: demoEvent.location_lat ?? null,
+    location_lng: demoEvent.location_lng ?? null,
+    organizer: demoEvent.organizer ? { ...demoEvent.organizer, age: demoEvent.organizer.age ?? 29, gender: 'any', city: 'Чернігів', bio: null, interests: [], created_at: demoEvent.created_at ?? '' } : null,
+  } : liveEvent
+  const demoParticipants = demoEvent?.event_type === 'personal' && demoEvent.organizer
+    ? [{ id: demoEvent.organizer.id, name: demoEvent.organizer.name, avatar_url: demoEvent.organizer.avatar_url }, ...(demoEvent.participants ?? []).filter((person) => person.id !== demoEvent.organizer?.id)].slice(0, demoEvent.participant_count)
+    : demoEvent?.participants ?? []
+  const participants: EventParticipant[] = demoEvent ? demoParticipants.map((person, index) => ({
+    id: `${demoEvent.id}-participant-${index}`,
+    event_id: demoEvent.id,
+    user_id: person.id,
+    role: index === 0 ? 'organizer' : 'participant',
+    joined_at: demoEvent.created_at ?? '',
+    status: 'joined',
+    user: { ...person, age: 24 + index, gender: 'any', city: 'Чернігів', bio: null, interests: [], google_verified: false, created_at: demoEvent.created_at ?? '' },
+  })) : liveParticipants
   const [distanceKm, setDistanceKm] = useState<number | null>(null)
   const [bookmarked, setBookmarked] = useState(false)
   const [joining, setJoining] = useState(false)
   const [joinError, setJoinError] = useState<string | null>(null)
   const [joined, setJoined] = useState(false)
-  const joiningRef = useRef(false) // synchronous guard — blocks double-clicks before re-render
+  const [pending, setPending] = useState(false)
+  const [rejected, setRejected] = useState(false)
+  const [leaving, setLeaving] = useState(false)
+  const [processingUserId, setProcessingUserId] = useState<string | null>(null)
+  const [requestError, setRequestError] = useState<string | null>(null)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
+  const joiningRef = useRef(false)
+  const deletingRef = useRef(false)
+  const deleteTriggerRef = useRef<HTMLButtonElement>(null)
 
   useEffect(() => {
-    if (!event?.location_lat || !event?.location_lng) return
-    getCurrentPosition().then((pos) => {
-      if (!event.location_lat || !event.location_lng) return
-      const km = haversineKm(pos.lat, pos.lng, event.location_lat, event.location_lng)
-      setDistanceKm(Math.round(km * 10) / 10)
+    if (event?.location_lat == null || event.location_lng == null) return
+    getCurrentPosition().then((position) => {
+      if (event.location_lat == null || event.location_lng == null) return
+      const distance = haversineKm(position.lat, position.lng, event.location_lat, event.location_lng)
+      setDistanceKm(Math.round(distance * 10) / 10)
     })
   }, [event?.location_lat, event?.location_lng])
 
   useEffect(() => {
     if (!supaUser) return
-    // Don't guard on participants.length — empty array means "not joined", which is correct
-    setJoined(participants.some((p) => p.user_id === supaUser.id && p.status === 'joined'))
+    setJoined(participants.some((participant) => participant.user_id === supaUser.id && participant.status === 'joined'))
+    setPending(participants.some((participant) => participant.user_id === supaUser.id && participant.status === 'pending'))
+    setRejected(participants.some((participant) => participant.user_id === supaUser.id && participant.status === 'rejected'))
   }, [participants, supaUser])
+
+  useEffect(() => {
+    if (!deleteDialogOpen) return
+    const handleKeyDown = (keyboardEvent: KeyboardEvent) => {
+      if (keyboardEvent.key === 'Escape' && !deletingRef.current) setDeleteDialogOpen(false)
+    }
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [deleteDialogOpen])
 
   async function handleJoin() {
     if (!supaUser || !event || joiningRef.current) return
-    joiningRef.current = true  // set synchronously — blocks any click before next render
+    joiningRef.current = true
     setJoining(true)
     setJoinError(null)
-    const { error: err } = await joinEvent(supaUser.id)
+    const { error: joinEventError, status } = await joinEvent(supaUser.id)
     joiningRef.current = false
-    if (err) {
-      setJoinError(err)
+    if (joinEventError) {
+      setJoinError(joinEventError)
       setJoining(false)
       return
     }
-    // Don't navigate immediately — show "Ви приєднались ✓" + chat button instead
-    setJoined(true)
+    setJoined(status === 'joined')
+    setPending(status === 'pending')
+    setRejected(false)
     setJoining(false)
   }
 
-  // ── render states ──────────────────────────────────────────────────────────
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-brand-bg text-brand-ink flex flex-col">
-        <div className="h-14 bg-white border-b border-brand-border animate-pulse" />
-        <div className="flex-1 px-4 pt-5 space-y-4">
-          {[1, 2, 3, 4, 5].map((i) => (
-            <div key={i} className="bg-white rounded-2xl h-20 animate-pulse border border-brand-border shadow-sm" />
-          ))}
-        </div>
-      </div>
-    )
+  async function handleReview(userId: string, decision: 'approve' | 'reject') {
+    if (processingUserId) return
+    setProcessingUserId(userId)
+    setRequestError(null)
+    const reviewError = await reviewRequest(userId, decision)
+    setProcessingUserId(null)
+    if (reviewError) setRequestError(reviewError)
   }
 
-  if (error || !event) {
-    return (
-      <div className="min-h-screen bg-brand-bg text-brand-ink flex flex-col items-center justify-center px-4">
-        <div className="text-4xl mb-3">😕</div>
-        <p className="text-brand-ink-soft">{error ?? 'Подію не знайдено'}</p>
-        <button
-          onClick={() => navigate(-1)}
-          className="mt-6 text-brand-petrol hover:text-brand-petrol-light text-sm"
-        >
-          ← Назад
-        </button>
-      </div>
-    )
+  async function handleLeave() {
+    if (leaving || !window.confirm('Вийти з події?')) return
+    setLeaving(true)
+    setJoinError(null)
+    const leaveError = await leaveEvent()
+    setLeaving(false)
+    if (leaveError) {
+      setJoinError(leaveError)
+      return
+    }
+    setJoined(false)
+    setPending(false)
+    setRejected(false)
   }
 
-  const emoji = CATEGORY_EMOJI[event.category] ?? '💬'
-  const categoryLabel = CATEGORY_LABEL[event.category] ?? event.category
-  const activeParticipants = participants.filter((p) => p.status === 'joined')
-  const isOrganizer = supaUser?.id === event.organizer_id
+  function closeDeleteDialog() {
+    if (deletingRef.current) return
+    setDeleteDialogOpen(false)
+    window.requestAnimationFrame(() => deleteTriggerRef.current?.focus())
+  }
+
+  async function handleDelete() {
+    if (!event || !supaUser || supaUser.id !== event.organizer_id || deletingRef.current) return
+    deletingRef.current = true
+    setDeleting(true)
+    setDeleteError(null)
+
+    const { data, error: deleteEventError } = await supabase
+      .from('events')
+      .delete()
+      .eq('id', event.id)
+      .eq('organizer_id', supaUser.id)
+      .select('id')
+      .maybeSingle()
+
+    if (deleteEventError || !data) {
+      console.error('Failed to delete event', deleteEventError ?? new Error('Event deletion was not authorized or the event no longer exists'))
+      setDeleteError('Не вдалося видалити подію. Спробуйте ще раз.')
+      deletingRef.current = false
+      setDeleting(false)
+      return
+    }
+
+    navigate('/', { replace: true })
+  }
+
+  if (loading && !demoEvent) {
+    return <div className="min-h-screen bg-brand-bg"><TopBar title="Деталі події" /><div className="mx-auto max-w-6xl space-y-4 px-4 py-6 sm:px-6 lg:grid lg:grid-cols-[minmax(0,1fr)_360px] lg:gap-8 lg:space-y-0 lg:px-8"><div className="space-y-4">{[1, 2, 3, 4].map((item) => <div key={item} className="h-24 animate-pulse rounded-2xl border border-brand-border bg-white" />)}</div><div className="hidden h-80 animate-pulse rounded-2xl border border-brand-border bg-white lg:block" /></div></div>
+  }
+
+  if ((!demoEvent && error) || !event) {
+    return <div className="grid min-h-screen place-items-center bg-brand-bg px-4 text-center"><div><div className="mx-auto mb-4 grid h-12 w-12 place-items-center rounded-full bg-brand-accent-soft text-brand-accent">!</div><p className="text-sm text-brand-ink-soft">{error ?? 'Подію не знайдено'}</p><button onClick={() => navigate(-1)} className="mt-5 rounded-xl bg-brand-accent px-4 py-2.5 text-sm font-bold text-white">Повернутися</button></div></div>
+  }
+
+  const activeParticipants = participants.filter((participant) => participant.status === 'joined')
+  const pendingRequests = participants.filter((participant) => participant.role === 'participant' && participant.status === 'pending')
+  const isOrganizer = !demoEvent && supaUser?.id === event.organizer_id
   const isFull = activeParticipants.length >= event.max_participants
+  const formattedDate = formatEventDate(event.event_datetime)
+  const organizerName = event.organizer?.name ?? 'Організатор'
+  const locationSecondary = distanceKm !== null ? `${distanceKm.toLocaleString('uk-UA')} км від вас` : null
+  const hasLocation = (event.location_lat != null && event.location_lng != null) || Boolean(event.address_text)
+  const actions = demoEvent
+    ? <button type="button" onClick={() => setJoinError('Це демонстраційна подія')} className="h-14 w-full rounded-2xl bg-brand-accent px-5 text-sm font-extrabold text-white transition hover:bg-brand-accent-hover">{demoEvent.join_mode === 'approval' ? 'Надіслати запит' : 'Приєднатися'}</button>
+    : <EventActionContent isOrganizer={isOrganizer} joined={joined} pending={pending} rejected={rejected} joinMode={event.join_mode} isFull={isFull} joining={joining} leaving={leaving} onJoin={handleJoin} onChat={() => navigate(`/event/${event.id}/chat`)} onLeave={handleLeave} />
+
+  const renderMap = () => event.location_lat != null && event.location_lng != null ? (
+    <Suspense fallback={<div className="h-52 animate-pulse rounded-2xl border border-brand-border bg-white" />}><EventMap lat={event.location_lat!} lng={event.location_lng!} title={event.address_text || event.title} /></Suspense>
+  ) : event.address_text ? (
+    <div className="rounded-2xl border border-brand-border bg-white p-5 text-sm text-brand-ink-soft shadow-card"><div className="flex items-center gap-2"><Icon name="pin" className="h-5 w-5 text-brand-accent" />{event.address_text}</div></div>
+  ) : null
 
   return (
-    <div className="min-h-screen bg-brand-bg text-brand-ink pb-36">
+    <div className="min-h-screen bg-white pb-28 text-brand-ink lg:bg-brand-bg lg:pb-10">
+      <TopBar title={event.title} />
+      <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-brand-border bg-white/95 px-2.5 backdrop-blur-xl lg:hidden">
+        <button type="button" onClick={() => navigate(-1)} className="grid h-11 w-11 place-items-center rounded-xl text-brand-ink transition hover:bg-white focus-visible:outline-2 focus-visible:outline-brand-accent" aria-label="Назад"><span className="text-2xl leading-none">←</span></button>
+        <p className="max-w-[220px] truncate text-sm font-bold">{event.title}</p>
+        <button type="button" disabled={Boolean(demoEvent)} onClick={() => setBookmarked((value) => !value)} className={`grid h-11 w-11 place-items-center rounded-xl transition hover:bg-brand-bg focus-visible:outline-2 focus-visible:outline-brand-accent disabled:cursor-not-allowed disabled:opacity-45 ${bookmarked ? 'text-brand-accent' : 'text-brand-ink-muted'}`} aria-label={bookmarked ? 'Видалити зі збережених' : 'Зберегти подію'} aria-pressed={bookmarked}><Icon name="bookmark" className="h-5 w-5" /></button>
+      </header>
 
-      {/* ── Cover photo ────────────────────────────────────────────────── */}
-      <div className="relative h-52 w-full overflow-hidden">
-        {event.cover_photo_url ? (
-          <img
-            src={event.cover_photo_url}
-            alt={event.title}
-            className="w-full h-full object-cover"
-          />
-        ) : (
-          <CategoryPlaceholder category={event.category} className="h-52 w-full" />
-        )}
-        <div className="absolute inset-0 bg-gradient-to-b from-black/20 to-transparent pointer-events-none" />
-      </div>
+      <div className="mx-auto grid max-w-6xl grid-cols-1 items-start gap-7 px-4 py-5 sm:px-7 md:py-7 lg:grid-cols-[minmax(0,1fr)_340px] lg:px-8 xl:grid-cols-[minmax(0,1fr)_370px] xl:gap-9">
+        <main className="min-w-0 space-y-5">
+          <OrganizerHeader name={organizerName} avatarUrl={event.organizer?.avatar_url ?? null} verified={event.organizer?.google_verified ?? false} />
+          <section>
+            <div className="mb-2 flex flex-wrap items-center gap-2"><span className="rounded-md bg-brand-accent-soft px-2 py-1 text-[10px] font-extrabold text-brand-accent">{CATEGORY_LABEL[event.category] ?? event.category}</span>{!event.is_public && <span className="rounded-md border border-brand-border bg-white px-2 py-1 text-[10px] font-bold text-brand-ink-muted">Приватна</span>}</div>
+            <h1 className="text-[28px] font-extrabold leading-[1.12] tracking-[-0.04em] text-brand-ink md:text-[34px] lg:text-4xl">{event.title}</h1>
+            {event.description && <p className="mt-3 max-w-3xl text-sm leading-6 text-brand-ink-soft md:text-[15px]">{event.description}</p>}
+          </section>
+          <div className="border-t border-brand-border" />
+          <div className="grid gap-2 sm:grid-cols-2"><EventInfoRow icon="calendar" eyebrow="Дата і час" primary={formattedDate.day} secondary={formattedDate.time} />{event.address_text && <EventInfoRow icon="pin" eyebrow="Місце" primary={event.address_text} secondary={locationSecondary} />}</div>
+          <ParticipantList participants={activeParticipants} capacity={event.max_participants} />
+          {isOrganizer && event.join_mode === 'approval' && <PendingRequestList requests={pendingRequests} processingUserId={processingUserId} onApprove={(userId) => { void handleReview(userId, 'approve') }} onReject={(userId) => { void handleReview(userId, 'reject') }} />}
+          {requestError && <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{requestError}</div>}
+          <EventRequirements gender={GENDER_LABEL[event.gender_filter] ?? event.gender_filter} age={`${event.min_age}–${event.max_age} років`} category={CATEGORY_LABEL[event.category] ?? event.category} isPublic={event.is_public} />
+          {hasLocation && <div className="lg:hidden"><h2 className="mb-2.5 text-sm font-extrabold text-brand-ink">Місце зустрічі</h2>{renderMap()}</div>}
+          {joinError && <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{joinError}</div>}
+          {isOrganizer && <section className="border-t border-brand-border pt-5"><h2 className="text-sm font-extrabold text-brand-ink">Керування подією</h2><p className="mt-1 text-xs leading-5 text-brand-ink-muted">Видалення прибере подію, заявки учасників і чат.</p><button ref={deleteTriggerRef} type="button" onClick={() => { setDeleteError(null); setDeleteDialogOpen(true) }} className="mt-3 min-h-11 rounded-xl border border-red-200 bg-white px-4 text-sm font-bold text-red-600 transition hover:border-red-300 hover:bg-red-50">Видалити подію</button></section>}
+        </main>
 
-      {/* ── Ticket tear line ────────────────────────────────────────────── */}
-      <div className="relative flex items-center -mx-0 px-4 py-1">
-        <div className="absolute -left-2.5 w-5 h-5 rounded-full bg-brand-bg z-10" />
-        <div className="flex-1 border-t-2 border-dashed border-brand-border mx-2" />
-        <div className="absolute -right-2.5 w-5 h-5 rounded-full bg-brand-bg z-10" />
-      </div>
-
-      {/* ── Header ─────────────────────────────────────────────────────── */}
-      <div className="sticky top-0 bg-brand-bg/95 backdrop-blur z-20 border-b border-brand-border px-4 py-3 flex items-center gap-3 shadow-sm">
-        <button
-          onClick={() => navigate(-1)}
-          className="text-brand-ink-muted hover:text-brand-ink transition-colors p-1 -ml-1"
-          aria-label="Назад"
-        >
-          ←
-        </button>
-        <span className="font-semibold text-base truncate flex-1 text-brand-ink font-display">
-          {emoji} {event.title}
-        </span>
-        <button
-          onClick={() => navigate('/')}
-          className="text-brand-ink-muted hover:text-brand-ink transition-colors p-1"
-          aria-label="На головну"
-        >
-          🏠
-        </button>
-        <button
-          onClick={() => setBookmarked((b) => !b)}
-          className={`transition-colors text-xl ${bookmarked ? 'text-brand-amber' : 'text-brand-border-strong hover:text-brand-ink-muted'}`}
-          aria-label="Зберегти"
-        >
-          🔖
-        </button>
-      </div>
-
-      <div className="px-4 pt-5 space-y-5 max-w-lg mx-auto">
-
-        {/* ── Organizer block ─────────────────────────────────────────── */}
-        <div className="flex items-center gap-3 bg-white rounded-2xl p-4 border border-brand-border shadow-sm">
-          <div className="w-12 h-12 rounded-full bg-gray-200 overflow-hidden flex-shrink-0">
-            {event.organizer?.avatar_url ? (
-              <img
-                src={event.organizer.avatar_url}
-                alt={event.organizer.name}
-                className="w-12 h-12 object-cover"
-              />
-            ) : (
-              <div className="w-12 h-12 flex items-center justify-center text-2xl">👤</div>
-            )}
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2">
-              <span className="font-semibold text-brand-ink truncate">
-                {event.organizer?.name ?? 'Організатор'}
-              </span>
-              {event.organizer?.google_verified && (
-                <span className="text-brand-petrol text-xs bg-brand-petrol/10 px-1.5 py-0.5 rounded-full">✓</span>
-              )}
-            </div>
-            <div className="flex items-center gap-2 mt-0.5">
-              <span className="text-xs text-brand-petrol bg-brand-petrol/10 px-2 py-0.5 rounded-full">
-                Ведучий
-              </span>
-              <span className="text-xs text-green-500">● online</span>
-            </div>
-          </div>
-        </div>
-
-        {/* ── Title & description ─────────────────────────────────────── */}
-        <div>
-          <h1 className="text-2xl font-bold leading-tight text-brand-ink font-display">
-            {emoji} {event.title}
-          </h1>
-          {event.description && (
-            <p className="mt-2 text-brand-ink-soft text-sm leading-relaxed">{event.description}</p>
-          )}
-        </div>
-
-        {/* ── Date / location / distance ──────────────────────────────── */}
-        <div className="bg-white rounded-2xl p-4 border border-brand-border shadow-sm space-y-2.5">
-          <div className="flex items-start gap-3">
-            <span className="text-lg mt-0.5">🗓</span>
-            <span className="text-sm text-brand-ink-soft">{formatDateTime(event.event_datetime)}</span>
-          </div>
-          <div className="flex items-start gap-3">
-            <span className="text-lg mt-0.5">📍</span>
-            <div className="flex-1">
-              <span className="text-sm text-brand-ink-soft">{event.address_text || 'Місце не вказано'}</span>
-              {distanceKm !== null && (
-                <span className="ml-2 text-xs text-brand-ink-muted">{distanceKm} км від вас</span>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* ── Participants ────────────────────────────────────────────── */}
-        <div className="bg-white rounded-2xl p-4 border border-brand-border shadow-sm">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-sm font-semibold text-brand-ink">Учасники</span>
-            <span className="text-sm font-bold text-brand-petrol">
-              {activeParticipants.length}/{event.max_participants} слотів
-            </span>
-          </div>
-
-          <div className="w-full h-1.5 bg-brand-border rounded-full mb-3">
-            <div
-              className={`h-1.5 rounded-full transition-all ${isFull ? 'bg-red-400' : 'bg-brand-petrol'}`}
-              style={{ width: `${Math.min((activeParticipants.length / event.max_participants) * 100, 100)}%` }}
-            />
-          </div>
-
-          <div className="flex items-center gap-1 flex-wrap">
-            {activeParticipants.slice(0, 8).map((p) => (
-              <div key={p.id} className="w-9 h-9 rounded-full bg-gray-200 border-2 border-white overflow-hidden flex-shrink-0 shadow-sm" title={p.user?.name}>
-                {p.user?.avatar_url ? (
-                  <img src={p.user.avatar_url} alt={p.user.name} className="w-9 h-9 object-cover" />
-                ) : (
-                  <div className="w-9 h-9 flex items-center justify-center text-sm">👤</div>
-                )}
+        <aside className="sticky top-24 hidden space-y-4 lg:block">
+          <div className="overflow-hidden rounded-2xl border border-brand-border bg-white shadow-card">
+            <div className="h-36 overflow-hidden"><EventMedia category={event.category} coverUrl={event.cover_photo_url} alt={event.cover_photo_url ? event.title : ''} className="h-full w-full" /></div>
+            <div className="p-5">
+              <p className="text-xs font-bold uppercase tracking-[0.12em] text-brand-ink-muted">{CATEGORY_LABEL[event.category] ?? event.category}</p><h2 className="mt-2 line-clamp-2 text-lg font-extrabold leading-snug text-brand-ink">{event.title}</h2>
+              <div className="mt-5 space-y-4">
+                <div className="flex gap-3"><Icon name="calendar" className="mt-0.5 h-5 w-5 flex-shrink-0 text-brand-accent"/><p className="text-sm font-bold text-brand-ink">{formattedDate.day}, {formattedDate.time}</p></div>
+                {event.address_text && <div className="flex gap-3"><Icon name="pin" className="mt-0.5 h-5 w-5 flex-shrink-0 text-brand-accent"/><div className="min-w-0"><p className="text-sm font-bold leading-5 text-brand-ink">{event.address_text}</p>{locationSecondary && <p className="mt-0.5 text-xs text-brand-ink-muted">{locationSecondary}</p>}</div></div>}
+                <div className="flex gap-3"><Icon name="user" className="mt-0.5 h-5 w-5 flex-shrink-0 text-brand-accent"/><p className="text-sm font-bold text-brand-ink">{activeParticipants.length}/{event.max_participants} учасників</p></div>
               </div>
-            ))}
-            {activeParticipants.length > 8 && (
-              <div className="w-9 h-9 rounded-full bg-brand-border border-2 border-white flex items-center justify-center text-xs text-brand-ink-muted shadow-sm">
-                +{activeParticipants.length - 8}
-              </div>
-            )}
-            {activeParticipants.length === 0 && (
-              <span className="text-xs text-brand-ink-muted">Поки немає учасників — будь першим!</span>
-            )}
-          </div>
-        </div>
-
-        {/* ── Who fits tags ───────────────────────────────────────────── */}
-        <div>
-          <span className="text-xs text-brand-ink-muted uppercase tracking-wider">Хто підходить</span>
-          <div className="flex flex-wrap gap-2 mt-2">
-            <span className="text-xs bg-brand-border border border-brand-border-strong text-brand-ink-soft px-3 py-1.5 rounded-full">
-              {GENDER_LABEL[event.gender_filter] ?? event.gender_filter}
-            </span>
-            <span className="text-xs bg-brand-border border border-brand-border-strong text-brand-ink-soft px-3 py-1.5 rounded-full">
-              👤 {event.min_age}–{event.max_age} р.
-            </span>
-            <span className="text-xs bg-brand-petrol/10 border border-brand-petrol/20 text-brand-petrol px-3 py-1.5 rounded-full">
-              {emoji} {categoryLabel}
-            </span>
-            {!event.is_public && (
-              <span className="text-xs bg-brand-amber/10 border border-brand-amber/20 text-brand-amber px-3 py-1.5 rounded-full">
-                🔒 Приватне
-              </span>
-            )}
-          </div>
-        </div>
-
-        {/* ── Map ────────────────────────────────────────────────────── */}
-        {event.location_lat && event.location_lng ? (
-          <div>
-            <span className="text-xs text-brand-ink-muted uppercase tracking-wider block mb-2">Місце</span>
-            <Suspense fallback={<div className="h-48 rounded-2xl bg-brand-border animate-pulse" />}>
-              <EventMap
-                lat={event.location_lat}
-                lng={event.location_lng}
-                title={event.address_text || event.title}
-              />
-            </Suspense>
-          </div>
-        ) : event.address_text ? (
-          <div className="bg-white rounded-2xl p-4 border border-brand-border shadow-sm text-center text-brand-ink-soft text-sm">
-            📍 {event.address_text}
-          </div>
-        ) : null}
-
-        {/* ── Join error ──────────────────────────────────────────────── */}
-        {joinError && (
-          <div className="text-red-600 text-sm bg-red-50 px-4 py-3 rounded-xl border border-red-100">
-            {joinError}
-          </div>
-        )}
-      </div>
-
-      {/* ── Bottom CTA (sticky) ────────────────────────────────────── */}
-      <div className="fixed bottom-0 inset-x-0 bg-brand-bg/95 backdrop-blur border-t border-brand-border px-4 py-4 safe-area-bottom shadow-sm">
-        <div className="max-w-lg mx-auto">
-          {isOrganizer ? (
-            // Organizer: go straight to chat
-            <button
-              onClick={() => navigate(`/event/${event.id}/chat`)}
-              className="w-full bg-brand-petrol hover:bg-brand-petrol-light text-white font-semibold py-4 rounded-2xl transition-all active:scale-95"
-            >
-              💬 Перейти в чат
-            </button>
-          ) : joined ? (
-            // Already a participant: show success badge + chat button
-            <div className="space-y-2">
-              <div className="flex items-center justify-center gap-2 text-green-600 text-sm font-medium">
-                <span className="text-green-500 text-lg">✓</span>
-                Ви приєднались до події
-              </div>
-              <button
-                onClick={() => navigate(`/event/${event.id}/chat`)}
-                className="w-full bg-green-500 hover:bg-green-400 text-white font-semibold py-4 rounded-2xl transition-all active:scale-95"
-              >
-                💬 Перейти в чат події
-              </button>
+              <div className="mt-6">{actions}</div>{joinError && <p role="alert" className="mt-3 text-xs text-red-600">{joinError}</p>}
             </div>
-          ) : isFull ? (
-            // No slots left
-            <button
-              disabled
-              className="w-full bg-brand-border text-brand-ink-muted font-semibold py-4 rounded-2xl"
-            >
-              🚫 Місць немає
-            </button>
-          ) : (
-            // Main CTA: join
-            <button
-              onClick={handleJoin}
-              disabled={joining || !supaUser}
-              className="w-full bg-brand-petrol hover:bg-brand-petrol-light disabled:opacity-50 text-white font-semibold py-4 rounded-2xl transition-all active:scale-95"
-            >
-              {joining ? 'Приєднуємось...' : 'Приєднатись'}
-            </button>
-          )}
-        </div>
+          </div>
+          {renderMap() && <div><h2 className="mb-3 text-sm font-extrabold text-brand-ink">Місце зустрічі</h2>{renderMap()}</div>}
+        </aside>
       </div>
-
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-brand-border bg-white/96 px-4 py-3 shadow-[0_-8px_30px_rgba(23,23,28,0.06)] backdrop-blur-xl pb-safe lg:hidden"><div className="mx-auto flex max-w-lg items-end gap-3"><div className="min-w-0 flex-1">{actions}</div><button type="button" disabled={Boolean(demoEvent)} onClick={() => setBookmarked((value) => !value)} aria-label="Зберегти подію" className={`grid h-14 w-14 flex-shrink-0 place-items-center rounded-2xl border border-brand-border bg-white disabled:cursor-not-allowed disabled:opacity-45 ${bookmarked ? 'text-brand-accent' : 'text-brand-ink-soft'}`}><Icon name="bookmark" className="h-5 w-5" /></button></div></div>
+      {deleteDialogOpen && <div className="fixed inset-0 z-[70] grid place-items-center bg-black/45 px-4 py-6" onMouseDown={(mouseEvent) => { if (mouseEvent.target === mouseEvent.currentTarget) closeDeleteDialog() }}><div role="dialog" aria-modal="true" aria-labelledby="delete-event-title" aria-describedby="delete-event-description" className="w-full max-w-sm rounded-2xl border border-brand-border bg-white p-5 shadow-[0_24px_70px_rgba(23,23,28,0.24)] sm:p-6"><h2 id="delete-event-title" className="text-lg font-extrabold text-brand-ink">Видалити подію?</h2><p id="delete-event-description" className="mt-2 text-sm leading-6 text-brand-ink-muted">Цю дію неможливо скасувати.</p>{deleteError && <p role="alert" className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-700">{deleteError}</p>}<div className="mt-6 grid grid-cols-2 gap-2"><button type="button" autoFocus onClick={closeDeleteDialog} disabled={deleting} className="h-11 rounded-xl border border-brand-border bg-white text-sm font-bold text-brand-ink-soft transition hover:bg-brand-surface-muted disabled:cursor-not-allowed disabled:opacity-50">Скасувати</button><button type="button" onClick={() => { void handleDelete() }} disabled={deleting} className="h-11 rounded-xl bg-red-600 px-4 text-sm font-extrabold text-white transition hover:bg-red-700 disabled:cursor-wait disabled:opacity-60">{deleting ? 'Видаляємо…' : 'Видалити'}</button></div></div></div>}
     </div>
   )
 }

@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom'
+import { BrowserRouter, Navigate, Routes, Route, useLocation } from 'react-router-dom'
 import { AuthProvider } from '@/contexts/AuthContext'
 import ProtectedRoute from '@/components/ProtectedRoute'
 import BottomNav from '@/components/BottomNav'
@@ -8,24 +8,35 @@ import EventDetail from '@/pages/EventDetail'
 import EventChat from '@/pages/EventChat'
 import Chats from '@/pages/Chats'
 import CreateEvent from '@/pages/CreateEvent'
+import AppSidebar from '@/components/AppSidebar'
+import MyEvents from '@/pages/MyEvents'
 
 // Routes with their own full-screen bottom CTA — BottomNav would cover them
 const HIDE_NAV_PATTERNS = [/^\/event\//]
 
 function AppLayout() {
   const { pathname } = useLocation()
-  const hideNav = HIDE_NAV_PATTERNS.some((re) => re.test(pathname))
+  const isCreateEvent = pathname === '/create'
+  const hideNav = isCreateEvent || HIDE_NAV_PATTERNS.some((re) => re.test(pathname))
+  const isEventDetail = /^\/event\/[^/]+$/.test(pathname)
+  const isEventChat = /^\/event\/[^/]+\/chat$/.test(pathname)
+  const showDesktopShell = !hideNav || isEventDetail || isEventChat || isCreateEvent
 
   return (
     <>
-      <Routes>
-        <Route path="/" element={<HomeScreen />} />
-        <Route path="/profile" element={<Profile />} />
-        <Route path="/chats" element={<Chats />} />
-        <Route path="/event/:id" element={<EventDetail />} />
-        <Route path="/event/:id/chat" element={<EventChat />} />
-        <Route path="/create" element={<CreateEvent />} />
-      </Routes>
+      {showDesktopShell && <AppSidebar />}
+      <main className={showDesktopShell ? 'lg:pl-56 xl:pl-60' : ''}>
+        <Routes>
+          <Route path="/" element={<HomeScreen />} />
+          <Route path="/profile" element={<Profile />} />
+          <Route path="/chats" element={<Chats />} />
+          <Route path="/event/:id" element={<EventDetail />} />
+          <Route path="/event/:id/chat" element={<EventChat />} />
+          <Route path="/create" element={<CreateEvent />} />
+          <Route path="/my-events" element={<MyEvents />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </main>
       {!hideNav && <BottomNav />}
     </>
   )
@@ -33,7 +44,7 @@ function AppLayout() {
 
 export default function App() {
   return (
-    <BrowserRouter basename="/meetnow">
+    <BrowserRouter basename={import.meta.env.BASE_URL.replace(/\/$/, '') || '/'}>
       <AuthProvider>
         <ProtectedRoute>
           <AppLayout />

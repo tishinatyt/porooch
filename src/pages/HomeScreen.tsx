@@ -1,27 +1,21 @@
 import { useState, useEffect, useCallback } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import { getCurrentPosition } from '@/lib/geo'
-import CategoryPlaceholder from '@/components/CategoryPlaceholder'
+import TopBar from '@/components/TopBar'
+import { PersonalEventCard, PublicEventCard } from '@/components/home/HomeEventCards'
+import { CategoryChips, EmptyState } from '@/components/home/HomeControls'
+import type { PersonalEventData, PublicEventData } from '@/components/home/types'
+import { DEMO_PERSONAL_EVENTS, DEMO_PUBLIC_EVENTS, PUBLIC_CATEGORIES } from '@/components/home/demoEvents'
 
 // ── Constants ────────────────────────────────────────────────────────────────
-
-const CATEGORY_EMOJI: Record<string, string> = {
-  cinema: '🎬', theatre: '🎭', bar: '🍺', sport: '🏃',
-  music: '🎵', food: '🍕', games: '🎲', walk: '🚶', art: '🎨', other: '💬',
-}
 
 const CATEGORY_LABEL: Record<string, string> = {
   cinema: 'Кіно', theatre: 'Театр', bar: 'Бар', sport: 'Спорт',
   music: 'Музика', food: 'Їжа', games: 'Ігри', walk: 'Прогулянка',
-  art: 'Мистецтво', other: 'Інше',
+  art: 'Мистецтво', communication: 'Спілкування', other: 'Інше',
 }
-
-const GENDER_LABEL: Record<string, string> = {
-  any: 'Будь-хто', male: 'Хлопці', female: 'Дівчата',
-}
-
 
 const TABS = [
   { key: 'all',     label: 'Усі' },
@@ -30,10 +24,6 @@ const TABS = [
   { key: 'bar',     label: 'Бар' },
   { key: 'sport',   label: 'Спорт' },
   { key: 'music',   label: 'Музика' },
-  { key: 'food',    label: 'Їжа' },
-  { key: 'games',   label: 'Ігри' },
-  { key: 'walk',    label: 'Прогулянка' },
-  { key: 'art',     label: 'Мистецтво' },
   { key: 'other',   label: 'Інше' },
 ]
 
@@ -47,445 +37,108 @@ const RADIUS_OPTIONS = [
   { value: 50, label: 'Вся Чернігівщина' },
 ]
 
-// ── Types ─────────────────────────────────────────────────────────────────────
-
-interface OrganizerInfo {
-  id: string
-  name: string
-  avatar_url: string | null
-  google_verified: boolean
-}
-
-interface ParticipantInfo {
-  user_id: string
-  user: { id: string; name: string; avatar_url: string | null } | null
-}
-
-interface MyEvent {
-  eventId: string
-  role: 'organizer' | 'participant'
-  title: string
-  category: string
-  address_text: string
-  event_datetime: string
-  created_at: string
-  min_age: number
-  max_age: number
-  gender_filter: string
-  cover_photo_url: string | null
-  max_participants: number
-  organizer: OrganizerInfo | null
-  participants: ParticipantInfo[]
-}
-
-interface PublicEvent {
-  id: string
-  title: string
-  category: string
-  address_text: string
-  event_datetime: string
-  created_at?: string
-  min_age: number
-  max_age: number
-  gender_filter: string
-  cover_photo_url: string | null
-  max_participants: number
-  participant_count: number
-  distance_km: number | null
-  organizer: OrganizerInfo | null
-}
-
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function formatShortDateTime(iso: string) {
-  const d = new Date(iso)
-  return d.toLocaleString('uk-UA', {
-    weekday: 'short', day: 'numeric', month: 'short',
-    hour: '2-digit', minute: '2-digit',
-  })
+function matchesSearch(event: Pick<PublicEventData, 'title' | 'category' | 'address_text' | 'organizer'>, query: string) {
+  const normalized = query.trim().toLocaleLowerCase('uk-UA')
+  if (!normalized) return true
+  const category = CATEGORY_LABEL[event.category] ?? event.category
+  return [event.title, category, event.address_text, event.organizer?.name ?? '']
+    .some((value) => value.toLocaleLowerCase('uk-UA').includes(normalized))
 }
 
-function toSingle<T>(val: T | T[] | null | undefined): T | null {
-  if (val === null || val === undefined) return null
-  return Array.isArray(val) ? (val[0] ?? null) : val
+function isEligible(event: PublicEventData, age: number | undefined, gender: string | undefined) {
+  const ageMatches = !age || age < 1 || (age >= event.min_age && age <= event.max_age)
+  const genderMatches = !gender || gender === 'any' || event.gender_filter === 'any' || event.gender_filter === gender
+  return ageMatches && genderMatches
 }
 
-// ── AvatarStack ───────────────────────────────────────────────────────────────
-
-function AvatarStack({
-  users,
-  max = 5,
-}: {
-  users: { avatar_url: string | null; name?: string }[]
-  max?: number
-}) {
-  const shown = users.slice(0, max)
-  const extra = users.length - max
-  return (
-    <div className="flex items-center">
-      {shown.map((u, i) => (
-        <div
-          key={i}
-          className="w-7 h-7 rounded-full bg-gray-200 border-2 border-white overflow-hidden flex-shrink-0 -ml-1 first:ml-0 shadow-sm"
-          title={u.name}
-        >
-          {u.avatar_url ? (
-            <img src={u.avatar_url} alt={u.name ?? ''} className="w-7 h-7 object-cover" />
-          ) : (
-            <div className="w-7 h-7 flex items-center justify-center text-xs">👤</div>
-          )}
-        </div>
-      ))}
-      {extra > 0 && (
-        <div className="w-7 h-7 rounded-full bg-brand-border border-2 border-white flex items-center justify-center text-xs text-brand-ink-muted -ml-1 shadow-sm">
-          +{extra}
-        </div>
-      )}
-    </div>
-  )
+function sortDiscovery(left: PublicEventData, right: PublicEventData) {
+  if (left.distance_km !== null && right.distance_km !== null && left.distance_km !== right.distance_km) {
+    return left.distance_km - right.distance_km
+  }
+  if (left.distance_km !== null && right.distance_km === null) return -1
+  if (left.distance_km === null && right.distance_km !== null) return 1
+  return new Date(left.event_datetime).getTime() - new Date(right.event_datetime).getTime()
 }
 
-
-// ── MyEventCard ───────────────────────────────────────────────────────────────
-
-function MyEventCard({ event }: { event: MyEvent }) {
-  const navigate = useNavigate()
-  const isOrganizer = event.role === 'organizer'
-  const emoji = CATEGORY_EMOJI[event.category] ?? '💬'
-  const categoryLabel = CATEGORY_LABEL[event.category] ?? event.category
-
-  return (
-    <div
-      className="bg-white rounded-2xl border border-brand-border shadow-sm overflow-visible transition-all duration-200 hover:-rotate-[0.5deg] hover:shadow-lg cursor-pointer"
-    >
-      {/* Organizer row */}
-      <div className="flex items-center gap-3 p-4 pb-3">
-        <div className="w-10 h-10 rounded-full bg-gray-200 overflow-hidden flex-shrink-0">
-          {event.organizer?.avatar_url ? (
-            <img
-              src={event.organizer.avatar_url}
-              alt={event.organizer.name}
-              className="w-10 h-10 object-cover"
-            />
-          ) : (
-            <div className="w-10 h-10 flex items-center justify-center text-lg">👤</div>
-          )}
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1.5">
-            <span className="text-brand-ink font-semibold text-sm truncate">
-              {event.organizer?.name ?? 'Організатор'}
-            </span>
-            {event.organizer?.google_verified && (
-              <span className="text-brand-petrol text-xs bg-brand-petrol/10 px-1 rounded">✓</span>
-            )}
-          </div>
-          <div className="flex items-center gap-1.5 mt-0.5">
-            <span
-              className={`text-xs px-2 py-0.5 rounded-full ${
-                isOrganizer
-                  ? 'text-brand-petrol bg-brand-petrol/10'
-                  : 'text-green-600 bg-green-50'
-              }`}
-            >
-              {isOrganizer ? 'Ведучий' : 'Учасник'}
-            </span>
-            <span className="text-xs text-brand-ink-muted">{formatShortDateTime(event.event_datetime)}</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Ticket perforation divider */}
-      <div className="relative flex items-center px-0 py-0">
-        {/* Left notch */}
-        <div className="absolute -left-2.5 w-5 h-5 rounded-full bg-brand-bg z-10" />
-        {/* Dashed line */}
-        <div className="flex-1 border-t-2 border-dashed border-brand-border mx-2" />
-        {/* Right notch */}
-        <div className="absolute -right-2.5 w-5 h-5 rounded-full bg-brand-bg z-10" />
-      </div>
-
-      {/* Title */}
-      <div className="px-4 pt-3 pb-3">
-        <h3 className="text-brand-ink font-bold text-base leading-tight line-clamp-2 font-display">
-          {emoji} {event.title}
-        </h3>
-        <div className="flex items-center gap-1 mt-1.5 text-xs text-brand-ink-muted">
-          <span>📍</span>
-          <span className="truncate">{event.address_text || 'Місце не вказано'}</span>
-        </div>
-      </div>
-
-      {/* Tags */}
-      <div className="px-4 pb-3 flex flex-wrap gap-1.5">
-        <span className="text-xs bg-brand-border border border-brand-border-strong text-brand-ink-soft px-2.5 py-1 rounded-full">
-          👤 {event.min_age}–{event.max_age} р.
-        </span>
-        <span className="text-xs bg-brand-border border border-brand-border-strong text-brand-ink-soft px-2.5 py-1 rounded-full">
-          {GENDER_LABEL[event.gender_filter] ?? event.gender_filter}
-        </span>
-        <span className="text-xs bg-brand-petrol/10 border border-brand-petrol/20 text-brand-petrol px-2.5 py-1 rounded-full">
-          {emoji} {categoryLabel}
-        </span>
-      </div>
-
-      {/* Participant avatars */}
-      {event.participants.length > 0 && (
-        <div className="px-4 pb-3">
-          <AvatarStack
-            users={event.participants.map((p) => ({
-              avatar_url: p.user?.avatar_url ?? null,
-              name: p.user?.name,
-            }))}
-            max={5}
-          />
-        </div>
-      )}
-
-      {/* Single button: Chat */}
-      <div className="px-4 pb-4">
-        <button
-          onClick={() => navigate(`/event/${event.eventId}/chat`)}
-          className="w-full py-2.5 rounded-xl text-sm font-semibold bg-brand-petrol hover:bg-brand-petrol-light text-white transition-all active:scale-95"
-        >
-          💬 Чат
-        </button>
-      </div>
-    </div>
-  )
-}
-
-// ── PublicEventCard ───────────────────────────────────────────────────────────
-
-function PublicEventCard({ event, isNew = false }: { event: PublicEvent; isNew?: boolean }) {
-  const navigate = useNavigate()
-  const emoji = CATEGORY_EMOJI[event.category] ?? '💬'
-  const categoryLabel = CATEGORY_LABEL[event.category] ?? event.category
-
-  return (
-    <div
-      className={`bg-white rounded-2xl border shadow-sm overflow-visible flex flex-col transition-all duration-200 hover:-rotate-[0.5deg] hover:shadow-lg cursor-pointer ${
-        isNew ? 'border-brand-amber ring-2 ring-brand-amber/40' : 'border-brand-border'
-      }`}
-    >
-      {/* Cover */}
-      <div className="overflow-hidden rounded-t-2xl">
-        {event.cover_photo_url ? (
-          <div className="h-32 w-full overflow-hidden">
-            <img src={event.cover_photo_url} alt="" className="w-full h-full object-cover" />
-          </div>
-        ) : (
-          <CategoryPlaceholder category={event.category} className="h-32 w-full" />
-        )}
-      </div>
-
-      {/* Ticket perforation divider */}
-      <div className="relative flex items-center px-0 py-0">
-        {/* Left notch */}
-        <div className="absolute -left-2.5 w-5 h-5 rounded-full bg-brand-bg z-10" />
-        {/* Dashed line */}
-        <div className="flex-1 border-t-2 border-dashed border-brand-border mx-2" />
-        {/* Right notch */}
-        <div className="absolute -right-2.5 w-5 h-5 rounded-full bg-brand-bg z-10" />
-      </div>
-
-      {/* Content */}
-      <div className="p-4 flex flex-col flex-1">
-        {/* Category badge + distance */}
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-xs bg-brand-petrol/10 border border-brand-petrol/20 text-brand-petrol px-2.5 py-1 rounded-full">
-            {emoji} {categoryLabel}
-          </span>
-          {event.distance_km !== null && (
-            <span className="text-xs text-brand-ink-muted">{event.distance_km.toFixed(1)} км</span>
-          )}
-        </div>
-
-        {/* NEW badge */}
-        {isNew && (
-          <div className="mb-2">
-            <span className="text-xs bg-brand-amber text-white px-2.5 py-1 rounded-full ring-1 ring-brand-amber">
-              ✨ Нова подія
-            </span>
-          </div>
-        )}
-
-        {/* Title */}
-        <h3 className="text-brand-ink font-bold text-sm leading-tight line-clamp-2 mb-2 font-display">
-          {event.title}
-        </h3>
-
-        {/* Location & time */}
-        <div className="text-xs text-brand-ink-muted space-y-0.5 mb-3">
-          <div className="flex items-center gap-1">
-            <span>📍</span>
-            <span className="truncate">{event.address_text || 'Місце не вказано'}</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <span>🕐</span>
-            <span>{formatShortDateTime(event.event_datetime)}</span>
-          </div>
-        </div>
-
-        {/* Participants count */}
-        <div className="flex items-center gap-2 mb-3">
-          <div className="flex-1 h-1 bg-brand-border rounded-full overflow-hidden">
-            <div
-              className="h-1 bg-brand-petrol rounded-full"
-              style={{
-                width: `${Math.min((event.participant_count / event.max_participants) * 100, 100)}%`,
-              }}
-            />
-          </div>
-          <span className="text-xs text-brand-ink-soft flex-shrink-0">
-            <span className="text-brand-ink font-semibold">{event.participant_count}</span>
-            /{event.max_participants}
-          </span>
-        </div>
-
-        {/* Single button: Details → /event/:id where join CTA lives */}
-        <button
-          onClick={() => navigate(`/event/${event.id}`)}
-          className="w-full mt-auto py-2 rounded-xl text-xs font-semibold bg-brand-petrol hover:bg-brand-petrol-light text-white transition-all active:scale-95"
-        >
-          Деталі →
-        </button>
-      </div>
-    </div>
-  )
+function asPersonalEvent(event: PublicEventData): PersonalEventData {
+  return {
+    eventId: event.id,
+    title: event.title,
+    category: event.category,
+    address_text: event.address_text,
+    event_datetime: event.event_datetime,
+    created_at: event.created_at ?? event.event_datetime,
+    min_age: event.min_age,
+    max_age: event.max_age,
+    gender_filter: event.gender_filter,
+    cover_photo_url: event.cover_photo_url,
+    max_participants: event.max_participants,
+    organizer: event.organizer,
+    participants: (event.participants ?? []).map((person) => ({ user_id: person.id, user: person })),
+    participant_count: event.participant_count,
+    distance_km: event.distance_km,
+    join_mode: event.join_mode,
+    description: event.description,
+    isDemo: event.isDemo,
+  }
 }
 
 // ── HomeScreen ────────────────────────────────────────────────────────────────
 
 export default function HomeScreen() {
-  const { supaUser } = useAuth()
+  const { supaUser, profile } = useAuth()
 
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedCategory, setSelectedCategory] = useState('all')
   const [publicPage, setPublicPage] = useState(1)
   const [radiusKm, setRadiusKm] = useState(5)
 
-  const [myEvents, setMyEvents] = useState<MyEvent[]>([])
-  const [allPublicEvents, setAllPublicEvents] = useState<PublicEvent[]>([])
-  const [myEventIds, setMyEventIds] = useState<Set<string>>(new Set())
+  const [allDiscoveryEvents, setAllDiscoveryEvents] = useState<PublicEventData[]>([])
+  const [excludedEventIds, setExcludedEventIds] = useState<Set<string>>(new Set())
 
-  const [loadingMy, setLoadingMy] = useState(true)
-  const [loadingPublic, setLoadingPublic] = useState(true)
+  const [loadingDiscovery, setLoadingDiscovery] = useState(true)
   const [newEventId, setNewEventId] = useState<string | null>(null)
 
-  // ── Fetch "Мої події" ──────────────────────────────────────────────────────
-
-  const fetchMyEvents = useCallback(async () => {
+  const fetchDiscoveryEvents = useCallback(async () => {
     if (!supaUser) return
-    setLoadingMy(true)
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: participations, error: partError } = await (supabase as any)
-      .from('event_participants')
-      .select('event_id, role')
-      .eq('user_id', supaUser.id)
-      .eq('status', 'joined')
-
-    if (partError) console.error('[fetchMyEvents] participations error:', partError)
-
-    if (!participations || participations.length === 0) {
-      setMyEvents([])
-      setMyEventIds(new Set())
-      setLoadingMy(false)
-      return
-    }
-
-    const roleByEvent = new Map<string, string>(
-      (participations as { event_id: string; role: string }[]).map((p) => [p.event_id, p.role])
-    )
-    const eventIds = [...roleByEvent.keys()]
-
-    setMyEventIds(new Set(eventIds))
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const [eventsRes, allPartsRes] = await Promise.all([
-      (supabase as any)
-        .from('events')
-        .select(`
-          id, title, category, address_text, event_datetime, created_at,
-          min_age, max_age, gender_filter, cover_photo_url, max_participants,
-          organizer:users!events_organizer_id_fkey(id, name, avatar_url, google_verified)
-        `)
-        .in('id', eventIds)
-        .order('created_at', { ascending: false }),
-      (supabase as any)
-        .from('event_participants')
-        .select(`
-          event_id, user_id,
-          user:users!event_participants_user_id_fkey(id, name, avatar_url)
-        `)
-        .in('event_id', eventIds)
-        .eq('status', 'joined'),
-    ])
-
-    if (eventsRes.error) console.error('[fetchMyEvents] events error:', eventsRes.error)
-    if (allPartsRes.error) console.error('[fetchMyEvents] participants error:', allPartsRes.error)
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const eventsById = new Map<string, any>((eventsRes.data ?? []).map((e: any) => [e.id, e]))
-
-    const partsByEvent = new Map<string, ParticipantInfo[]>()
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    for (const p of (allPartsRes.data ?? []) as any[]) {
-      const list = partsByEvent.get(p.event_id) ?? []
-      list.push({ user_id: p.user_id, user: toSingle(p.user) })
-      partsByEvent.set(p.event_id, list)
-    }
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const mapped: MyEvent[] = eventIds
-      .map((eid) => {
-        const ev = eventsById.get(eid)
-        if (!ev) {
-          console.error('[fetchMyEvents] event not visible for event_id:', eid, '— RLS may be blocking it')
-          return null
-        }
-        return {
-          eventId: ev.id,
-          role: (roleByEvent.get(eid) ?? 'participant') as 'organizer' | 'participant',
-          title: ev.title,
-          category: ev.category,
-          address_text: ev.address_text,
-          event_datetime: ev.event_datetime,
-          created_at: ev.created_at,
-          min_age: ev.min_age,
-          max_age: ev.max_age,
-          gender_filter: ev.gender_filter,
-          cover_photo_url: ev.cover_photo_url,
-          max_participants: ev.max_participants,
-          organizer: toSingle(ev.organizer) as OrganizerInfo | null,
-          participants: partsByEvent.get(ev.id) ?? [],
-        }
-      })
-      .filter(Boolean) as MyEvent[]
-
-    mapped.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-
-    setMyEvents(mapped)
-    setLoadingMy(false)
-  }, [supaUser])
-
-  // ── Fetch public events ────────────────────────────────────────────────────
-
-  const fetchPublicEvents = useCallback(async () => {
-    setLoadingPublic(true)
+    setLoadingDiscovery(true)
 
     const geo = await getCurrentPosition()
+    const [nearbyResult, participationResult] = await Promise.all([
+      supabase.rpc('events_nearby', { user_lat: geo.lat, user_lng: geo.lng, radius_km: 100 }),
+      supabase.from('event_participants').select('event_id, status').eq('user_id', supaUser.id).in('status', ['joined', 'pending']),
+    ])
 
-    const { data } = await supabase.rpc('events_nearby', {
-      user_lat: geo.lat,
-      user_lng: geo.lng,
-      radius_km: 100,
-    })
+    if (nearbyResult.error) console.error('[fetchDiscoveryEvents] nearby error:', nearbyResult.error)
+    if (participationResult.error) console.error('[fetchDiscoveryEvents] participation error:', participationResult.error)
 
-    if (data) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const events: PublicEvent[] = (data as any[]).map((e) => ({
+    const nearbyRows = (nearbyResult.data ?? []) as Record<string, unknown>[]
+    const ids = nearbyRows.map((row) => row.id as string)
+    const typeById = new Map<string, { event_type: 'personal' | 'public'; join_mode: 'open' | 'approval' }>()
+
+    if (ids.length > 0) {
+      const { data: typeRows, error: typeError } = await supabase
+        .from('events')
+        .select('id, event_type, join_mode')
+        .in('id', ids)
+      if (typeError) console.error('[fetchDiscoveryEvents] event type error:', typeError)
+      for (const row of typeRows ?? []) {
+        typeById.set(row.id, {
+          event_type: (row.event_type ?? 'public') as 'personal' | 'public',
+          join_mode: (row.join_mode ?? 'open') as 'open' | 'approval',
+        })
+      }
+    }
+
+    const excludedIds = new Set((participationResult.data ?? []).map((row) => row.event_id))
+    setExcludedEventIds(excludedIds)
+
+    const events: PublicEventData[] = nearbyRows.map((row) => {
+      const e = row as Record<string, unknown>
+      const metadata = typeById.get(e.id as string)
+      return {
         id: e.id,
         title: e.title,
         category: e.category,
@@ -499,80 +152,41 @@ export default function HomeScreen() {
         max_participants: e.max_participants,
         participant_count: e.participant_count ?? 0,
         distance_km: e.distance_km ?? null,
-        organizer: e.organizer ?? null,
-      }))
-      // Sort by created_at DESC so newest events appear at top of feed
-      events.sort((a, b) =>
-        new Date(b.created_at ?? 0).getTime() - new Date(a.created_at ?? 0).getTime()
-      )
-      setAllPublicEvents(events)
-    } else {
-      setAllPublicEvents([])
-    }
+        organizer: (e.organizer ?? null) as PublicEventData['organizer'],
+        event_type: metadata?.event_type ?? 'public',
+        join_mode: metadata?.join_mode ?? 'open',
+      } as PublicEventData
+    })
+    events.sort(sortDiscovery)
+    setAllDiscoveryEvents(events)
+    setLoadingDiscovery(false)
+  }, [supaUser])
 
-    setLoadingPublic(false)
-  }, [])
+  useEffect(() => { void fetchDiscoveryEvents() }, [fetchDiscoveryEvents])
 
-  useEffect(() => { fetchMyEvents() }, [fetchMyEvents])
-  useEffect(() => { fetchPublicEvents() }, [fetchPublicEvents])
-
-  // ── Realtime: new public events ───────────────────────────────────────────
+  // Re-fetch authoritative discovery data for inserts, edits/cancellation, and deletes.
 
   useEffect(() => {
     const channel = supabase
-      .channel('public-events-feed')
+      .channel('events-discovery-feed')
       .on(
         'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'events', filter: 'is_public=eq.true' },
-        async (payload) => {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const raw = payload.new as any
-
-          const [organizerRes, countRes] = await Promise.all([
-            supabase
-              .from('users')
-              .select('id, name, avatar_url, google_verified')
-              .eq('id', raw.organizer_id)
-              .single(),
-            supabase
-              .from('event_participants')
-              .select('*', { count: 'exact', head: true })
-              .eq('event_id', raw.id),
-          ])
-
-          const newEvent: PublicEvent = {
-            id: raw.id,
-            title: raw.title,
-            category: raw.category,
-            address_text: raw.address_text,
-            event_datetime: raw.event_datetime,
-            min_age: raw.min_age,
-            max_age: raw.max_age,
-            gender_filter: raw.gender_filter,
-            cover_photo_url: raw.cover_photo_url ?? null,
-            max_participants: raw.max_participants,
-            participant_count: countRes.count ?? 0,
-            distance_km: null,
-            organizer: organizerRes.data
-              ? {
-                  id: organizerRes.data.id,
-                  name: organizerRes.data.name,
-                  avatar_url: organizerRes.data.avatar_url ?? null,
-                  google_verified: organizerRes.data.google_verified ?? false,
-                }
-              : null,
+        { event: '*', schema: 'public', table: 'events' },
+        (payload) => {
+          if (payload.eventType === 'INSERT') {
+            const insertedId = (payload.new as { id?: string }).id
+            if (insertedId) {
+              setNewEventId(insertedId)
+              setTimeout(() => setNewEventId(null), 3000)
+            }
           }
-
-          setAllPublicEvents((prev) => [newEvent, ...prev])
-          setNewEventId(raw.id)
-          // Clear highlight after 3 seconds
-          setTimeout(() => setNewEventId(null), 3000)
+          void fetchDiscoveryEvents()
         },
       )
       .subscribe()
 
     return () => { supabase.removeChannel(channel) }
-  }, [])
+  }, [fetchDiscoveryEvents])
 
   // ── Realtime: participant count changes ───────────────────────────────────
 
@@ -582,50 +196,60 @@ export default function HomeScreen() {
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'event_participants' },
-        (payload) => {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const eventId = (payload.new as any).event_id as string
-          setAllPublicEvents((prev) =>
-            prev.map((e) =>
-              e.id === eventId
-                ? { ...e, participant_count: e.participant_count + 1 }
-                : e,
-            ),
-          )
+        () => { void fetchDiscoveryEvents() },
+      )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'event_participants' },
+        () => {
+          void fetchDiscoveryEvents()
         },
       )
       .on(
         'postgres_changes',
         { event: 'DELETE', schema: 'public', table: 'event_participants' },
-        (payload) => {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const eventId = (payload.old as any).event_id as string
-          setAllPublicEvents((prev) =>
-            prev.map((e) =>
-              e.id === eventId
-                ? { ...e, participant_count: Math.max(0, e.participant_count - 1) }
-                : e,
-            ),
-          )
+        () => {
+          void fetchDiscoveryEvents()
         },
       )
       .subscribe()
 
     return () => { supabase.removeChannel(participantsChannel) }
-  }, [])
+  }, [fetchDiscoveryEvents])
 
   // ── Derived / filtered lists ───────────────────────────────────────────────
 
-  const filteredPublic = allPublicEvents
-    .filter((e) => !myEventIds.has(e.id))
-    .filter((e) => selectedCategory === 'all' || e.category === selectedCategory)
-    .filter((e) => !searchQuery || e.title.toLowerCase().includes(searchQuery.toLowerCase()))
-    // Radius filter: skip if distance unknown (no geo), otherwise apply
-    .filter((e) => e.distance_km === null || e.distance_km <= radiusKm)
+  const eligibleDiscovery = allDiscoveryEvents
+    .filter((event) => event.organizer?.id !== supaUser?.id)
+    .filter((event) => !excludedEventIds.has(event.id))
+    .filter((event) => isEligible(event, profile?.age, profile?.gender))
+    .filter((event) => event.distance_km === null || event.distance_km <= radiusKm)
+    .filter((event) => matchesSearch(event, searchQuery))
 
-  const filteredMy = myEvents.filter(
-    (e) => !searchQuery || e.title.toLowerCase().includes(searchQuery.toLowerCase()),
+  const realPersonalEvents = eligibleDiscovery
+    .filter((event) => event.event_type === 'personal')
+
+  const realPersonalIds = new Set(realPersonalEvents.map((event) => event.id))
+  const personalDemoLimit = realPersonalEvents.length >= 3 ? 0 : 4 - realPersonalEvents.length
+  const personalDemoFallbacks = DEMO_PERSONAL_EVENTS
+    .filter((event) => !realPersonalIds.has(event.id))
+    .filter((event) => event.distance_km === null || event.distance_km <= radiusKm)
+    .filter((event) => matchesSearch(event, searchQuery))
+    .slice(0, personalDemoLimit)
+  const personalEvents = [...realPersonalEvents, ...personalDemoFallbacks].map(asPersonalEvent)
+
+  const realPublic = eligibleDiscovery
+    .filter((event) => event.event_type === 'public')
+    .filter((e) => selectedCategory === 'all' || e.category === selectedCategory)
+
+  const categoriesWithRealEvents = new Set(realPublic.map((event) => event.category))
+  const demoFallbacks = DEMO_PUBLIC_EVENTS.filter((event) =>
+    (selectedCategory === 'all' ? PUBLIC_CATEGORIES.includes(event.category as typeof PUBLIC_CATEGORIES[number]) : event.category === selectedCategory)
+    && !categoriesWithRealEvents.has(event.category)
+    && (event.distance_km === null || event.distance_km <= radiusKm)
+    && matchesSearch(event, searchQuery)
   )
+  const filteredPublic = [...realPublic, ...demoFallbacks]
 
   const shownPublic = filteredPublic.slice(0, publicPage * PAGE_SIZE)
   const hasMorePublic = filteredPublic.length > publicPage * PAGE_SIZE
@@ -633,204 +257,45 @@ export default function HomeScreen() {
   // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
-    <div className="min-h-screen bg-brand-bg text-brand-ink pb-24">
+    <div className="min-h-screen bg-brand-bg pb-24 text-brand-ink lg:pb-10">
+      <TopBar
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+        radiusKm={radiusKm}
+        onRadiusChange={(value) => { setRadiusKm(value); setPublicPage(1) }}
+        radiusOptions={RADIUS_OPTIONS}
+      />
 
-      {/* ── Sticky header ─────────────────────────────────────────────────── */}
-      <div className="sticky top-0 bg-brand-bg/95 backdrop-blur z-20 border-b border-brand-border px-4 pt-4 pb-3 shadow-sm">
-        <div className="max-w-6xl mx-auto">
-          <div className="flex items-center gap-2 sm:gap-3">
-            {/* Logo */}
-            {/* Logo wordmark — Fraunces, 'oo' accented in brand-amber to echo "nearby dots" */}
-            <Link to="/" className="font-display flex-shrink-0 hover:opacity-80 transition-opacity tracking-tight text-[1.35rem] font-semibold text-brand-petrol leading-none">
-              por<span className="text-brand-amber">oo</span>ch
-            </Link>
-
-            {/* City selector */}
-            <div className="hidden sm:flex items-center gap-1 text-sm bg-white rounded-xl px-3 py-1.5 flex-shrink-0 cursor-default border border-brand-border">
-              <span>📍</span>
-              <span className="text-brand-ink-soft text-xs font-medium">Чернігів, Україна</span>
-              <span className="text-brand-ink-muted text-xs">▾</span>
+      <div className="mx-auto max-w-[1440px] px-4 py-5 sm:px-6 lg:px-7 lg:py-6 xl:px-10">
+        <div className="grid min-w-0 grid-cols-1 items-start gap-7 lg:grid-cols-[minmax(280px,0.4fr)_minmax(0,0.6fr)] lg:gap-6 xl:grid-cols-[minmax(340px,0.4fr)_minmax(0,0.6fr)] xl:gap-7">
+          <section className="min-w-0">
+            <div className="mb-3.5">
+              <h1 className="text-lg font-extrabold tracking-[-0.02em] text-brand-ink">Особисті події</h1>
+              <p className="mt-1 text-xs leading-5 text-brand-ink-muted">Зустрічі від людей поруч із вами</p>
             </div>
 
-            {/* Search */}
-            <div className="flex-1 relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-brand-ink-muted text-sm pointer-events-none">
-                🔍
-              </span>
-              <input
-                type="text"
-                placeholder="Пошук подій..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-white border border-brand-border rounded-xl pl-9 pr-4 py-1.5 text-sm text-brand-ink placeholder-brand-ink-muted focus:outline-none focus:border-brand-petrol transition-colors"
-              />
+            {loadingDiscovery && <div className="space-y-3">{[1, 2, 3].map((item) => <div key={item} className="h-48 animate-pulse rounded-2xl border border-brand-border bg-white" />)}</div>}
+            {!loadingDiscovery && personalEvents.length === 0 && (
+              <EmptyState title="Поруч поки немає особистих подій" description="Спробуйте збільшити радіус або створіть власну зустріч." action={<Link to="/create" className="inline-flex rounded-xl bg-brand-accent px-4 py-2.5 text-xs font-bold text-white transition hover:bg-brand-accent-hover">Створити подію</Link>} />
+            )}
+            {!loadingDiscovery && personalEvents.length > 0 && <div className="space-y-2.5">{personalEvents.map((event) => <PersonalEventCard key={event.eventId} event={event} />)}</div>}
+
+            <Link to="/create" className="mt-3 flex w-full items-center justify-center rounded-lg border border-brand-accent/20 bg-brand-accent-soft px-4 py-2.5 text-xs font-bold text-brand-accent transition hover:border-brand-accent/40 hover:bg-brand-accent/10">+ Створити особисту подію</Link>
+          </section>
+
+          <section className="min-w-0">
+            <div className="mb-3.5">
+              <h2 className="text-lg font-extrabold tracking-[-0.02em] text-brand-ink">Громадські події</h2>
+              <p className="mt-1 text-xs leading-5 text-brand-ink-muted">Відкриті події, до яких можна приєднатися</p>
             </div>
 
-            {/* Radius selector */}
-            <select
-              value={radiusKm}
-              onChange={(e) => { setRadiusKm(Number(e.target.value)); setPublicPage(1) }}
-              className="flex-shrink-0 bg-white border border-brand-border rounded-xl px-2 py-1.5 text-xs text-brand-ink-soft focus:outline-none focus:border-brand-petrol transition-colors cursor-pointer"
-              aria-label="Радіус пошуку"
-            >
-              {RADIUS_OPTIONS.map((o) => (
-                <option key={o.value} value={o.value}>{o.label}</option>
-              ))}
-            </select>
+            <div className="mb-3"><CategoryChips items={TABS} selected={selectedCategory} onSelect={(key) => { setSelectedCategory(key); setPublicPage(1) }} /></div>
+            {loadingDiscovery && <div className="space-y-3">{[1, 2, 3, 4].map((item) => <div key={item} className="h-48 animate-pulse rounded-2xl border border-brand-border bg-white" />)}</div>}
+            {!loadingDiscovery && shownPublic.length === 0 && <EmptyState title={selectedCategory === 'all' ? 'Поруч поки немає подій' : `Немає подій у категорії «${CATEGORY_LABEL[selectedCategory] ?? selectedCategory}»`} description={selectedCategory === 'all' ? 'Спробуйте збільшити радіус пошуку або перевірте пізніше.' : 'Оберіть іншу категорію або збільшіть радіус пошуку.'} />}
+            {!loadingDiscovery && shownPublic.length > 0 && <div className="space-y-2.5">{shownPublic.map((event) => <PublicEventCard key={event.id} event={event} isNew={event.id === newEventId} />)}</div>}
 
-            {/* Notifications */}
-            <button
-              className="w-9 h-9 bg-white rounded-xl flex items-center justify-center hover:bg-brand-bg transition-colors flex-shrink-0 border border-brand-border"
-              aria-label="Сповіщення"
-            >
-              <span className="text-lg">🔔</span>
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* ── Two-column layout ──────────────────────────────────────────────── */}
-      <div className="max-w-6xl mx-auto px-4 pt-5">
-        <div className="flex flex-col lg:flex-row gap-6 items-start">
-
-          {/* ── LEFT: Мої події ─────────────────────────────────────────── */}
-          <div className="w-full lg:w-[400px] flex-shrink-0">
-            <div className="mb-4">
-              <h2 className="text-lg font-bold text-brand-ink font-display">Мої події</h2>
-              <p className="text-xs text-brand-ink-muted mt-0.5">
-                Особисті події, які ви створили або до яких запрошені
-              </p>
-            </div>
-
-            {/* Skeleton */}
-            {loadingMy && (
-              <div className="space-y-3">
-                {[1, 2, 3].map((i) => (
-                  <div
-                    key={i}
-                    className="bg-white rounded-2xl h-52 animate-pulse border border-brand-border shadow-sm"
-                  />
-                ))}
-              </div>
-            )}
-
-            {/* Empty state — no events at all */}
-            {!loadingMy && myEvents.length === 0 && (
-              <div className="bg-white rounded-2xl border border-brand-border shadow-sm p-8 text-center mb-3">
-                <div className="text-4xl mb-3">📭</div>
-                <p className="text-brand-ink font-semibold text-sm">У вас поки немає подій</p>
-                <p className="text-brand-ink-muted text-xs mt-1 mb-5">
-                  Створіть свою першу подію або приєднайтесь до вже існуючої
-                </p>
-                <Link
-                  to="/create"
-                  className="inline-block px-5 py-2.5 rounded-xl text-sm font-semibold bg-brand-petrol hover:bg-brand-petrol-light text-white transition-all active:scale-95"
-                >
-                  ➕ Створити подію
-                </Link>
-              </div>
-            )}
-
-            {/* Empty state — events exist but search hides them */}
-            {!loadingMy && myEvents.length > 0 && filteredMy.length === 0 && (
-              <div className="bg-white rounded-2xl border border-brand-border shadow-sm p-6 text-center mb-3">
-                <div className="text-3xl mb-2">🔍</div>
-                <p className="text-brand-ink-soft text-sm">Нічого не знайдено</p>
-                <p className="text-brand-ink-muted text-xs mt-1">Спробуйте інший пошуковий запит</p>
-              </div>
-            )}
-
-            {/* Cards */}
-            {!loadingMy && filteredMy.length > 0 && (
-              <div className="space-y-3">
-                {filteredMy.map((event) => (
-                  <MyEventCard key={event.eventId} event={event} />
-                ))}
-              </div>
-            )}
-
-          </div>
-
-          {/* ── RIGHT: Громадські події ──────────────────────────────────── */}
-          <div className="flex-1 min-w-0 w-full">
-            <div className="mb-4">
-              <h2 className="text-lg font-bold text-brand-ink font-display">Громадські події</h2>
-              <p className="text-xs text-brand-ink-muted mt-0.5">
-                Відкриті події, до яких може приєднатися кожен
-              </p>
-            </div>
-
-            {/* Category tabs */}
-            <div className="flex gap-1.5 overflow-x-auto pb-2 mb-4 scrollbar-hide">
-              {TABS.map((tab) => (
-                <button
-                  key={tab.key}
-                  onClick={() => {
-                    setSelectedCategory(tab.key)
-                    setPublicPage(1)
-                  }}
-                  className={`flex-shrink-0 px-3 py-1.5 rounded-xl text-sm font-medium transition-all ${
-                    selectedCategory === tab.key
-                      ? 'bg-brand-petrol text-white'
-                      : 'bg-white text-brand-ink-soft hover:bg-brand-bg hover:text-brand-ink border border-brand-border'
-                  }`}
-                >
-                  {tab.label}
-                </button>
-              ))}
-            </div>
-
-            {/* Skeleton */}
-            {loadingPublic && (
-              <div className="grid sm:grid-cols-2 gap-3">
-                {[1, 2, 3, 4].map((i) => (
-                  <div
-                    key={i}
-                    className="bg-white rounded-2xl h-72 animate-pulse border border-brand-border shadow-sm"
-                  />
-                ))}
-              </div>
-            )}
-
-            {/* Empty state */}
-            {!loadingPublic && shownPublic.length === 0 && (
-              <div className="bg-white rounded-2xl border border-brand-border shadow-sm p-8 text-center">
-                <div className="text-4xl mb-3">
-                  {selectedCategory !== 'all' ? (CATEGORY_EMOJI[selectedCategory] ?? '🔍') : '🌐'}
-                </div>
-                <p className="text-brand-ink-soft text-sm">
-                  {selectedCategory !== 'all'
-                    ? `Поки немає подій у категорії «${CATEGORY_LABEL[selectedCategory] ?? selectedCategory}»`
-                    : 'Публічних подій поки немає'}
-                </p>
-                <p className="text-brand-ink-muted text-xs mt-1">
-                  {selectedCategory !== 'all'
-                    ? 'Спробуйте іншу категорію або збільшіть радіус пошуку'
-                    : 'Збільшіть радіус або перевірте пізніше'}
-                </p>
-              </div>
-            )}
-
-            {/* Cards grid */}
-            {!loadingPublic && shownPublic.length > 0 && (
-              <div className="grid sm:grid-cols-2 gap-3">
-                {shownPublic.map((event) => (
-                  <PublicEventCard key={event.id} event={event} isNew={event.id === newEventId} />
-                ))}
-              </div>
-            )}
-
-            {/* Load more */}
-            {hasMorePublic && (
-              <button
-                onClick={() => setPublicPage((p) => p + 1)}
-                className="w-full mt-4 py-3 rounded-2xl text-sm font-semibold bg-white hover:bg-brand-bg text-brand-ink-soft border border-brand-border transition-all active:scale-95 shadow-sm"
-              >
-                Показати більше подій ({filteredPublic.length - shownPublic.length} залишилось)
-              </button>
-            )}
-          </div>
-
+            {hasMorePublic && <button type="button" onClick={() => setPublicPage((page) => page + 1)} className="mt-4 w-full rounded-xl border border-brand-border bg-white py-3 text-sm font-bold text-brand-ink-soft transition hover:border-brand-border-strong hover:bg-brand-surface-muted">Показати більше ({filteredPublic.length - shownPublic.length})</button>}
+          </section>
         </div>
       </div>
     </div>

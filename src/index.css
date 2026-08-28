@@ -1,20 +1,25 @@
 @import "tailwindcss";
 
 @theme {
-  /* Brand color palette */
-  --color-brand-bg: #FBF9F6;
-  --color-brand-petrol: #0F4C4C;
-  --color-brand-petrol-light: #1a6b6b;
-  --color-brand-amber: #E8A33D;
-  --color-brand-amber-light: #F5C36B;
-  --color-brand-ink: #1C1917;
-  --color-brand-ink-soft: #44403C;
-  --color-brand-ink-muted: #78716C;
-  --color-brand-border: #E8E4DE;
-  --color-brand-border-strong: #C5BDB5;
+  --color-brand-bg: #F7F7FA;
+  --color-brand-accent: #6846FF;
+  --color-brand-accent-hover: #5738E8;
+  --color-brand-accent-soft: #F0EDFF;
+  --color-brand-surface-muted: #F2F2F6;
+  --color-brand-petrol: #6846FF;
+  --color-brand-petrol-light: #5738E8;
+  --color-brand-amber: #6846FF;
+  --color-brand-amber-light: #8A70FF;
+  --color-brand-ink: #17171C;
+  --color-brand-ink-soft: #4E4E58;
+  --color-brand-ink-muted: #777781;
+  --color-brand-border: #E8E8EE;
+  --color-brand-border-strong: #D8D8E1;
+  --shadow-card: 0 2px 10px rgba(23, 23, 28, 0.035);
+  --shadow-card-hover: 0 8px 24px rgba(23, 23, 28, 0.07);
 
   /* Typography */
-  --font-display: 'Fraunces', Georgia, serif;
+  --font-display: 'Manrope', Inter, sans-serif;
   --font-body: 'Manrope', Inter, sans-serif;
 }
 
@@ -24,13 +29,55 @@
 
 * {
   -webkit-tap-highlight-color: transparent;
+  box-sizing: border-box;
+}
+
+html {
+  overflow-x: hidden;
 }
 
 body {
   font-family: 'Manrope', Inter, sans-serif;
-  background-color: #FBF9F6;
-  color: #1C1917;
+  margin: 0;
+  min-width: 320px;
+  background-color: #F7F7FA;
+  color: #17171C;
   -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button,
+a,
+select {
+  touch-action: manipulation;
+}
+
+:focus-visible {
+  outline: 2px solid #6846FF;
+  outline-offset: 2px;
+}
+
+::selection {
+  background: #ddd6ff;
+  color: #17171c;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
 }
 
 /* Safe area for iPhone notch/home indicator */

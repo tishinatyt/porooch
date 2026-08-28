@@ -1,26 +1,36 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
-
-const CATEGORY_EMOJI: Record<string, string> = {
-  cinema: '🎬', theatre: '🎭', bar: '🍺', sport: '🏃',
-  music: '🎵', food: '🍕', games: '🎲', walk: '🚶', art: '🎨', other: '💬',
-}
-
-const CATEGORY_LABEL: Record<string, string> = {
-  cinema: 'Кіно', theatre: 'Театр', bar: 'Бар', sport: 'Спорт',
-  music: 'Музика', food: 'Їжа', games: 'Ігри', walk: 'Прогулянка',
-  art: 'Мистецтво', other: 'Інше',
-}
+import TopBar from '@/components/TopBar'
+import { Icon } from '@/components/icons'
+import EventMedia from '@/components/EventMedia'
 
 interface ChatItem {
-  eventId: string
-  title: string
+  event_id: string
+  event_title: string
   category: string
   address_text: string
-  role: 'organizer' | 'participant'
-  chatId: string | null
+  cover_photo_url: string | null
+  event_datetime: string
+  event_status: string
+  member_role: 'organizer' | 'participant'
+  chat_id: string
+  last_message: string | null
+  last_message_at: string | null
+  last_sender_name: string | null
+}
+
+function formatListTime(iso: string | null) {
+  if (!iso) return ''
+  const date = new Date(iso)
+  const today = new Date()
+  const sameDay = date.toDateString() === today.toDateString()
+  return sameDay ? date.toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit' }) : date.toLocaleDateString('uk-UA', { day: 'numeric', month: 'short' })
+}
+
+function isPast(item: ChatItem) {
+  return item.event_status === 'completed' || new Date(item.event_datetime).getTime() < Date.now()
 }
 
 export default function Chats() {
@@ -28,114 +38,79 @@ export default function Chats() {
   const { supaUser } = useAuth()
   const [chats, setChats] = useState<ChatItem[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-  const fetchChats = useCallback(async () => {
+  const fetchChats = useCallback(async (showLoading = false) => {
     if (!supaUser) return
-    setLoading(true)
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data } = await (supabase as any)
-      .from('event_participants')
-      .select(`
-        role,
-        event:events!event_participants_event_id_fkey(
-          id, title, category, address_text,
-          chats:event_chats(id)
-        )
-      `)
-      .eq('user_id', supaUser.id)
-      .eq('status', 'joined')
-
-    if (data) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const items: ChatItem[] = (data as any[])
-        .map((p) => {
-          const ev = Array.isArray(p.event) ? p.event[0] : p.event
-          if (!ev) return null
-          const chatArr = Array.isArray(ev.chats) ? ev.chats : (ev.chats ? [ev.chats] : [])
-          return {
-            eventId: ev.id,
-            title: ev.title,
-            category: ev.category,
-            address_text: ev.address_text,
-            role: p.role as 'organizer' | 'participant',
-            chatId: chatArr[0]?.id ?? null,
-          }
-        })
-        .filter(Boolean) as ChatItem[]
-      setChats(items)
+    if (showLoading) setLoading(true)
+    const { data, error: chatsError } = await supabase.rpc('get_accessible_event_chats')
+    if (chatsError) {
+      console.error('Failed to load chats', chatsError)
+      setError('Не вдалося завантажити чати')
+    } else {
+      setChats((data ?? []) as ChatItem[])
+      setError(null)
     }
-
     setLoading(false)
   }, [supaUser])
 
-  useEffect(() => { fetchChats() }, [fetchChats])
+  useEffect(() => { void fetchChats(true) }, [fetchChats])
+
+  useEffect(() => {
+    if (!supaUser) return
+    const channel = supabase.channel(`chat-list:${supaUser.id}`)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'event_chat_messages' }, () => { void fetchChats() })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'event_participants', filter: `user_id=eq.${supaUser.id}` }, () => { void fetchChats() })
+      .subscribe()
+    return () => { void supabase.removeChannel(channel) }
+  }, [fetchChats, supaUser])
 
   return (
-    <div className="min-h-screen bg-brand-bg text-brand-ink pb-24">
-      {/* Header */}
-      <div className="sticky top-0 bg-brand-bg/95 backdrop-blur border-b border-brand-border px-4 py-4">
-        <h1 className="text-xl font-bold font-display">💬 Мої чати</h1>
-      </div>
+    <div className="min-h-screen bg-brand-bg pb-24 text-brand-ink lg:pb-10">
+      <TopBar title="Повідомлення" />
+      <header className="sticky top-0 z-20 flex h-14 items-center border-b border-brand-border bg-white/95 px-4 backdrop-blur-xl lg:hidden">
+        <h1 className="text-base font-extrabold">Повідомлення</h1>
+      </header>
+      <div className="mx-auto max-w-[960px] px-4 py-5 sm:px-6 lg:px-8 lg:py-7">
+        <header className="mb-5 hidden lg:block">
+          <h1 className="text-2xl font-extrabold tracking-[-0.03em]">Повідомлення</h1>
+          <p className="mt-1 text-sm text-brand-ink-muted">Чати ваших подій</p>
+        </header>
 
-      <div className="px-4 pt-4 space-y-2 max-w-lg mx-auto">
-        {/* Skeleton */}
-        {loading && (
-          [1, 2, 3].map((i) => (
-            <div key={i} className="bg-white rounded-2xl h-20 animate-pulse border border-brand-border shadow-sm" />
-          ))
-        )}
+        {error && <div role="alert" className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"><span>{error}</span><button type="button" onClick={() => { void fetchChats(true) }} className="min-h-10 rounded-xl bg-white px-3 font-bold text-red-700 shadow-sm">Спробувати ще раз</button></div>}
+        {loading && <div className="space-y-2">{[1, 2, 3].map((item) => <div key={item} className="h-20 animate-pulse rounded-2xl border border-brand-border bg-white" />)}</div>}
 
-        {/* Empty */}
-        {!loading && chats.length === 0 && (
-          <div className="text-center py-16 text-brand-ink-muted">
-            <div className="text-4xl mb-3">💭</div>
-            <p className="text-brand-ink-soft">Ви ще не в жодному чаті</p>
-            <p className="text-sm mt-1 text-brand-ink-muted">Приєднайтесь до події на головному екрані</p>
-            <button
-              onClick={() => navigate('/')}
-              className="mt-6 bg-brand-petrol hover:bg-brand-petrol-light text-white font-semibold px-6 py-2.5 rounded-xl transition-all active:scale-95 text-sm"
-            >
-              До подій
-            </button>
+        {!loading && !error && chats.length === 0 && (
+          <div className="rounded-2xl border border-brand-border bg-white px-6 py-12 text-center">
+            <div className="mx-auto mb-4 grid h-12 w-12 place-items-center rounded-full bg-brand-accent-soft text-brand-accent"><Icon name="message" className="h-5 w-5" /></div>
+            <h2 className="text-lg font-extrabold">Поки що немає чатів</h2>
+            <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-brand-ink-muted">Приєднуйтесь до подій — після цього тут з’являться ваші чати.</p>
+            <button type="button" onClick={() => navigate('/')} className="mt-5 h-11 rounded-xl bg-brand-accent px-5 text-sm font-bold text-white transition hover:bg-brand-accent-hover">Знайти події</button>
           </div>
         )}
 
-        {/* Chat list */}
-        {!loading && chats.map((item) => {
-          const emoji = CATEGORY_EMOJI[item.category] ?? '💬'
-          const categoryLabel = CATEGORY_LABEL[item.category] ?? item.category
-          return (
-            <button
-              key={item.eventId}
-              onClick={() => navigate(`/event/${item.eventId}/chat`)}
-              className="w-full bg-white rounded-2xl p-4 border border-brand-border shadow-sm flex items-center gap-3 text-left hover:border-brand-petrol hover:shadow-md transition-all"
-            >
-              {/* Category icon */}
-              <div className="w-12 h-12 rounded-2xl bg-brand-petrol/10 flex items-center justify-center text-2xl flex-shrink-0">
-                {emoji}
-              </div>
-
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="font-semibold text-brand-ink truncate text-sm">{item.title}</span>
-                  <span className={`text-xs px-2 py-0.5 rounded-full flex-shrink-0 ${
-                    item.role === 'organizer'
-                      ? 'bg-brand-petrol/10 text-brand-petrol'
-                      : 'bg-green-50 text-green-600'
-                  }`}>
-                    {item.role === 'organizer' ? 'Ведучий' : 'Учасник'}
-                  </span>
+        {!loading && chats.length > 0 && <div className="space-y-2">
+          {chats.map((item) => {
+            const past = isPast(item)
+            const preview = item.last_message ? `${item.last_sender_name ? `${item.last_sender_name}: ` : ''}${item.last_message}` : item.address_text || 'Розмова ще не почалася'
+            return (
+              <button key={item.chat_id} type="button" onClick={() => navigate(`/event/${item.event_id}/chat`)} className="flex min-h-20 w-full items-center gap-3 rounded-2xl border border-brand-border bg-white p-3 text-left transition hover:border-brand-accent/25 hover:bg-brand-accent-soft/25 focus-visible:outline-2 focus-visible:outline-brand-accent sm:px-4">
+                <div className="h-14 w-14 flex-shrink-0 overflow-hidden rounded-xl"><EventMedia category={item.category} coverUrl={item.cover_photo_url} alt={item.cover_photo_url ? item.event_title : ''} className="h-full w-full" /></div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-start justify-between gap-3">
+                    <h2 className="truncate text-sm font-extrabold text-brand-ink sm:text-base">{item.event_title}</h2>
+                    {item.last_message_at && <time dateTime={item.last_message_at} className="flex-shrink-0 text-[11px] text-brand-ink-muted">{formatListTime(item.last_message_at)}</time>}
+                  </div>
+                  <p className="mt-0.5 truncate text-xs text-brand-ink-muted sm:text-sm">{preview}</p>
+                  <div className="mt-1.5 flex items-center gap-2 text-[10px] font-semibold">
+                    {item.member_role === 'organizer' && <span className="rounded-full bg-brand-accent-soft px-2 py-0.5 text-brand-accent">Організатор</span>}
+                    {past && <span className="rounded-full bg-brand-surface-muted px-2 py-0.5 text-brand-ink-muted">Подія завершена</span>}
+                  </div>
                 </div>
-                <p className="text-xs text-brand-ink-muted truncate mt-0.5">
-                  {emoji} {categoryLabel} · {item.address_text || 'Місце не вказано'}
-                </p>
-              </div>
-
-              <span className="text-brand-petrol text-xl flex-shrink-0">›</span>
-            </button>
-          )
-        })}
+              </button>
+            )
+          })}
+        </div>}
       </div>
     </div>
   )
