@@ -1,6 +1,7 @@
 import { NavLink } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
 import { Icon, type IconName } from '@/components/icons'
+import BrandLogo from '@/components/BrandLogo'
 
 const primaryItems: { to: string; label: string; icon: IconName }[] = [
   { to: '/', label: 'Головна', icon: 'home' },
@@ -16,8 +17,7 @@ export default function AppSidebar() {
   return (
     <aside className="fixed inset-y-0 left-0 z-40 hidden w-56 flex-col border-r border-brand-border bg-white px-3 py-5 lg:flex xl:w-60">
       <NavLink to="/" className="mb-6 flex items-center gap-2.5 px-3" aria-label="porooch — головна">
-        <span className="grid h-8 w-8 place-items-center rounded-lg bg-brand-accent text-sm font-extrabold text-white">L</span>
-        <span className="text-xl font-extrabold tracking-[-0.04em] text-brand-ink">porooch</span>
+        <BrandLogo wordmarkClassName="text-xl" />
       </NavLink>
 
       <nav className="space-y-1" aria-label="Головна навігація">

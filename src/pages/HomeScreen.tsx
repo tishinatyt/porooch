@@ -6,6 +6,7 @@ import { getCurrentPosition } from '@/lib/geo'
 import TopBar from '@/components/TopBar'
 import { PersonalEventCard, PublicEventCard } from '@/components/home/HomeEventCards'
 import { CategoryChips } from '@/components/home/HomeControls'
+import HomeCarousel from '@/components/home/HomeCarousel'
 import type { PersonalEventData, PublicEventData } from '@/components/home/types'
 import { DEMO_PERSONAL_EVENTS, DEMO_PUBLIC_EVENTS, PUBLIC_CATEGORIES } from '@/components/home/demoEvents'
 
@@ -277,11 +278,11 @@ export default function HomeScreen() {
               <div className="flex items-center gap-2">{!loadingDiscovery && personalEvents.length > 0 && <span className="text-xs font-bold tabular-nums text-brand-ink-muted" aria-label={`${personalEvents.length} особистих зустрічей`}>{personalEvents.length}</span>}<Link to="/create" className="inline-flex min-h-8 items-center rounded-lg bg-brand-accent-soft px-2.5 text-[10px] font-extrabold text-brand-accent lg:hidden">+ Створити</Link></div>
             </div>
 
-            {loadingDiscovery && <div className="scrollbar-hide flex snap-x snap-mandatory gap-3 overflow-x-auto pb-2 pr-4 lg:block lg:space-y-3 lg:overflow-visible lg:pb-0 lg:pr-0">{[1, 2, 3].map((item) => <div key={item} className="h-56 w-[88%] flex-none snap-start animate-pulse rounded-2xl border border-brand-border bg-white min-[420px]:w-[86%] sm:w-[46%] md:w-[44%] lg:w-auto" />)}</div>}
+            {loadingDiscovery && <HomeCarousel id="personal-events-loading" label="Завантаження особистих зустрічей" className="lg:space-y-3">{[1, 2, 3].map((item) => <div role="listitem" key={item} className="h-56 w-[88%] flex-none snap-start animate-pulse rounded-2xl border border-brand-border bg-white min-[420px]:w-[86%] sm:w-[46%] md:w-[44%] lg:w-auto" />)}</HomeCarousel>}
             {!loadingDiscovery && personalEvents.length === 0 && (
               <div className="rounded-2xl border border-dashed border-brand-border-strong bg-white px-4 py-6 text-center"><p className="text-sm font-bold text-brand-ink">Поки немає особистих подій поруч.</p><Link to="/create" className="mt-3 inline-flex min-h-10 items-center rounded-xl bg-brand-accent px-4 text-xs font-bold text-white transition hover:bg-brand-accent-hover">Створити подію</Link></div>
             )}
-            {!loadingDiscovery && personalEvents.length > 0 && <div role="list" aria-label="Особисті зустрічі поруч" className="scrollbar-hide flex snap-x snap-mandatory scroll-smooth items-stretch gap-3 overflow-x-auto overscroll-x-contain pb-2 pr-4 [scroll-padding-inline:1px] [-webkit-overflow-scrolling:touch] lg:block lg:space-y-2.5 lg:overflow-visible lg:overscroll-auto lg:pb-0 lg:pr-0">{personalEvents.map((event) => <div role="listitem" key={event.eventId} className="w-[88%] flex-none snap-start min-[420px]:w-[86%] sm:w-[46%] md:w-[44%] lg:w-auto"><PersonalEventCard event={event} /></div>)}</div>}
+            {!loadingDiscovery && personalEvents.length > 0 && <HomeCarousel id="personal-events-carousel" label="Особисті зустрічі поруч" className="lg:space-y-2.5">{personalEvents.map((event) => <div role="listitem" key={event.eventId} className="w-[88%] flex-none snap-start [scroll-snap-stop:always] min-[420px]:w-[86%] sm:w-[46%] md:w-[44%] lg:w-auto"><PersonalEventCard event={event} /></div>)}</HomeCarousel>}
 
             <Link to="/create" className="mt-3 hidden w-full items-center justify-center rounded-lg border border-brand-accent/20 bg-brand-accent-soft px-4 py-2.5 text-xs font-bold text-brand-accent transition hover:border-brand-accent/40 hover:bg-brand-accent/10 lg:flex">+ Створити особисту подію</Link>
           </section>
@@ -296,9 +297,9 @@ export default function HomeScreen() {
             </div>
 
             <div className="mb-2 lg:mb-3"><CategoryChips items={TABS} selected={selectedCategory} onSelect={(key) => { setSelectedCategory(key); setPublicPage(1) }} /></div>
-            {loadingDiscovery && <div className="scrollbar-hide flex snap-x snap-mandatory gap-3 overflow-x-auto pb-2 pr-4 lg:block lg:space-y-3 lg:overflow-visible lg:pb-0 lg:pr-0">{[1, 2, 3, 4].map((item) => <div key={item} className="h-72 w-[88%] flex-none snap-start animate-pulse rounded-2xl border border-brand-border bg-white min-[420px]:w-[86%] sm:w-[46%] md:w-[44%] lg:w-auto" />)}</div>}
+            {loadingDiscovery && <HomeCarousel id="public-events-loading" label="Завантаження публічних подій" className="lg:space-y-3">{[1, 2, 3, 4].map((item) => <div role="listitem" key={item} className="h-72 w-[88%] flex-none snap-start animate-pulse rounded-2xl border border-brand-border bg-white min-[420px]:w-[86%] sm:w-[46%] md:w-[44%] lg:w-auto" />)}</HomeCarousel>}
             {!loadingDiscovery && shownPublic.length === 0 && <div className="rounded-2xl border border-dashed border-brand-border-strong bg-white px-4 py-6 text-center"><p className="text-sm font-bold text-brand-ink">Поки немає публічних подій поруч.</p>{selectedCategory !== 'all' && <p className="mt-1.5 text-xs text-brand-ink-muted">Спробуйте іншу категорію або збільшіть радіус.</p>}</div>}
-            {!loadingDiscovery && shownPublic.length > 0 && <div role="list" aria-label="Публічні події поруч" className="scrollbar-hide flex snap-x snap-mandatory scroll-smooth items-stretch gap-3 overflow-x-auto overscroll-x-contain pb-2 pr-4 [scroll-padding-inline:1px] [-webkit-overflow-scrolling:touch] lg:block lg:space-y-2.5 lg:overflow-visible lg:overscroll-auto lg:pb-0 lg:pr-0">{shownPublic.map((event) => <div role="listitem" key={event.id} className="w-[88%] flex-none snap-start min-[420px]:w-[86%] sm:w-[46%] md:w-[44%] lg:w-auto"><PublicEventCard event={event} isNew={event.id === newEventId} /></div>)}</div>}
+            {!loadingDiscovery && shownPublic.length > 0 && <HomeCarousel id="public-events-carousel" label="Публічні події поруч" className="lg:space-y-2.5">{shownPublic.map((event) => <div role="listitem" key={event.id} className="w-[88%] flex-none snap-start [scroll-snap-stop:always] min-[420px]:w-[86%] sm:w-[46%] md:w-[44%] lg:w-auto"><PublicEventCard event={event} isNew={event.id === newEventId} /></div>)}</HomeCarousel>}
 
             {hasMorePublic && <button type="button" onClick={() => setPublicPage((page) => page + 1)} className="mt-4 w-full rounded-xl border border-brand-border bg-white py-3 text-sm font-bold text-brand-ink-soft transition hover:border-brand-border-strong hover:bg-brand-surface-muted">Показати більше ({filteredPublic.length - shownPublic.length})</button>}
           </section>

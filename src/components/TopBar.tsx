@@ -1,5 +1,6 @@
 import { useAuth } from '@/contexts/AuthContext'
 import { Icon } from '@/components/icons'
+import BrandLogo from '@/components/BrandLogo'
 
 interface Props {
   title?: string
@@ -22,7 +23,7 @@ export default function TopBar({ title, searchQuery = '', onSearchChange, radius
             <span>Чернігів, Україна</span>
             <span className="text-brand-ink-muted">⌄</span>
           </div>
-          <span className="text-lg font-extrabold tracking-[-0.04em] text-brand-ink lg:hidden">porooch</span>
+          <BrandLogo className="lg:hidden" symbolClassName="h-6 w-6" wordmarkClassName="text-lg" />
         </div>
 
         {title ? <div className="min-w-0 flex-1 text-sm font-bold text-brand-ink">{title}</div> : <div id="search" className="relative min-w-0">
