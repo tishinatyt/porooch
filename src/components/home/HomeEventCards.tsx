@@ -12,7 +12,7 @@ function formatDateTime(iso: string) {
 }
 
 function MetaRow({ icon, children }: { icon: 'pin' | 'clock'; children: React.ReactNode }) {
-  return <div className="flex min-w-0 items-center gap-2 text-[11px] leading-4 text-brand-ink-muted"><span className="grid h-6 w-6 flex-shrink-0 place-items-center rounded-lg bg-brand-surface-muted text-brand-accent"><Icon name={icon} className="h-3.5 w-3.5"/></span><span className="truncate">{children}</span></div>
+  return <div className="flex min-w-0 items-center gap-2 text-xs leading-4 text-brand-ink-muted lg:text-[13px]"><span className="grid h-6 w-6 flex-shrink-0 place-items-center rounded-lg bg-brand-surface-muted text-brand-accent"><Icon name={icon} className="h-3.5 w-3.5"/></span><span className="truncate">{children}</span></div>
 }
 
 export function PersonalEventCard({ event, management = false }: { event: PersonalEventData; management?: boolean }) {
@@ -28,14 +28,14 @@ export function PersonalEventCard({ event, management = false }: { event: Person
           {event.organizer?.avatar_url ? <img src={event.organizer.avatar_url} alt={event.organizer.name} className="h-full w-full object-cover" /> : event.organizer?.name?.charAt(0).toUpperCase() ?? 'О'}
         </div>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-extrabold text-brand-ink">{event.organizer?.name ?? 'Організатор'}{event.organizer?.age ? `, ${event.organizer.age}` : ''}</p>
+          <p className="truncate text-sm font-extrabold text-brand-ink lg:text-[15px]">{event.organizer?.name ?? 'Організатор'}{event.organizer?.age ? `, ${event.organizer.age}` : ''}</p>
           <p className="mt-0.5 text-[10px] font-medium text-brand-ink-muted">Запрошує на особисту зустріч</p>
         </div>
         <span className="rounded-full border border-brand-accent/10 bg-brand-accent-soft px-2.5 py-1 text-[10px] font-extrabold text-brand-accent">Особиста</span>
       </div>
 
       <button type="button" onClick={() => navigate(`/event/${event.eventId}`)} className="block w-full text-left">
-        <h3 className="mb-2 text-[17px] font-extrabold leading-[1.2] tracking-[-0.025em] text-brand-ink sm:mb-2.5 sm:text-[18px]">{event.title}</h3>
+        <h3 className="mb-2 text-[17px] font-extrabold leading-[1.2] tracking-[-0.025em] text-brand-ink sm:mb-2.5 sm:text-[18px] lg:text-[19px]">{event.title}</h3>
         <div className="space-y-1 sm:space-y-1.5"><MetaRow icon="clock">{formatDateTime(event.event_datetime)}</MetaRow><MetaRow icon="pin">{event.address_text || 'Місце не вказано'}{event.distance_km != null ? ` · ${event.distance_km.toFixed(1)} км` : ''}</MetaRow></div>
       </button>
 
@@ -71,7 +71,7 @@ export function PublicEventCard({ event, isNew = false }: { event: PublicEventDa
       </button>
 
       <div className="flex min-w-0 flex-col p-4 sm:px-[18px] sm:pb-[18px]">
-        <button type="button" onClick={openEvent} className="text-left"><h3 className="line-clamp-2 text-[18px] font-extrabold leading-[1.2] tracking-[-0.025em] text-brand-ink sm:text-[19px]">{event.title}</h3></button>
+        <button type="button" onClick={openEvent} className="text-left"><h3 className="line-clamp-2 text-[18px] font-extrabold leading-[1.2] tracking-[-0.025em] text-brand-ink sm:text-[19px] lg:text-xl">{event.title}</h3></button>
         <div className="mt-3 space-y-1.5"><MetaRow icon="clock">{formatDateTime(event.event_datetime)}</MetaRow><MetaRow icon="pin">{event.address_text || 'Місце не вказано'}{event.distance_km !== null ? ` · ${event.distance_km.toFixed(1)} км` : ''}</MetaRow></div>
 
         <div className="mt-4 flex items-center justify-between gap-3 border-t border-brand-border pt-3">

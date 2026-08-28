@@ -36,10 +36,10 @@ export default function CategoryPlaceholder({ category, className = 'h-32 w-full
       <div className="absolute inset-0 opacity-60" style={{ backgroundImage: `radial-gradient(circle at 1px 1px, ${meta.pattern} 1px, transparent 0)`, backgroundSize: compact ? '10px 10px' : '18px 18px' }} />
       <div className="absolute -right-[12%] -top-[42%] aspect-square w-[58%] rounded-full border border-white/15 bg-white/10" />
       <div className="absolute -bottom-[52%] -left-[14%] aspect-square w-[68%] rounded-full border border-white/10 bg-black/10" />
-      <Icon name={meta.icon} className={`${compact ? 'h-12 w-12' : 'h-28 w-28'} absolute -bottom-3 -right-2 rotate-[-9deg] text-white opacity-[0.09]`} />
+      <Icon name={meta.icon} className={`${compact ? 'h-8 w-8' : 'h-20 w-20'} absolute -bottom-2 -right-1 rotate-[-9deg] text-white opacity-[0.07]`} />
       <div className={`relative flex flex-col items-center text-center ${compact ? '' : 'gap-2'}`}>
-        <div className={`${compact ? 'h-9 w-9 rounded-xl' : 'h-14 w-14 rounded-2xl'} grid place-items-center border border-white/30 bg-white/16 shadow-[0_8px_28px_rgba(20,10,50,0.22)] backdrop-blur-sm`} style={{ boxShadow: `0 8px 30px ${meta.glow}35` }}>
-          <Icon name={meta.icon} className={compact ? 'h-5 w-5' : 'h-7 w-7'} />
+        <div className={`${compact ? 'h-8 w-8 rounded-lg' : 'h-12 w-12 rounded-xl'} grid place-items-center border border-white/30 bg-white/16 shadow-[0_8px_28px_rgba(20,10,50,0.18)] backdrop-blur-sm`} style={{ boxShadow: `0 8px 26px ${meta.glow}30` }}>
+          <Icon name={meta.icon} className={compact ? 'h-4 w-4' : 'h-6 w-6'} />
         </div>
         {!compact && <span className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-white/85">{meta.label}</span>}
       </div>

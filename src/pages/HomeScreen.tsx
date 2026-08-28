@@ -258,7 +258,7 @@ export default function HomeScreen() {
   // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
-    <div className="min-h-screen bg-brand-bg pb-24 text-brand-ink lg:pb-10">
+    <div className="min-h-screen bg-brand-bg pb-24 text-brand-ink lg:flex lg:h-screen lg:min-h-0 lg:flex-col lg:overflow-hidden lg:pb-0">
       <TopBar
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
@@ -267,9 +267,9 @@ export default function HomeScreen() {
         radiusOptions={RADIUS_OPTIONS}
       />
 
-      <div className="mx-auto max-w-[1440px] px-4 py-3 sm:px-6 sm:py-4 lg:px-7 lg:py-6 xl:px-10">
-        <div className="grid min-w-0 grid-cols-1 items-start gap-4 sm:gap-5 lg:grid-cols-[minmax(280px,0.4fr)_minmax(0,0.6fr)] lg:gap-6 xl:grid-cols-[minmax(340px,0.4fr)_minmax(0,0.6fr)] xl:gap-7">
-          <section className="min-w-0">
+      <div className="mx-auto w-full max-w-[1440px] px-4 py-3 sm:px-6 sm:py-4 lg:min-h-0 lg:flex-1 lg:overflow-hidden lg:px-7 lg:py-6 xl:px-10">
+        <div className="grid min-w-0 grid-cols-1 items-start gap-4 sm:gap-5 lg:h-full lg:min-h-0 lg:grid-cols-[minmax(280px,0.4fr)_minmax(0,0.6fr)] lg:items-stretch lg:gap-6 xl:grid-cols-[minmax(340px,0.4fr)_minmax(0,0.6fr)] xl:gap-7">
+          <section className="min-w-0 lg:flex lg:min-h-0 lg:flex-col">
             <div className="mb-2 flex items-center justify-between gap-3 lg:mb-3.5 lg:items-start">
               <div>
               <h1 className="text-base font-extrabold tracking-[-0.02em] text-brand-ink lg:text-lg">Особисті зустрічі</h1>
@@ -287,7 +287,7 @@ export default function HomeScreen() {
             <Link to="/create" className="mt-3 hidden w-full items-center justify-center rounded-lg border border-brand-accent/20 bg-brand-accent-soft px-4 py-2.5 text-xs font-bold text-brand-accent transition hover:border-brand-accent/40 hover:bg-brand-accent/10 lg:flex">+ Створити особисту подію</Link>
           </section>
 
-          <section className="min-w-0">
+          <section className="min-w-0 lg:flex lg:min-h-0 lg:flex-col">
             <div className="mb-2 flex items-center justify-between gap-3 lg:mb-3.5 lg:items-start">
               <div>
               <h2 className="text-base font-extrabold tracking-[-0.02em] text-brand-ink lg:text-lg">Публічні події</h2>
