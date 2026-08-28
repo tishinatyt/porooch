@@ -12,7 +12,7 @@ function formatDateTime(iso: string) {
 }
 
 function MetaRow({ icon, children }: { icon: 'pin' | 'clock'; children: React.ReactNode }) {
-  return <div className="flex min-w-0 items-center gap-1.5 text-[11px] leading-4 text-brand-ink-muted"><Icon name={icon} className="h-3.5 w-3.5 flex-shrink-0"/><span className="truncate">{children}</span></div>
+  return <div className="flex min-w-0 items-center gap-2 text-[11px] leading-4 text-brand-ink-muted"><span className="grid h-6 w-6 flex-shrink-0 place-items-center rounded-lg bg-brand-surface-muted text-brand-accent"><Icon name={icon} className="h-3.5 w-3.5"/></span><span className="truncate">{children}</span></div>
 }
 
 export function PersonalEventCard({ event, management = false }: { event: PersonalEventData; management?: boolean }) {
@@ -22,33 +22,31 @@ export function PersonalEventCard({ event, management = false }: { event: Person
   const participantCount = event.participant_count ?? event.participants.length
 
   return (
-    <article className="rounded-2xl border border-[#e9e3ff] bg-[#f8f6ff] p-3.5 shadow-card transition hover:border-[#dcd3ff]">
-      <div className="mb-2.5 flex items-center gap-2.5">
-        <div className="grid h-9 w-9 flex-shrink-0 place-items-center overflow-hidden rounded-full bg-white text-xs font-bold text-brand-accent">
+    <article className="rounded-2xl border border-[#e5defe] bg-gradient-to-br from-white to-[#f7f4ff] p-4 shadow-card transition hover:border-[#d5cafd] hover:shadow-card-hover">
+      <div className="mb-3 flex items-center gap-3">
+        <div className="grid h-11 w-11 flex-shrink-0 place-items-center overflow-hidden rounded-full border-2 border-white bg-brand-accent-soft text-sm font-extrabold text-brand-accent shadow-sm">
           {event.organizer?.avatar_url ? <img src={event.organizer.avatar_url} alt={event.organizer.name} className="h-full w-full object-cover" /> : event.organizer?.name?.charAt(0).toUpperCase() ?? 'О'}
         </div>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-xs font-bold text-brand-ink">{event.organizer?.name ?? 'Організатор'}{event.organizer?.age ? `, ${event.organizer.age}` : ''}</p>
-          <p className="text-[10px] text-brand-ink-muted">Запрошує вас на подію</p>
+          <p className="truncate text-sm font-extrabold text-brand-ink">{event.organizer?.name ?? 'Організатор'}{event.organizer?.age ? `, ${event.organizer.age}` : ''}</p>
+          <p className="mt-0.5 text-[10px] font-medium text-brand-ink-muted">Запрошує на особисту зустріч</p>
         </div>
-        <span className="rounded-full bg-white px-2 py-1 text-[10px] font-bold text-brand-accent">Ведучий</span>
+        <span className="rounded-full border border-brand-accent/10 bg-brand-accent-soft px-2.5 py-1 text-[10px] font-extrabold text-brand-accent">Особиста</span>
       </div>
 
       <button type="button" onClick={() => navigate(`/event/${event.eventId}`)} className="block w-full text-left">
-        <h3 className="mb-2 text-[17px] font-extrabold leading-tight tracking-[-0.02em] text-brand-ink">{event.title}</h3>
-        {event.description && <p className="mb-2 line-clamp-2 text-xs leading-5 text-brand-ink-soft">{event.description}</p>}
-        <div className="space-y-1"><MetaRow icon="pin">{event.address_text || 'Місце не вказано'}</MetaRow><MetaRow icon="clock">{formatDateTime(event.event_datetime)}</MetaRow></div>
+        <h3 className="mb-2.5 text-[18px] font-extrabold leading-[1.2] tracking-[-0.025em] text-brand-ink">{event.title}</h3>
+        <div className="space-y-1.5"><MetaRow icon="clock">{formatDateTime(event.event_datetime)}</MetaRow><MetaRow icon="pin">{event.address_text || 'Місце не вказано'}{event.distance_km != null ? ` · ${event.distance_km.toFixed(1)} км` : ''}</MetaRow></div>
       </button>
 
-      <div className="mt-2.5 flex flex-wrap gap-1">
-        <span className="rounded-md bg-white px-2 py-1 text-[10px] font-semibold text-brand-ink-soft">{CATEGORY_LABEL[event.category] ?? event.category}</span>
-        <span className="rounded-md bg-white px-2 py-1 text-[10px] font-semibold text-brand-ink-soft">{event.min_age}–{event.max_age} років</span>
-        <span className="rounded-md bg-white px-2 py-1 text-[10px] font-semibold text-brand-ink-soft">{GENDER_LABEL[event.gender_filter] ?? event.gender_filter}</span>
-        <span className="rounded-md bg-white px-2 py-1 text-[10px] font-semibold text-brand-accent">{event.join_mode === 'approval' ? 'За підтвердженням' : 'Одразу'}</span>
+      <div className="mt-3 flex flex-wrap gap-1.5">
+        <span className="rounded-lg border border-[#ebe7f6] bg-white px-2.5 py-1.5 text-[10px] font-semibold text-brand-ink-soft">{CATEGORY_LABEL[event.category] ?? event.category}</span>
+        <span className="rounded-lg border border-[#ebe7f6] bg-white px-2.5 py-1.5 text-[10px] font-semibold text-brand-ink-soft">{event.min_age}–{event.max_age} · {GENDER_LABEL[event.gender_filter] ?? event.gender_filter}</span>
+        <span className="rounded-lg border border-brand-accent/10 bg-brand-accent-soft px-2.5 py-1.5 text-[10px] font-extrabold text-brand-accent">{event.join_mode === 'approval' ? 'За підтвердженням' : 'Вільний вступ'}</span>
       </div>
 
-      <div className="mt-3 flex items-center justify-between gap-2 border-t border-[#e7e1fa] pt-2.5">
-        <div className="flex min-w-0 items-center gap-1.5"><ParticipantAvatars users={visibleUsers} totalCount={participantCount}/><span className="truncate text-[10px] text-brand-ink-muted">{participantCount}/{event.max_participants} учасників{event.distance_km != null ? ` · ${event.distance_km.toFixed(1)} км` : ''}</span></div>
+      <div className="mt-3.5 flex items-center justify-between gap-2 border-t border-[#e7e1fa] pt-3">
+        <div className="flex min-w-0 items-center gap-2"><ParticipantAvatars users={visibleUsers} totalCount={participantCount}/><span className="truncate text-[11px] font-semibold text-brand-ink-muted">{participantCount}/{event.max_participants} учасників</span></div>
         <div className="flex gap-1.5">
           {management && <button type="button" onClick={() => navigate(`/event/${event.eventId}`)} className="h-10 rounded-xl border border-brand-border px-3 text-[11px] font-bold text-brand-ink-soft transition hover:border-brand-accent hover:text-brand-accent">Деталі</button>}
           <button type="button" onClick={() => navigate(management && event.participationStatus === 'joined' ? `/event/${event.eventId}/chat` : `/event/${event.eventId}`)} className="h-10 rounded-xl bg-brand-accent px-3.5 text-[11px] font-bold text-white transition hover:bg-brand-accent-hover">{management && event.participationStatus === 'joined' ? 'Чат' : event.participationStatus === 'pending' ? 'Очікує' : 'Деталі'}</button>
@@ -64,26 +62,24 @@ export function PublicEventCard({ event, isNew = false }: { event: PublicEventDa
   const openEvent = () => navigate(`/event/${event.id}`)
 
   return (
-    <article className={`group flex min-h-[154px] overflow-hidden rounded-2xl border bg-white shadow-card transition hover:border-brand-border-strong ${isNew ? 'border-brand-accent/50 ring-2 ring-brand-accent/10' : 'border-brand-border'}`}>
-      <button type="button" onClick={openEvent} className="relative block w-[118px] flex-shrink-0 overflow-hidden bg-brand-surface-muted text-left sm:w-[168px]">
-        <EventMedia category={event.category} coverUrl={event.cover_photo_url} alt={event.cover_photo_url ? event.title : ''} className="h-full min-h-40 w-full" imageClassName="transition duration-300 group-hover:scale-[1.02]" />
-        {isNew && <span className="absolute left-3 top-3 rounded-full bg-white px-2.5 py-1 text-[10px] font-extrabold text-brand-accent shadow-sm">НОВА</span>}
+    <article className={`group overflow-hidden rounded-2xl border bg-white shadow-card transition hover:-translate-y-0.5 hover:border-brand-border-strong hover:shadow-card-hover ${isNew ? 'border-brand-accent/50 ring-2 ring-brand-accent/10' : 'border-brand-border'}`}>
+      <button type="button" onClick={openEvent} aria-label={`Відкрити подію «${event.title}»`} className="relative block h-32 w-full overflow-hidden bg-brand-surface-muted text-left sm:h-36 xl:h-40">
+        <EventMedia category={event.category} coverUrl={event.cover_photo_url} alt={event.cover_photo_url ? event.title : ''} className="h-full w-full" imageClassName="transition duration-300 group-hover:scale-[1.025]" />
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-14 bg-gradient-to-t from-black/25 to-transparent" />
+        <span className="absolute bottom-3 left-3 rounded-lg border border-white/30 bg-white/90 px-2.5 py-1 text-[10px] font-extrabold text-brand-accent shadow-sm backdrop-blur">{CATEGORY_LABEL[event.category] ?? event.category}</span>
+        {isNew && <span className="absolute right-3 top-3 rounded-full bg-white px-2.5 py-1 text-[10px] font-extrabold text-brand-accent shadow-sm">НОВА</span>}
       </button>
 
-      <div className="flex min-w-0 flex-1 flex-col p-3 sm:px-3.5">
-        <div className="mb-1 flex items-start justify-between gap-2">
-          <span className="rounded-md bg-brand-accent-soft px-2 py-1 text-[10px] font-bold text-brand-accent">{CATEGORY_LABEL[event.category] ?? event.category}</span>
-          <button type="button" disabled title={event.isDemo ? 'Недоступно для демонстраційної події' : 'Збереження з’явиться незабаром'} className="-mr-1 -mt-1 cursor-not-allowed rounded-md p-1 text-brand-ink-muted opacity-55" aria-label="Зберегти подію"><Icon name="bookmark" className="h-4 w-4"/></button>
-        </div>
-        <button type="button" onClick={openEvent} className="text-left"><h3 className="line-clamp-2 text-[15px] font-extrabold leading-[1.25] tracking-[-0.015em] text-brand-ink">{event.title}</h3></button>
-        <div className="mt-1.5 space-y-0.5"><MetaRow icon="pin">{event.address_text || 'Місце не вказано'}</MetaRow><MetaRow icon="clock">{formatDateTime(event.event_datetime)}</MetaRow></div>
+      <div className="flex min-w-0 flex-col p-4 sm:px-[18px] sm:pb-[18px]">
+        <button type="button" onClick={openEvent} className="text-left"><h3 className="line-clamp-2 text-[18px] font-extrabold leading-[1.2] tracking-[-0.025em] text-brand-ink sm:text-[19px]">{event.title}</h3></button>
+        <div className="mt-3 space-y-1.5"><MetaRow icon="clock">{formatDateTime(event.event_datetime)}</MetaRow><MetaRow icon="pin">{event.address_text || 'Місце не вказано'}{event.distance_km !== null ? ` · ${event.distance_km.toFixed(1)} км` : ''}</MetaRow></div>
 
-        <div className="mt-auto flex items-end justify-between gap-1.5 pt-2">
-          <div className="flex min-w-0 items-center gap-1.5">
+        <div className="mt-4 flex items-center justify-between gap-3 border-t border-brand-border pt-3">
+          <div className="flex min-w-0 items-center gap-2">
             <ParticipantAvatars users={participantUsers} totalCount={event.participant_count} />
-            <div className="min-w-0"><p className="truncate text-[10px] font-bold text-brand-ink">{event.participant_count} учасників</p>{event.distance_km !== null && <p className="truncate text-[9px] text-brand-ink-muted">{event.distance_km.toFixed(1)} км від вас</p>}</div>
+            <p className="truncate text-[11px] font-bold text-brand-ink-soft">{event.participant_count}/{event.max_participants} учасників</p>
           </div>
-          <button type="button" onClick={openEvent} className="h-10 flex-shrink-0 rounded-xl bg-brand-accent px-3 text-[11px] font-bold text-white transition hover:bg-brand-accent-hover">Деталі</button>
+          <button type="button" onClick={openEvent} className="h-11 min-w-[92px] flex-shrink-0 rounded-xl bg-brand-accent px-4 text-xs font-extrabold text-white transition hover:bg-brand-accent-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-accent">Деталі</button>
         </div>
       </div>
     </article>

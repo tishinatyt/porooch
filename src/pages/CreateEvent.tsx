@@ -269,7 +269,7 @@ export default function CreateEvent() {
                 <div className="rounded-xl bg-[#faf9fd] p-3">
                   <label className={labelClass} htmlFor="cover_photo_url">Обкладинка <span className="font-normal text-brand-ink-muted">(необов’язково)</span></label>
                   <input id="cover_photo_url" type="url" value={form.cover_photo_url} onChange={(event) => set('cover_photo_url', event.target.value)} placeholder="Посилання на зображення https://..." className={inputClass('cover_photo_url')} />
-                  {form.cover_photo_url && <div className="mt-2.5 h-28 overflow-hidden rounded-xl border border-brand-border bg-brand-surface-muted"><img src={form.cover_photo_url} alt="Попередній перегляд обкладинки" className="h-full w-full object-cover" /></div>}
+                  {form.cover_photo_url && <div className="mt-2.5 h-28 overflow-hidden rounded-xl border border-brand-border bg-brand-surface-muted"><EventMedia category={form.category} coverUrl={form.cover_photo_url} alt="Попередній перегляд обкладинки" className="h-full w-full" /></div>}
                 </div>
               </div>
             </SectionCard>

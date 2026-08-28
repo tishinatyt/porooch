@@ -237,6 +237,7 @@ export default function EventDetail() {
       <div className="mx-auto grid max-w-6xl grid-cols-1 items-start gap-7 px-4 py-5 sm:px-7 md:py-7 lg:grid-cols-[minmax(0,1fr)_340px] lg:px-8 xl:grid-cols-[minmax(0,1fr)_370px] xl:gap-9">
         <main className="min-w-0 space-y-5">
           <OrganizerHeader name={organizerName} avatarUrl={event.organizer?.avatar_url ?? null} verified={event.organizer?.google_verified ?? false} />
+          <div className="h-40 overflow-hidden rounded-2xl border border-brand-border shadow-card lg:hidden"><EventMedia category={event.category} coverUrl={event.cover_photo_url} alt={event.cover_photo_url ? event.title : ''} className="h-full w-full" /></div>
           <section>
             <div className="mb-2 flex flex-wrap items-center gap-2"><span className="rounded-md bg-brand-accent-soft px-2 py-1 text-[10px] font-extrabold text-brand-accent">{CATEGORY_LABEL[event.category] ?? event.category}</span>{!event.is_public && <span className="rounded-md border border-brand-border bg-white px-2 py-1 text-[10px] font-bold text-brand-ink-muted">Приватна</span>}</div>
             <h1 className="text-[28px] font-extrabold leading-[1.12] tracking-[-0.04em] text-brand-ink md:text-[34px] lg:text-4xl">{event.title}</h1>

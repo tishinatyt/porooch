@@ -95,7 +95,7 @@ export default function Chats() {
             const preview = item.last_message ? `${item.last_sender_name ? `${item.last_sender_name}: ` : ''}${item.last_message}` : item.address_text || 'Розмова ще не почалася'
             return (
               <button key={item.chat_id} type="button" onClick={() => navigate(`/event/${item.event_id}/chat`)} className="flex min-h-20 w-full items-center gap-3 rounded-2xl border border-brand-border bg-white p-3 text-left transition hover:border-brand-accent/25 hover:bg-brand-accent-soft/25 focus-visible:outline-2 focus-visible:outline-brand-accent sm:px-4">
-                <div className="h-14 w-14 flex-shrink-0 overflow-hidden rounded-xl"><EventMedia category={item.category} coverUrl={item.cover_photo_url} alt={item.cover_photo_url ? item.event_title : ''} className="h-full w-full" /></div>
+                <div className="h-14 w-14 flex-shrink-0 overflow-hidden rounded-xl"><EventMedia category={item.category} coverUrl={item.cover_photo_url} alt={item.cover_photo_url ? item.event_title : ''} className="h-full w-full" compactFallback /></div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-start justify-between gap-3">
                     <h2 className="truncate text-sm font-extrabold text-brand-ink sm:text-base">{item.event_title}</h2>
