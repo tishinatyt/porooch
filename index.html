@@ -19,10 +19,31 @@
       // 404.html stores the full path (including /porooch prefix); restore it as-is.
       // BrowserRouter uses Vite's BASE_URL, so no manual prefix stripping is needed.
       (function() {
-        var redirect = sessionStorage.redirect;
+        var appBase = '%BASE_URL%';
+        var redirect = null;
+
+        try {
+          redirect = sessionStorage.getItem('porooch:redirect');
+          sessionStorage.removeItem('porooch:redirect');
+          // Remove the legacy key so an older /meetnow/ redirect cannot be restored.
+          sessionStorage.removeItem('redirect');
+        } catch (_) {
+          // Storage can be unavailable in restricted standalone contexts.
+        }
+
         if (redirect) {
-          delete sessionStorage.redirect;
-          window.history.replaceState(null, null, redirect);
+          try {
+            var target = new URL(redirect, window.location.origin);
+            if (target.origin === window.location.origin && target.pathname.indexOf(appBase) === 0) {
+              window.history.replaceState(null, '', target.pathname + target.search + target.hash);
+            }
+          } catch (_) {
+            // Ignore malformed or stale redirects and launch at the app root.
+          }
+        }
+
+        if (window.location.pathname.indexOf(appBase) !== 0) {
+          window.history.replaceState(null, '', appBase);
         }
       })();
     </script>

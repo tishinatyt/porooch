@@ -18,6 +18,7 @@ export default defineConfig(({ command }) => {
     tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
+      injectRegister: false,
       includeAssets: ['favicon.svg', 'icons/*.svg'],
       manifest: {
         name: 'porooch',
@@ -30,6 +31,7 @@ export default defineConfig(({ command }) => {
         orientation: 'portrait',
         scope: base,
         start_url: base,
+        id: base,
         icons: [
           { src: 'icons/icon-192.svg', sizes: '192x192', type: 'image/svg+xml' },
           { src: 'icons/icon-512.svg', sizes: '512x512', type: 'image/svg+xml', purpose: 'any maskable' }
@@ -39,6 +41,8 @@ export default defineConfig(({ command }) => {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
         globIgnores: ['demo-avatars/**', 'icons/*.png'],
         cleanupOutdatedCaches: true,
+        skipWaiting: true,
+        clientsClaim: true,
       }
     })
   ],

@@ -19,17 +19,38 @@
       // 404.html stores the full path (including /porooch prefix); restore it as-is.
       // BrowserRouter uses Vite's BASE_URL, so no manual prefix stripping is needed.
       (function() {
-        var redirect = sessionStorage.redirect;
+        var appBase = '/porooch/';
+        var redirect = null;
+
+        try {
+          redirect = sessionStorage.getItem('porooch:redirect');
+          sessionStorage.removeItem('porooch:redirect');
+          // Remove the legacy key so an older /meetnow/ redirect cannot be restored.
+          sessionStorage.removeItem('redirect');
+        } catch (_) {
+          // Storage can be unavailable in restricted standalone contexts.
+        }
+
         if (redirect) {
-          delete sessionStorage.redirect;
-          window.history.replaceState(null, null, redirect);
+          try {
+            var target = new URL(redirect, window.location.origin);
+            if (target.origin === window.location.origin && target.pathname.indexOf(appBase) === 0) {
+              window.history.replaceState(null, '', target.pathname + target.search + target.hash);
+            }
+          } catch (_) {
+            // Ignore malformed or stale redirects and launch at the app root.
+          }
+        }
+
+        if (window.location.pathname.indexOf(appBase) !== 0) {
+          window.history.replaceState(null, '', appBase);
         }
       })();
     </script>
-    <script type="module" crossorigin src="/porooch/assets/index-z9htIJgw.js"></script>
+    <script type="module" crossorigin src="/porooch/assets/index-Dgk13Wwh.js"></script>
     <link rel="modulepreload" crossorigin href="/porooch/assets/supabase-CGP4Gsz0.js">
-    <link rel="stylesheet" crossorigin href="/porooch/assets/index-B4N0rYce.css">
-  <link rel="manifest" href="/porooch/manifest.webmanifest"><script id="vite-plugin-pwa:register-sw" src="/porooch/registerSW.js"></script></head>
+    <link rel="stylesheet" crossorigin href="/porooch/assets/index-4br78Asa.css">
+  <link rel="manifest" href="/porooch/manifest.webmanifest"></head>
   <body>
     <div id="root"></div>
   </body>
