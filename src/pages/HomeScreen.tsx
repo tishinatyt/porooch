@@ -5,7 +5,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { getCurrentPosition } from '@/lib/geo'
 import TopBar from '@/components/TopBar'
 import { PersonalEventCard, PublicEventCard } from '@/components/home/HomeEventCards'
-import { CategoryChips, EmptyState } from '@/components/home/HomeControls'
+import { CategoryChips } from '@/components/home/HomeControls'
 import type { PersonalEventData, PublicEventData } from '@/components/home/types'
 import { DEMO_PERSONAL_EVENTS, DEMO_PUBLIC_EVENTS, PUBLIC_CATEGORIES } from '@/components/home/demoEvents'
 
@@ -269,30 +269,36 @@ export default function HomeScreen() {
       <div className="mx-auto max-w-[1440px] px-4 py-5 sm:px-6 lg:px-7 lg:py-6 xl:px-10">
         <div className="grid min-w-0 grid-cols-1 items-start gap-7 lg:grid-cols-[minmax(280px,0.4fr)_minmax(0,0.6fr)] lg:gap-6 xl:grid-cols-[minmax(340px,0.4fr)_minmax(0,0.6fr)] xl:gap-7">
           <section className="min-w-0">
-            <div className="mb-3.5">
-              <h1 className="text-lg font-extrabold tracking-[-0.02em] text-brand-ink">Особисті події</h1>
+            <div className="mb-3.5 flex items-start justify-between gap-4">
+              <div>
+              <h1 className="text-lg font-extrabold tracking-[-0.02em] text-brand-ink">Особисті зустрічі</h1>
               <p className="mt-1 text-xs leading-5 text-brand-ink-muted">Зустрічі від людей поруч із вами</p>
+              </div>
+              {!loadingDiscovery && personalEvents.length > 0 && <span className="mt-0.5 text-xs font-bold tabular-nums text-brand-ink-muted" aria-label={`${personalEvents.length} особистих зустрічей`}>{personalEvents.length}</span>}
             </div>
 
-            {loadingDiscovery && <div className="space-y-3">{[1, 2, 3].map((item) => <div key={item} className="h-48 animate-pulse rounded-2xl border border-brand-border bg-white" />)}</div>}
+            {loadingDiscovery && <div className="scrollbar-hide flex snap-x snap-mandatory gap-3 overflow-x-auto pb-2 pr-4 lg:block lg:space-y-3 lg:overflow-visible lg:pb-0 lg:pr-0">{[1, 2, 3].map((item) => <div key={item} className="h-56 w-[88%] flex-none snap-start animate-pulse rounded-2xl border border-brand-border bg-white min-[420px]:w-[86%] sm:w-[46%] md:w-[44%] lg:w-auto" />)}</div>}
             {!loadingDiscovery && personalEvents.length === 0 && (
-              <EmptyState title="Поруч поки немає особистих подій" description="Спробуйте збільшити радіус або створіть власну зустріч." action={<Link to="/create" className="inline-flex rounded-xl bg-brand-accent px-4 py-2.5 text-xs font-bold text-white transition hover:bg-brand-accent-hover">Створити подію</Link>} />
+              <div className="rounded-2xl border border-dashed border-brand-border-strong bg-white px-4 py-6 text-center"><p className="text-sm font-bold text-brand-ink">Поки немає особистих подій поруч.</p><Link to="/create" className="mt-3 inline-flex min-h-10 items-center rounded-xl bg-brand-accent px-4 text-xs font-bold text-white transition hover:bg-brand-accent-hover">Створити подію</Link></div>
             )}
-            {!loadingDiscovery && personalEvents.length > 0 && <div className="space-y-2.5">{personalEvents.map((event) => <PersonalEventCard key={event.eventId} event={event} />)}</div>}
+            {!loadingDiscovery && personalEvents.length > 0 && <div role="list" aria-label="Особисті зустрічі поруч" className="scrollbar-hide flex snap-x snap-mandatory scroll-smooth items-stretch gap-3 overflow-x-auto overscroll-x-contain pb-2 pr-4 [scroll-padding-inline:1px] [-webkit-overflow-scrolling:touch] lg:block lg:space-y-2.5 lg:overflow-visible lg:overscroll-auto lg:pb-0 lg:pr-0">{personalEvents.map((event) => <div role="listitem" key={event.eventId} className="w-[88%] flex-none snap-start min-[420px]:w-[86%] sm:w-[46%] md:w-[44%] lg:w-auto"><PersonalEventCard event={event} /></div>)}</div>}
 
             <Link to="/create" className="mt-3 flex w-full items-center justify-center rounded-lg border border-brand-accent/20 bg-brand-accent-soft px-4 py-2.5 text-xs font-bold text-brand-accent transition hover:border-brand-accent/40 hover:bg-brand-accent/10">+ Створити особисту подію</Link>
           </section>
 
           <section className="min-w-0">
-            <div className="mb-3.5">
-              <h2 className="text-lg font-extrabold tracking-[-0.02em] text-brand-ink">Громадські події</h2>
+            <div className="mb-3.5 flex items-start justify-between gap-4">
+              <div>
+              <h2 className="text-lg font-extrabold tracking-[-0.02em] text-brand-ink">Публічні події</h2>
               <p className="mt-1 text-xs leading-5 text-brand-ink-muted">Відкриті події, до яких можна приєднатися</p>
+              </div>
+              {!loadingDiscovery && shownPublic.length > 0 && <span className="mt-0.5 text-xs font-bold tabular-nums text-brand-ink-muted" aria-label={`${filteredPublic.length} публічних подій`}>{filteredPublic.length}</span>}
             </div>
 
             <div className="mb-3"><CategoryChips items={TABS} selected={selectedCategory} onSelect={(key) => { setSelectedCategory(key); setPublicPage(1) }} /></div>
-            {loadingDiscovery && <div className="space-y-3">{[1, 2, 3, 4].map((item) => <div key={item} className="h-48 animate-pulse rounded-2xl border border-brand-border bg-white" />)}</div>}
-            {!loadingDiscovery && shownPublic.length === 0 && <EmptyState title={selectedCategory === 'all' ? 'Поруч поки немає подій' : `Немає подій у категорії «${CATEGORY_LABEL[selectedCategory] ?? selectedCategory}»`} description={selectedCategory === 'all' ? 'Спробуйте збільшити радіус пошуку або перевірте пізніше.' : 'Оберіть іншу категорію або збільшіть радіус пошуку.'} />}
-            {!loadingDiscovery && shownPublic.length > 0 && <div className="space-y-2.5">{shownPublic.map((event) => <PublicEventCard key={event.id} event={event} isNew={event.id === newEventId} />)}</div>}
+            {loadingDiscovery && <div className="scrollbar-hide flex snap-x snap-mandatory gap-3 overflow-x-auto pb-2 pr-4 lg:block lg:space-y-3 lg:overflow-visible lg:pb-0 lg:pr-0">{[1, 2, 3, 4].map((item) => <div key={item} className="h-72 w-[88%] flex-none snap-start animate-pulse rounded-2xl border border-brand-border bg-white min-[420px]:w-[86%] sm:w-[46%] md:w-[44%] lg:w-auto" />)}</div>}
+            {!loadingDiscovery && shownPublic.length === 0 && <div className="rounded-2xl border border-dashed border-brand-border-strong bg-white px-4 py-6 text-center"><p className="text-sm font-bold text-brand-ink">Поки немає публічних подій поруч.</p>{selectedCategory !== 'all' && <p className="mt-1.5 text-xs text-brand-ink-muted">Спробуйте іншу категорію або збільшіть радіус.</p>}</div>}
+            {!loadingDiscovery && shownPublic.length > 0 && <div role="list" aria-label="Публічні події поруч" className="scrollbar-hide flex snap-x snap-mandatory scroll-smooth items-stretch gap-3 overflow-x-auto overscroll-x-contain pb-2 pr-4 [scroll-padding-inline:1px] [-webkit-overflow-scrolling:touch] lg:block lg:space-y-2.5 lg:overflow-visible lg:overscroll-auto lg:pb-0 lg:pr-0">{shownPublic.map((event) => <div role="listitem" key={event.id} className="w-[88%] flex-none snap-start min-[420px]:w-[86%] sm:w-[46%] md:w-[44%] lg:w-auto"><PublicEventCard event={event} isNew={event.id === newEventId} /></div>)}</div>}
 
             {hasMorePublic && <button type="button" onClick={() => setPublicPage((page) => page + 1)} className="mt-4 w-full rounded-xl border border-brand-border bg-white py-3 text-sm font-bold text-brand-ink-soft transition hover:border-brand-border-strong hover:bg-brand-surface-muted">Показати більше ({filteredPublic.length - shownPublic.length})</button>}
           </section>
