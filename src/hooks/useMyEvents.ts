@@ -44,7 +44,7 @@ export function useMyEvents() {
         .from('events')
         .select(`
           id, title, category, address_text, event_datetime, created_at,
-          min_age, max_age, gender_filter, cover_photo_url, max_participants,
+          min_age, max_age, gender_filter, cover_photo_url, max_participants, is_public, join_mode,
           organizer:users!events_organizer_id_fkey(id, name, avatar_url, google_verified)
         `)
         .in('id', eventIds)
@@ -84,6 +84,8 @@ export function useMyEvents() {
         gender_filter: event.gender_filter,
         cover_photo_url: event.cover_photo_url,
         max_participants: event.max_participants,
+        is_public: event.is_public,
+        join_mode: event.join_mode,
         organizer: toSingle(event.organizer) as OrganizerInfo | null,
         participants: participantsByEvent.get(event.id) ?? [],
       }

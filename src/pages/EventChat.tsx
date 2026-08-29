@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
+import { useUnreadMessages } from '@/contexts/UnreadMessagesContext'
 import TopBar from '@/components/TopBar'
 import ParticipantAvatars from '@/components/home/ParticipantAvatars'
 import { EventContextCard, formatMessageDay, MessageBubble, MessageComposer, MessageDateSeparator, type ChatMessage } from '@/components/chat/ChatComponents'
@@ -30,6 +31,7 @@ export default function EventChat() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const { supaUser } = useAuth()
+  const { markChatRead } = useUnreadMessages()
   const [event, setEvent] = useState<EventChatContext | null>(null)
   const [participantCount, setParticipantCount] = useState(0)
   const [participantUsers, setParticipantUsers] = useState<{ id: string; name?: string; avatar_url: string | null }[]>([])
@@ -84,9 +86,10 @@ export default function EventChat() {
     const { data: rows } = await supabase.from('event_chat_messages').select('id, event_chat_id, sender_id, content, created_at, sender:users!event_chat_messages_sender_id_fkey(id, name, avatar_url)').eq('event_chat_id', chat.id).order('created_at', { ascending: true }).order('id', { ascending: true })
     const loadedMessages = (rows ?? []).map((row) => normalizeMessage(row as unknown as Record<string, unknown>))
     setMessages((current) => mergeMessages(current.filter((message) => message.event_chat_id === chat.id), loadedMessages))
+    await markChatRead(chat.id, loadedMessages.at(-1)?.created_at ?? new Date().toISOString())
     initialScrollRef.current = true
     setLoading(false)
-  }, [id, supaUser])
+  }, [id, markChatRead, supaUser])
 
   useEffect(() => { void load() }, [load])
 
@@ -105,9 +108,10 @@ export default function EventChat() {
       if (message.sender_id === supaUser.id) nearBottomRef.current = true
       else if (!nearBottomRef.current) setHasNewMessages(true)
       setMessages((current) => mergeMessages(current, [message]))
+      if (nearBottomRef.current) void markChatRead(chatId, message.created_at)
     }).subscribe()
     return () => { void supabase.removeChannel(channel) }
-  }, [chatId, checkAccess, supaUser])
+  }, [chatId, checkAccess, markChatRead, supaUser])
 
   useEffect(() => {
     if (initialScrollRef.current || nearBottomRef.current) {
@@ -117,7 +121,13 @@ export default function EventChat() {
     }
   }, [messages])
 
-  function scrollToNewest() { nearBottomRef.current = true; setHasNewMessages(false); bottomRef.current?.scrollIntoView({ behavior: 'smooth' }) }
+  function scrollToNewest() {
+    nearBottomRef.current = true
+    setHasNewMessages(false)
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+    const newest = messages.at(-1)
+    if (chatId && newest) void markChatRead(chatId, newest.created_at)
+  }
 
   async function handleSend() {
     const content = text.trim()

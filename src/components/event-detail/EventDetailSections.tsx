@@ -2,13 +2,12 @@ import type { ReactNode } from 'react'
 import type { EventParticipant } from '@/hooks/useEvent'
 import { Icon, type IconName } from '@/components/icons'
 import ParticipantAvatars from '@/components/home/ParticipantAvatars'
+import ProfileAvatar from '@/components/ProfileAvatar'
 
-export function OrganizerHeader({ name, avatarUrl, verified }: { name: string; avatarUrl: string | null; verified: boolean }) {
+export function OrganizerHeader({ id, name, age, city, bio, interests, avatarUrl, verified }: { id: string; name: string; age?: number | null; city?: string | null; bio?: string | null; interests?: string[]; avatarUrl: string | null; verified: boolean }) {
   return (
     <div className="flex items-center gap-2.5">
-      <div className="grid h-10 w-10 flex-shrink-0 place-items-center overflow-hidden rounded-full bg-brand-accent-soft text-sm font-extrabold text-brand-accent">
-        {avatarUrl ? <img src={avatarUrl} alt={name} className="h-full w-full object-cover" /> : name.charAt(0).toUpperCase()}
-      </div>
+      <ProfileAvatar profile={{ id, name, age, city, bio, interests, avatar_url: avatarUrl, google_verified: verified }} className="grid h-11 w-11 flex-shrink-0 place-items-center overflow-hidden rounded-full bg-brand-accent-soft text-sm font-extrabold text-brand-accent" />
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
           <p className="truncate text-sm font-bold text-brand-ink">{name}</p>
@@ -86,9 +85,7 @@ export function PendingRequestList({ requests, processingUserId, onApprove, onRe
             return (
               <article key={request.id} className="flex flex-col gap-3 py-4 first:pt-0 last:pb-0 sm:flex-row sm:items-center">
                 <div className="flex min-w-0 flex-1 items-center gap-3">
-                  <div className="grid h-11 w-11 flex-shrink-0 place-items-center overflow-hidden rounded-full bg-brand-accent-soft text-sm font-extrabold text-brand-accent">
-                    {request.user?.avatar_url ? <img src={request.user.avatar_url} alt={name} className="h-full w-full object-cover" /> : name.charAt(0).toUpperCase()}
-                  </div>
+                  <ProfileAvatar profile={{ id: request.user_id, name, age: request.user?.age, city: request.user?.city, bio: request.user?.bio, interests: request.user?.interests, avatar_url: request.user?.avatar_url ?? null }} className="grid h-11 w-11 flex-shrink-0 place-items-center overflow-hidden rounded-full bg-brand-accent-soft text-sm font-extrabold text-brand-accent" />
                   <div className="min-w-0">
                     <p className="truncate text-sm font-bold text-brand-ink">{name}</p>
                     <p className="mt-0.5 text-xs text-brand-ink-muted">{request.user?.age ? `${request.user.age} років · ` : ''}Очікує підтвердження</p>

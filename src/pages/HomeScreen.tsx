@@ -81,6 +81,7 @@ function asPersonalEvent(event: PublicEventData): PersonalEventData {
     participant_count: event.participant_count,
     distance_km: event.distance_km,
     join_mode: event.join_mode,
+    is_public: event.is_public,
     description: event.description,
     isDemo: event.isDemo,
   }
@@ -117,18 +118,19 @@ export default function HomeScreen() {
 
     const nearbyRows = (nearbyResult.data ?? []) as Record<string, unknown>[]
     const ids = nearbyRows.map((row) => row.id as string)
-    const typeById = new Map<string, { event_type: 'personal' | 'public'; join_mode: 'open' | 'approval' }>()
+    const typeById = new Map<string, { event_type: 'personal' | 'public'; join_mode: 'open' | 'approval'; is_public: boolean }>()
 
     if (ids.length > 0) {
       const { data: typeRows, error: typeError } = await supabase
         .from('events')
-        .select('id, event_type, join_mode')
+        .select('id, event_type, join_mode, is_public')
         .in('id', ids)
       if (typeError) console.error('[fetchDiscoveryEvents] event type error:', typeError)
       for (const row of typeRows ?? []) {
         typeById.set(row.id, {
           event_type: (row.event_type ?? 'public') as 'personal' | 'public',
           join_mode: (row.join_mode ?? 'open') as 'open' | 'approval',
+          is_public: row.is_public ?? true,
         })
       }
     }
@@ -156,6 +158,7 @@ export default function HomeScreen() {
         organizer: (e.organizer ?? null) as PublicEventData['organizer'],
         event_type: metadata?.event_type ?? 'public',
         join_mode: metadata?.join_mode ?? 'open',
+        is_public: metadata?.is_public ?? (e.is_public as boolean | undefined) ?? true,
       } as PublicEventData
     })
     events.sort(sortDiscovery)
@@ -275,7 +278,7 @@ export default function HomeScreen() {
               <h1 className="text-base font-extrabold tracking-[-0.02em] text-brand-ink lg:text-lg">Особисті зустрічі</h1>
               <p className="mt-1 hidden text-xs leading-5 text-brand-ink-muted sm:block">Зустрічі від людей поруч із вами</p>
               </div>
-              <div className="flex items-center gap-2">{!loadingDiscovery && personalEvents.length > 0 && <span className="text-xs font-bold tabular-nums text-brand-ink-muted" aria-label={`${personalEvents.length} особистих зустрічей`}>{personalEvents.length}</span>}<Link to="/create" className="inline-flex min-h-8 items-center rounded-lg bg-brand-accent-soft px-2.5 text-[10px] font-extrabold text-brand-accent lg:hidden">+ Створити</Link></div>
+              <div className="flex items-center gap-2">{!loadingDiscovery && personalEvents.length > 0 && <span className="text-xs font-bold tabular-nums text-brand-ink-muted" aria-label={`${personalEvents.length} особистих зустрічей`}>{personalEvents.length}</span>}<Link to="/create?type=personal" className="inline-flex min-h-8 items-center rounded-lg bg-brand-accent-soft px-2.5 text-[10px] font-extrabold text-brand-accent lg:hidden">+ Створити</Link><Link to="/create?type=personal" className="hidden h-10 items-center rounded-xl bg-brand-accent px-3.5 text-xs font-extrabold text-white transition hover:bg-brand-accent-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-accent lg:inline-flex">+ Додати</Link></div>
             </div>
 
             {loadingDiscovery && <HomeCarousel id="personal-events-loading" label="Завантаження особистих зустрічей" className="lg:space-y-3">{[1, 2, 3].map((item) => <div role="listitem" key={item} className="h-56 w-[88%] flex-none snap-start animate-pulse rounded-2xl border border-brand-border bg-white min-[420px]:w-[86%] sm:w-[46%] md:w-[44%] lg:w-auto" />)}</HomeCarousel>}
@@ -284,7 +287,6 @@ export default function HomeScreen() {
             )}
             {!loadingDiscovery && personalEvents.length > 0 && <HomeCarousel id="personal-events-carousel" label="Особисті зустрічі поруч" className="lg:space-y-2.5">{personalEvents.map((event) => <div role="listitem" key={event.eventId} className="w-[88%] flex-none snap-start [scroll-snap-stop:always] min-[420px]:w-[86%] sm:w-[46%] md:w-[44%] lg:w-auto"><PersonalEventCard event={event} /></div>)}</HomeCarousel>}
 
-            <Link to="/create" className="mt-3 hidden w-full items-center justify-center rounded-lg border border-brand-accent/20 bg-brand-accent-soft px-4 py-2.5 text-xs font-bold text-brand-accent transition hover:border-brand-accent/40 hover:bg-brand-accent/10 lg:flex">+ Створити особисту подію</Link>
           </section>
 
           <section className="min-w-0 lg:flex lg:min-h-0 lg:flex-col">
@@ -293,7 +295,7 @@ export default function HomeScreen() {
               <h2 className="text-base font-extrabold tracking-[-0.02em] text-brand-ink lg:text-lg">Публічні події</h2>
               <p className="mt-1 hidden text-xs leading-5 text-brand-ink-muted sm:block">Відкриті події, до яких можна приєднатися</p>
               </div>
-              {!loadingDiscovery && shownPublic.length > 0 && <span className="mt-0.5 text-xs font-bold tabular-nums text-brand-ink-muted" aria-label={`${filteredPublic.length} публічних подій`}>{filteredPublic.length}</span>}
+              <div className="flex items-center gap-2">{!loadingDiscovery && shownPublic.length > 0 && <span className="mt-0.5 text-xs font-bold tabular-nums text-brand-ink-muted" aria-label={`${filteredPublic.length} публічних подій`}>{filteredPublic.length}</span>}<Link to="/create?type=public" className="hidden h-10 items-center rounded-xl bg-brand-accent px-3.5 text-xs font-extrabold text-white transition hover:bg-brand-accent-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-accent lg:inline-flex">+ Додати</Link></div>
             </div>
 
             <div className="mb-2 lg:mb-3"><CategoryChips items={TABS} selected={selectedCategory} onSelect={(key) => { setSelectedCategory(key); setPublicPage(1) }} /></div>

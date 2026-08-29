@@ -30,6 +30,7 @@ export interface PersonalEventData {
   participant_count?: number
   distance_km?: number | null
   join_mode?: 'open' | 'approval'
+  is_public?: boolean
   description?: string
   isDemo?: true
 }
@@ -51,6 +52,7 @@ export interface PublicEventData {
   organizer: OrganizerInfo | null
   event_type?: 'personal' | 'public'
   join_mode?: 'open' | 'approval'
+  is_public?: boolean
   participants?: { id: string; name: string; avatar_url: string | null }[]
   description?: string
   location_lat?: number | null

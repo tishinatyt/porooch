@@ -10,6 +10,7 @@ import EventMedia from '@/components/EventMedia'
 import { EventActionContent, EventInfoRow, EventRequirements, OrganizerHeader, ParticipantList, PendingRequestList } from '@/components/event-detail/EventDetailSections'
 import { getDemoEvent } from '@/components/home/demoEvents'
 import type { EventDetail as EventDetailData, EventParticipant } from '@/hooks/useEvent'
+import { getEventAccessLabel } from '@/lib/eventAccess'
 
 const EventMap = lazy(() => import('@/components/EventMap'))
 
@@ -236,10 +237,10 @@ export default function EventDetail() {
 
       <div className="mx-auto grid max-w-6xl grid-cols-1 items-start gap-7 px-4 py-5 sm:px-7 md:py-7 lg:grid-cols-[minmax(0,1fr)_340px] lg:px-8 xl:grid-cols-[minmax(0,1fr)_370px] xl:gap-9">
         <main className="min-w-0 space-y-5">
-          <OrganizerHeader name={organizerName} avatarUrl={event.organizer?.avatar_url ?? null} verified={event.organizer?.google_verified ?? false} />
+          <OrganizerHeader id={event.organizer_id} name={organizerName} age={event.organizer?.age} city={event.organizer?.city} bio={event.organizer?.bio} interests={event.organizer?.interests} avatarUrl={event.organizer?.avatar_url ?? null} verified={event.organizer?.google_verified ?? false} />
           <div className="h-40 overflow-hidden rounded-2xl border border-brand-border shadow-card lg:hidden"><EventMedia category={event.category} coverUrl={event.cover_photo_url} alt={event.cover_photo_url ? event.title : ''} className="h-full w-full" /></div>
           <section>
-            <div className="mb-2 flex flex-wrap items-center gap-2"><span className="rounded-md bg-brand-accent-soft px-2 py-1 text-[10px] font-extrabold text-brand-accent">{CATEGORY_LABEL[event.category] ?? event.category}</span>{!event.is_public && <span className="rounded-md border border-brand-border bg-white px-2 py-1 text-[10px] font-bold text-brand-ink-muted">Приватна</span>}</div>
+            <div className="mb-2 flex flex-wrap items-center gap-2"><span className="rounded-md bg-brand-accent-soft px-2 py-1 text-[10px] font-extrabold text-brand-accent">{CATEGORY_LABEL[event.category] ?? event.category}</span><span className="rounded-md border border-brand-border bg-white px-2 py-1 text-[10px] font-bold text-brand-ink-muted">{getEventAccessLabel(event)}</span></div>
             <h1 className="text-[28px] font-extrabold leading-[1.12] tracking-[-0.04em] text-brand-ink md:text-[34px] lg:text-4xl">{event.title}</h1>
             {event.description && <p className="mt-3 max-w-3xl text-sm leading-6 text-brand-ink-soft md:text-[15px]">{event.description}</p>}
           </section>

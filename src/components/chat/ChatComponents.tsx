@@ -1,5 +1,6 @@
 import type { FormEvent, KeyboardEvent } from 'react'
 import { Icon } from '@/components/icons'
+import ProfileAvatar from '@/components/ProfileAvatar'
 
 export interface ChatSender {
   id: string
@@ -39,7 +40,7 @@ export function MessageBubble({ message, isMine, showSender = true }: { message:
   const senderName = message.sender?.name ?? 'Учасник'
   return (
     <div className={`flex items-end gap-2 ${isMine ? 'flex-row-reverse' : ''}`}>
-      {!isMine && (showSender ? <div className="grid h-8 w-8 flex-shrink-0 place-items-center overflow-hidden rounded-full bg-brand-accent-soft text-xs font-extrabold text-brand-accent">{message.sender?.avatar_url ? <img src={message.sender.avatar_url} alt={senderName} className="h-full w-full object-cover" /> : senderName.charAt(0).toUpperCase()}</div> : <span className="w-8 flex-shrink-0" />)}
+      {!isMine && (showSender && message.sender ? <ProfileAvatar profile={{ id: message.sender.id, name: senderName, avatar_url: message.sender.avatar_url }} className="grid h-9 w-9 flex-shrink-0 place-items-center overflow-hidden rounded-full bg-brand-accent-soft text-xs font-extrabold text-brand-accent" /> : <span className="w-9 flex-shrink-0" />)}
       <div className={`flex max-w-[76%] flex-col ${isMine ? 'items-end' : 'items-start'}`}>
         {!isMine && showSender && <span className="mb-1 px-1 text-[11px] font-bold text-brand-ink-muted">{senderName}</span>}
         <div className={`whitespace-pre-wrap break-words rounded-[18px] px-3.5 py-2 text-sm leading-5 ${isMine ? 'rounded-br-md bg-brand-accent text-white' : 'rounded-bl-md bg-brand-surface-muted text-brand-ink'}`}>{message.content}</div>

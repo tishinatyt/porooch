@@ -10,6 +10,9 @@ import Chats from '@/pages/Chats'
 import CreateEvent from '@/pages/CreateEvent'
 import AppSidebar from '@/components/AppSidebar'
 import MyEvents from '@/pages/MyEvents'
+import { UnreadMessagesProvider } from '@/contexts/UnreadMessagesContext'
+import { ProfilePreviewProvider } from '@/contexts/ProfilePreviewContext'
+import PublicProfile from '@/pages/PublicProfile'
 
 // Routes with their own full-screen bottom CTA — BottomNav would cover them
 const HIDE_NAV_PATTERNS = [/^\/event\//]
@@ -29,6 +32,7 @@ function AppLayout() {
         <Routes>
           <Route path="/" element={<HomeScreen />} />
           <Route path="/profile" element={<Profile />} />
+          <Route path="/profile/:userId" element={<PublicProfile />} />
           <Route path="/chats" element={<Chats />} />
           <Route path="/event/:id" element={<EventDetail />} />
           <Route path="/event/:id/chat" element={<EventChat />} />
@@ -47,7 +51,11 @@ export default function App() {
     <BrowserRouter basename={import.meta.env.BASE_URL.replace(/\/$/, '') || '/'}>
       <AuthProvider>
         <ProtectedRoute>
-          <AppLayout />
+          <UnreadMessagesProvider>
+            <ProfilePreviewProvider>
+              <AppLayout />
+            </ProfilePreviewProvider>
+          </UnreadMessagesProvider>
         </ProtectedRoute>
       </AuthProvider>
     </BrowserRouter>

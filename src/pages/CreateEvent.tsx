@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import { getCurrentPosition } from '@/lib/geo'
@@ -7,6 +7,7 @@ import { Icon } from '@/components/icons'
 import EventMedia from '@/components/EventMedia'
 import TopBar from '@/components/TopBar'
 import CreateEventMap from '@/components/CreateEventMap'
+import { getEventAccessLabel } from '@/lib/eventAccess'
 
 const CATEGORIES = [
   { value: 'other', label: 'Спілкування', emoji: '💬' },
@@ -99,11 +100,12 @@ function SectionCard({ number, title, description, children }: { number: string;
 
 export default function CreateEvent() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const { supaUser } = useAuth()
   const defaults = useMemo(defaultDateTime, [])
   const submittingRef = useRef(false)
   const [form, setForm] = useState<FormState>({
-    event_type: 'personal', is_public: true, join_mode: 'open', title: '', description: '', category: 'other',
+    event_type: searchParams.get('type') === 'public' ? 'public' : 'personal', is_public: true, join_mode: 'open', title: '', description: '', category: 'other',
     cover_photo_url: '', event_date: defaults.date, event_time: defaults.time, venue_name: '', address: '',
     lat: null, lng: null, max_participants: 10, min_age: 18, max_age: 60, gender_filter: 'any',
   })
@@ -202,7 +204,21 @@ export default function CreateEvent() {
 
     const { data, error } = await supabase.from('events').insert(payload).select('id').single()
     if (error || !data?.id) {
-      console.error('[CreateEvent] Insert failed:', error)
+      console.error('[CreateEvent] Event insert/returning failed', {
+        operation: "supabase.from('events').insert(payload).select('id').single()",
+        phase: 'single PostgREST INSERT with representation return; no participant/request setup call follows',
+        error: error ? {
+          code: error.code,
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+        } : null,
+        authenticatedUserId: supaUser.id,
+        organizerMatchesAuthenticatedUser: payload.organizer_id === supaUser.id,
+        visibilityMode: payload.is_public ? 'feed' : 'invitation-only',
+        joinMode: payload.join_mode,
+        payload,
+      })
       setErrors({ submit: 'Не вдалося створити подію. Перевірте дані та спробуйте ще раз.' })
       setSubmitting(false)
       submittingRef.current = false
@@ -363,6 +379,7 @@ export default function CreateEvent() {
                 {form.event_type === 'personal' && <div className="grid h-9 w-9 flex-shrink-0 place-items-center rounded-full bg-white text-lg">{selectedCategory?.emoji}</div>}
                 <div className="min-w-0 flex-1">
                   <span className="rounded-md bg-white px-2 py-1 text-[10px] font-bold text-brand-accent">{selectedCategory?.label}</span>
+                  <span className="ml-1.5 rounded-md border border-brand-border bg-white px-2 py-1 text-[10px] font-bold text-brand-ink-muted">{getEventAccessLabel(form)}</span>
                   <h3 className="mt-2 truncate text-sm font-extrabold">{form.title.trim() || 'Назва вашої події'}</h3>
                   {previewDate && !Number.isNaN(previewDate.getTime()) && <p className="mt-1 text-[11px] text-brand-ink-muted">{previewDate.toLocaleString('uk-UA', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })}</p>}
                   <p className="mt-1 truncate text-[11px] text-brand-ink-muted">{[form.venue_name, form.address].filter(Boolean).join(', ') || 'Місце ще не вказано'}</p>

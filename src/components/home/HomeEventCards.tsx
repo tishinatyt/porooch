@@ -3,6 +3,8 @@ import EventMedia from '@/components/EventMedia'
 import { Icon } from '@/components/icons'
 import ParticipantAvatars from '@/components/home/ParticipantAvatars'
 import type { PersonalEventData, PublicEventData } from '@/components/home/types'
+import ProfileAvatar from '@/components/ProfileAvatar'
+import { getEventAccessLabel } from '@/lib/eventAccess'
 
 const CATEGORY_LABEL: Record<string, string> = { cinema: 'Кіно', theatre: 'Театр', bar: 'Бар', sport: 'Спорт', music: 'Музика', food: 'Їжа', games: 'Ігри', walk: 'Прогулянка', art: 'Мистецтво', communication: 'Спілкування', other: 'Інше' }
 const GENDER_LABEL: Record<string, string> = { any: 'Для всіх', male: 'Хлопці', female: 'Дівчата' }
@@ -24,9 +26,7 @@ export function PersonalEventCard({ event, management = false }: { event: Person
   return (
     <article className="h-full rounded-2xl border border-[#e5defe] bg-gradient-to-br from-white to-[#f7f4ff] p-3.5 shadow-card transition hover:border-[#d5cafd] hover:shadow-card-hover sm:p-4">
       <div className="mb-2.5 flex items-center gap-2.5 sm:mb-3 sm:gap-3">
-        <div className="grid h-10 w-10 flex-shrink-0 place-items-center overflow-hidden rounded-full border-2 border-white bg-brand-accent-soft text-sm font-extrabold text-brand-accent shadow-sm sm:h-11 sm:w-11">
-          {event.organizer?.avatar_url ? <img src={event.organizer.avatar_url} alt={event.organizer.name} className="h-full w-full object-cover" /> : event.organizer?.name?.charAt(0).toUpperCase() ?? 'О'}
-        </div>
+        {event.organizer ? <ProfileAvatar profile={{ id: event.organizer.id, name: event.organizer.name, age: event.organizer.age, avatar_url: event.organizer.avatar_url }} className="grid h-11 w-11 flex-shrink-0 place-items-center overflow-hidden rounded-full border-2 border-white bg-brand-accent-soft text-sm font-extrabold text-brand-accent shadow-sm" /> : <div className="grid h-11 w-11 place-items-center rounded-full bg-brand-accent-soft text-sm font-extrabold text-brand-accent">О</div>}
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-extrabold text-brand-ink lg:text-[15px]">{event.organizer?.name ?? 'Організатор'}{event.organizer?.age ? `, ${event.organizer.age}` : ''}</p>
           <p className="mt-0.5 text-[10px] font-medium text-brand-ink-muted">Запрошує на особисту зустріч</p>
@@ -42,7 +42,7 @@ export function PersonalEventCard({ event, management = false }: { event: Person
       <div className="mt-2.5 flex flex-wrap gap-1 sm:mt-3 sm:gap-1.5">
         <span className="rounded-lg border border-[#ebe7f6] bg-white px-2 py-1 text-[10px] font-semibold text-brand-ink-soft sm:px-2.5 sm:py-1.5">{CATEGORY_LABEL[event.category] ?? event.category}</span>
         <span className="rounded-lg border border-[#ebe7f6] bg-white px-2 py-1 text-[10px] font-semibold text-brand-ink-soft sm:px-2.5 sm:py-1.5">{event.min_age}–{event.max_age} · {GENDER_LABEL[event.gender_filter] ?? event.gender_filter}</span>
-        <span className="rounded-lg border border-brand-accent/10 bg-brand-accent-soft px-2 py-1 text-[10px] font-extrabold text-brand-accent sm:px-2.5 sm:py-1.5">{event.join_mode === 'approval' ? 'За запитом' : 'Вільний вступ'}</span>
+        <span className="rounded-lg border border-brand-accent/10 bg-brand-accent-soft px-2 py-1 text-[10px] font-extrabold text-brand-accent sm:px-2.5 sm:py-1.5">{getEventAccessLabel(event)}</span>
       </div>
 
       <div className="mt-2.5 flex items-center justify-between gap-2 border-t border-[#e7e1fa] pt-2.5 sm:mt-3.5 sm:pt-3">
@@ -77,7 +77,7 @@ export function PublicEventCard({ event, isNew = false }: { event: PublicEventDa
         <div className="mt-4 flex items-center justify-between gap-3 border-t border-brand-border pt-3">
           <div className="flex min-w-0 items-center gap-2">
             <ParticipantAvatars users={participantUsers} totalCount={event.participant_count} />
-            <p className="truncate text-[11px] font-bold text-brand-ink-soft">{event.participant_count}/{event.max_participants} учасників</p>
+            <div className="min-w-0"><p className="truncate text-[11px] font-bold text-brand-ink-soft">{event.participant_count}/{event.max_participants} учасників</p><p className="mt-0.5 truncate text-[10px] font-semibold text-brand-accent">{getEventAccessLabel(event)}</p></div>
           </div>
           <button type="button" onClick={openEvent} className="h-11 min-w-[92px] flex-shrink-0 rounded-xl bg-brand-accent px-4 text-xs font-extrabold text-white transition hover:bg-brand-accent-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-accent">Деталі</button>
         </div>

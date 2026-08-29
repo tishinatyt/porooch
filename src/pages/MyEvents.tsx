@@ -6,6 +6,7 @@ import ParticipantAvatars from '@/components/home/ParticipantAvatars'
 import { Icon } from '@/components/icons'
 import { useMyEvents } from '@/hooks/useMyEvents'
 import type { PersonalEventData } from '@/components/home/types'
+import { getEventAccessLabel } from '@/lib/eventAccess'
 
 type MyEventsTab = 'organizing' | 'joined' | 'pending'
 
@@ -68,6 +69,7 @@ function MyEventCard({ event, tab }: { event: PersonalEventData; tab: MyEventsTa
 
       <div className="mt-3 flex flex-wrap items-center gap-1.5">
         <span className="rounded-md bg-white px-2 py-1 text-[10px] font-bold text-brand-accent">{CATEGORY_LABEL[event.category] ?? event.category}</span>
+        <span className="rounded-md bg-white px-2 py-1 text-[10px] font-semibold text-brand-ink-muted">{getEventAccessLabel(event)}</span>
         {isPending && <span className="rounded-md border border-[#e8e3f7] bg-white px-2 py-1 text-[10px] font-semibold text-brand-ink-muted">Організатор ще не відповів</span>}
       </div>
 
