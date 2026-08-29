@@ -9,6 +9,7 @@ import { CategoryChips } from '@/components/home/HomeControls'
 import HomeCarousel from '@/components/home/HomeCarousel'
 import type { PersonalEventData, PublicEventData } from '@/components/home/types'
 import { DEMO_PERSONAL_EVENTS, DEMO_PUBLIC_EVENTS, PUBLIC_CATEGORIES } from '@/components/home/demoEvents'
+import { Icon } from '@/components/icons'
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -278,7 +279,7 @@ export default function HomeScreen() {
               <h1 className="text-base font-extrabold tracking-[-0.02em] text-brand-ink lg:text-lg">Особисті зустрічі</h1>
               <p className="mt-1 hidden text-xs leading-5 text-brand-ink-muted sm:block">Зустрічі від людей поруч із вами</p>
               </div>
-              <div className="flex items-center gap-2">{!loadingDiscovery && personalEvents.length > 0 && <span className="text-xs font-bold tabular-nums text-brand-ink-muted" aria-label={`${personalEvents.length} особистих зустрічей`}>{personalEvents.length}</span>}<Link to="/create?type=personal" className="inline-flex min-h-8 items-center rounded-lg bg-brand-accent-soft px-2.5 text-[10px] font-extrabold text-brand-accent lg:hidden">+ Створити</Link><Link to="/create?type=personal" className="hidden h-10 items-center rounded-xl bg-brand-accent px-3.5 text-xs font-extrabold text-white transition hover:bg-brand-accent-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-accent lg:inline-flex">+ Додати</Link></div>
+              <div className="flex items-center gap-2">{!loadingDiscovery && personalEvents.length > 0 && <span className="text-xs font-bold tabular-nums text-brand-ink-muted" aria-label={`${personalEvents.length} особистих зустрічей`}>{personalEvents.length}</span>}<Link to="/create?type=personal" className="inline-flex min-h-8 items-center rounded-lg bg-brand-accent-soft px-2.5 text-[10px] font-extrabold text-brand-accent lg:hidden">+ Створити</Link><Link to="/create?type=personal" className="hidden h-10 items-center gap-1.5 rounded-xl bg-brand-accent px-3.5 text-xs font-extrabold text-white transition hover:bg-brand-accent-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-accent lg:inline-flex"><Icon name="plus" className="h-4 w-4" />Додати</Link></div>
             </div>
 
             {loadingDiscovery && <HomeCarousel id="personal-events-loading" label="Завантаження особистих зустрічей" className="lg:space-y-3">{[1, 2, 3].map((item) => <div role="listitem" key={item} className="h-56 w-[88%] flex-none snap-start animate-pulse rounded-2xl border border-brand-border bg-white min-[420px]:w-[86%] sm:w-[46%] md:w-[44%] lg:w-auto" />)}</HomeCarousel>}
@@ -295,7 +296,7 @@ export default function HomeScreen() {
               <h2 className="text-base font-extrabold tracking-[-0.02em] text-brand-ink lg:text-lg">Публічні події</h2>
               <p className="mt-1 hidden text-xs leading-5 text-brand-ink-muted sm:block">Відкриті події, до яких можна приєднатися</p>
               </div>
-              <div className="flex items-center gap-2">{!loadingDiscovery && shownPublic.length > 0 && <span className="mt-0.5 text-xs font-bold tabular-nums text-brand-ink-muted" aria-label={`${filteredPublic.length} публічних подій`}>{filteredPublic.length}</span>}<Link to="/create?type=public" className="hidden h-10 items-center rounded-xl bg-brand-accent px-3.5 text-xs font-extrabold text-white transition hover:bg-brand-accent-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-accent lg:inline-flex">+ Додати</Link></div>
+              <div className="flex items-center gap-2">{!loadingDiscovery && shownPublic.length > 0 && <span className="mt-0.5 text-xs font-bold tabular-nums text-brand-ink-muted" aria-label={`${filteredPublic.length} публічних подій`}>{filteredPublic.length}</span>}<Link to="/create?type=public" className="hidden h-10 items-center gap-1.5 rounded-xl bg-brand-accent px-3.5 text-xs font-extrabold text-white transition hover:bg-brand-accent-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-accent lg:inline-flex"><Icon name="plus" className="h-4 w-4" />Додати</Link></div>
             </div>
 
             <div className="mb-2 lg:mb-3"><CategoryChips items={TABS} selected={selectedCategory} onSelect={(key) => { setSelectedCategory(key); setPublicPage(1) }} /></div>
