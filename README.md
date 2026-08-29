@@ -2,6 +2,10 @@
 
 porooch is a mobile-first social events PWA for finding real-world activities, joining them, coordinating in an event chat, and meeting offline.
 
+## Project context
+
+See [docs/POROOCH_CONTEXT.md](docs/POROOCH_CONTEXT.md) for the current product semantics, architecture, Supabase/RLS model, deployment constraints, and regression checklist.
+
 ## MVP features
 
 - Google authentication and short profile onboarding
