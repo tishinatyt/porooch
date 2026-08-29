@@ -64,6 +64,7 @@ Important database behavior:
 - `is_event_participant(event_id)` grants event-chat access to the organizer or joined participants; migration 008 is the hardened definition.
 - `event_chat_event_id(chat_id)` resolves a chat to its event.
 - `get_unread_event_chat_count()` counts accessible unread messages for `auth.uid()`.
+- `get_accessible_event_chat_unread_counts()` returns per-chat unread counts for every chat accessible to `auth.uid()` in one grouped query.
 - `mark_event_chat_read(chat_id, read_through)` advances only the authenticated user's accessible chat read position.
 - `trg_organizer_participant` runs `add_organizer_as_participant()` after event insertion.
 - `trg_create_event_chat` runs `create_event_chat()` after event insertion.
@@ -156,7 +157,7 @@ AND the chat is accessible to that user
 
 Own messages never count. Opening EventChat advances only that chat through the newest loaded timestamp. Incoming messages are marked read while the user is at the bottom; using the new-message action advances through the newest displayed message.
 
-`UnreadMessagesProvider` performs the initial RPC count and owns one realtime channel. It refreshes on accessible `event_chat_messages` INSERTs and changes to the current user's read-state rows. Sidebar shows no badge at zero, `1–99` numerically, and `99+` above 99.
+`UnreadMessagesProvider` performs the initial RPC count and owns one realtime channel. It refreshes on accessible `event_chat_messages` INSERTs and changes to the current user's read-state rows. Sidebar shows no badge at zero, `1–99` numerically, and `99+` above 99. Chats fetches all per-chat counts through `get_accessible_event_chat_unread_counts()` alongside the chronological chat-list RPC; unread rows receive the same numeric badge and update through the list's shared realtime channel.
 
 `011_event_chat_read_state.sql` creates the table, RLS, RPCs, grants, and realtime publication entry. Migration 011 was manually applied to the current remote project. Remotely verified objects are `event_chat_read_state`, `get_unread_event_chat_count()`, and `mark_event_chat_read(uuid,timestamptz)`.
 
@@ -196,6 +197,7 @@ Do not reintroduce old `/meetnow/` redirect paths.
 11. `011_event_chat_read_state.sql` — per-user chat read state, unread/read RPCs, RLS, and realtime.
 12. `012_repair_events_insert_policy.sql` — canonical authenticated owner-only event INSERT policy.
 13. `013_events_organizer_select.sql` — authenticated organizer SELECT access to their own events.
+14. `014_event_chat_unread_counts.sql` — one access-controlled grouped RPC for per-chat unread counts in Chats.
 
 Never rewrite an applied migration. Add the next numbered migration when schema changes are genuinely required.
 

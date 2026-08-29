@@ -19,6 +19,12 @@ interface ChatItem {
   last_message: string | null
   last_message_at: string | null
   last_sender_name: string | null
+  unread_count: number
+}
+
+interface ChatUnreadCount {
+  event_chat_id: string
+  unread_count: number | string
 }
 
 function formatListTime(iso: string | null) {
@@ -43,12 +49,19 @@ export default function Chats() {
   const fetchChats = useCallback(async (showLoading = false) => {
     if (!supaUser) return
     if (showLoading) setLoading(true)
-    const { data, error: chatsError } = await supabase.rpc('get_accessible_event_chats')
+    const [chatsResult, unreadResult] = await Promise.all([
+      supabase.rpc('get_accessible_event_chats'),
+      supabase.rpc('get_accessible_event_chat_unread_counts'),
+    ])
+    const { data, error: chatsError } = chatsResult
     if (chatsError) {
       console.error('Failed to load chats', chatsError)
       setError('Не вдалося завантажити чати')
     } else {
-      setChats((data ?? []) as ChatItem[])
+      if (unreadResult.error) console.error('Failed to load per-chat unread counts', unreadResult.error)
+      const unreadRows = (unreadResult.data ?? []) as ChatUnreadCount[]
+      const unreadByChat = new Map<string, number>(unreadRows.map((row) => [row.event_chat_id, Number(row.unread_count)]))
+      setChats(((data ?? []) as Omit<ChatItem, 'unread_count'>[]).map((chat) => ({ ...chat, unread_count: unreadByChat.get(chat.chat_id) ?? 0 })))
       setError(null)
     }
     setLoading(false)
@@ -60,6 +73,7 @@ export default function Chats() {
     if (!supaUser) return
     const channel = supabase.channel(`chat-list:${supaUser.id}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'event_chat_messages' }, () => { void fetchChats() })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'event_chat_read_state', filter: `user_id=eq.${supaUser.id}` }, () => { void fetchChats() })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'event_participants', filter: `user_id=eq.${supaUser.id}` }, () => { void fetchChats() })
       .subscribe()
     return () => { void supabase.removeChannel(channel) }
@@ -92,20 +106,22 @@ export default function Chats() {
         {!loading && chats.length > 0 && <div className="space-y-2">
           {chats.map((item) => {
             const past = isPast(item)
+            const hasUnread = item.unread_count > 0
             const preview = item.last_message ? `${item.last_sender_name ? `${item.last_sender_name}: ` : ''}${item.last_message}` : item.address_text || 'Розмова ще не почалася'
             return (
-              <button key={item.chat_id} type="button" onClick={() => navigate(`/event/${item.event_id}/chat`)} className="flex min-h-20 w-full items-center gap-3 rounded-2xl border border-brand-border bg-white p-3 text-left transition hover:border-brand-accent/25 hover:bg-brand-accent-soft/25 focus-visible:outline-2 focus-visible:outline-brand-accent sm:px-4">
+              <button key={item.chat_id} type="button" onClick={() => navigate(`/event/${item.event_id}/chat`)} className={`flex min-h-20 w-full items-center gap-3 rounded-2xl border p-3 text-left transition hover:border-brand-accent/25 hover:bg-brand-accent-soft/25 focus-visible:outline-2 focus-visible:outline-brand-accent sm:px-4 ${hasUnread ? 'border-brand-accent/25 bg-brand-accent-soft/30' : 'border-brand-border bg-white'}`}>
                 <div className="h-14 w-14 flex-shrink-0 overflow-hidden rounded-xl"><EventMedia category={item.category} coverUrl={item.cover_photo_url} alt={item.cover_photo_url ? item.event_title : ''} className="h-full w-full" compactFallback /></div>
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-start justify-between gap-3">
-                    <h2 className="truncate text-sm font-extrabold text-brand-ink sm:text-base">{item.event_title}</h2>
-                    {item.last_message_at && <time dateTime={item.last_message_at} className="flex-shrink-0 text-[11px] text-brand-ink-muted">{formatListTime(item.last_message_at)}</time>}
-                  </div>
-                  <p className="mt-0.5 truncate text-xs text-brand-ink-muted sm:text-sm">{preview}</p>
+                  <h2 className="truncate text-sm font-extrabold text-brand-ink sm:text-base">{item.event_title}</h2>
+                  <p className={`mt-0.5 truncate text-xs sm:text-sm ${hasUnread ? 'font-semibold text-brand-ink-soft' : 'text-brand-ink-muted'}`}>{preview}</p>
                   <div className="mt-1.5 flex items-center gap-2 text-[10px] font-semibold">
                     {item.member_role === 'organizer' && <span className="rounded-full bg-brand-accent-soft px-2 py-0.5 text-brand-accent">Організатор</span>}
                     {past && <span className="rounded-full bg-brand-surface-muted px-2 py-0.5 text-brand-ink-muted">Подія завершена</span>}
                   </div>
+                </div>
+                <div className="flex min-h-14 flex-shrink-0 flex-col items-end justify-between gap-2">
+                  {item.last_message_at ? <time dateTime={item.last_message_at} className="text-[11px] text-brand-ink-muted">{formatListTime(item.last_message_at)}</time> : <span />}
+                  {hasUnread && <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-brand-accent px-1.5 text-[10px] font-extrabold leading-none text-white" aria-label={`${item.unread_count} непрочитані повідомлення`}>{item.unread_count > 99 ? '99+' : item.unread_count}</span>}
                 </div>
               </button>
             )
