@@ -24,7 +24,7 @@ export function PersonalEventCard({ event, management = false }: { event: Person
   const participantCount = event.participant_count ?? event.participants.length
 
   return (
-    <article className="h-full rounded-2xl border border-[#e5defe] bg-gradient-to-br from-white to-[#f7f4ff] p-3.5 shadow-card transition hover:border-[#d5cafd] hover:shadow-card-hover sm:p-4">
+    <article className="home-event-card h-full rounded-[18px] border border-[#dcd2f5] bg-gradient-to-br from-white via-white to-[#f8f5ff] p-3.5 transition hover:border-[#cbbdf0] sm:p-4">
       <div className="mb-2.5 flex items-center gap-2.5 sm:mb-3 sm:gap-3">
         {event.organizer ? <ProfileAvatar profile={{ id: event.organizer.id, name: event.organizer.name, age: event.organizer.age, avatar_url: event.organizer.avatar_url }} className="grid h-11 w-11 flex-shrink-0 place-items-center overflow-hidden rounded-full border-2 border-white bg-brand-accent-soft text-sm font-extrabold text-brand-accent shadow-sm" /> : <div className="grid h-11 w-11 place-items-center rounded-full bg-brand-accent-soft text-sm font-extrabold text-brand-accent">О</div>}
         <div className="min-w-0 flex-1">
@@ -62,7 +62,7 @@ export function PublicEventCard({ event, isNew = false }: { event: PublicEventDa
   const openEvent = () => navigate(`/event/${event.id}`)
 
   return (
-    <article className={`group h-full overflow-hidden rounded-2xl border bg-white shadow-card transition hover:-translate-y-0.5 hover:border-brand-border-strong hover:shadow-card-hover ${isNew ? 'border-brand-accent/50 ring-2 ring-brand-accent/10' : 'border-brand-border'}`}>
+    <article className={`home-event-card group h-full overflow-hidden rounded-[18px] border bg-[#fffefe] transition hover:-translate-y-0.5 hover:border-[#cfc4e8] ${isNew ? 'border-brand-accent/50 ring-2 ring-brand-accent/10' : 'border-[#ddd5eb]'}`}>
       <button type="button" onClick={openEvent} aria-label={`Відкрити подію «${event.title}»`} className="relative block h-32 w-full overflow-hidden bg-brand-surface-muted text-left sm:h-36 xl:h-40">
         <EventMedia category={event.category} coverUrl={event.cover_photo_url} alt={event.cover_photo_url ? event.title : ''} className="h-full w-full" imageClassName="transition duration-300 group-hover:scale-[1.025]" />
         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-14 bg-gradient-to-t from-black/25 to-transparent" />

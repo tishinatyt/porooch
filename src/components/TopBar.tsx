@@ -15,7 +15,7 @@ export default function TopBar({ title, searchQuery = '', onSearchChange, radius
   const { profile } = useAuth()
 
   return (
-    <header className={`${title ? 'hidden lg:block' : ''} sticky top-0 z-30 border-b border-[#eceaf1] bg-white/95 backdrop-blur-xl lg:flex-none`}>
+    <header className={`${title ? 'hidden lg:block' : ''} top-bar-surface sticky top-0 z-30 border-b backdrop-blur-xl lg:flex-none`}>
       <div className="mx-auto grid max-w-[1440px] grid-cols-[minmax(0,1fr)_auto] gap-x-2 gap-y-1.5 px-4 py-1.5 sm:px-6 lg:flex lg:h-16 lg:items-center lg:gap-4 lg:px-7 lg:py-0 xl:px-10">
         <div className="col-span-2 flex min-h-6 items-center justify-between lg:w-[190px] lg:flex-shrink-0">
           <div className="flex items-center gap-1.5 text-xs font-semibold text-brand-ink-soft">
@@ -23,7 +23,7 @@ export default function TopBar({ title, searchQuery = '', onSearchChange, radius
             <span>Чернігів, Україна</span>
             <span className="text-brand-ink-muted">⌄</span>
           </div>
-          <BrandLogo className="lg:hidden" symbolClassName="h-6 w-6" wordmarkClassName="text-lg" />
+          <BrandLogo className="lg:hidden" symbolClassName="h-6 w-6" wordmarkClassName="text-[19px]" />
         </div>
 
         {title ? <div className="min-w-0 flex-1 text-sm font-bold text-brand-ink">{title}</div> : <div id="search" className="relative min-w-0">

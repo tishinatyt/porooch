@@ -15,7 +15,7 @@ export default function BrandLogo({ className = '', symbolClassName = 'h-8 w-8',
         <path d="M6.5 23c.35-4 2.25-6 5.7-6 2.15 0 3.35.75 3.8 2.15.45-1.4 1.65-2.15 3.8-2.15 3.45 0 5.35 2 5.7 6" fill="none" stroke="white" strokeWidth="2.4" strokeLinecap="round" />
         <path d="M13.25 14.1c.85.75 1.75 1.1 2.75 1.1s1.9-.35 2.75-1.1" fill="none" stroke="white" strokeWidth="1.6" strokeLinecap="round" opacity=".8" />
       </svg>
-      {showWordmark && <span className={`font-extrabold tracking-[-0.045em] text-brand-ink ${wordmarkClassName}`}>porooch</span>}
+      {showWordmark && <span className={`brand-wordmark text-brand-ink ${wordmarkClassName}`}>Porooch</span>}
     </span>
   )
 }

@@ -4,7 +4,8 @@
 
 ## 1. Product
 
-**Product name:** porooch (always lowercase).  
+**Product name:** porooch in technical/internal identifiers; the visible logo wordmark is **Porooch**.
+
 **Primary UI language:** Ukrainian.
 
 porooch helps people find people nearby through common interests and turn online discovery into real-life meetings and shared events. Its core concepts are personal meetings/events, public events, nearby discovery by interests, and moving interaction from online to offline.
@@ -137,7 +138,7 @@ Desktop section CTAs are filled purple buttons with the existing plus icon:
 
 ## 7. Event visuals / branding
 
-Brand spelling is **porooch**. `src/components/BrandLogo.tsx` contains the reusable inline-SVG proximity/two-people symbol and lowercase wordmark.
+Technical brand identifiers remain **porooch**. `src/components/BrandLogo.tsx` contains the reusable inline-SVG proximity/two-people symbol and the visible **Porooch** wordmark.
 
 `EventMedia` displays a valid real cover image first and falls back after a missing URL or image error. `CategoryPlaceholder` provides lightweight category-specific gradients, patterns, and existing icons for cinema, theatre, bar, sport, music, food, games, walk, art, communication, and other. It is reused by cards, EventDetail, chat/event thumbnails, and creation preview where applicable.
 

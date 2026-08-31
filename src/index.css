@@ -15,6 +15,9 @@
   --color-brand-ink-muted: #777781;
   --color-brand-border: #E8E8EE;
   --color-brand-border-strong: #D8D8E1;
+  --color-home-bg: #ECE9F4;
+  --color-home-tape-lavender: #E2DCF0;
+  --color-home-tape-peach: #F3E5DE;
   --shadow-card: 0 2px 10px rgba(23, 23, 28, 0.035);
   --shadow-card-hover: 0 8px 24px rgba(23, 23, 28, 0.07);
 
@@ -44,6 +47,136 @@ body {
   color: #17171C;
   -webkit-font-smoothing: antialiased;
   overflow-x: hidden;
+}
+
+.brand-wordmark {
+  font-family: ui-rounded, 'SF Pro Rounded', 'Avenir Next Rounded', 'Arial Rounded MT Bold', 'Manrope', sans-serif;
+  font-weight: 800;
+  letter-spacing: -0.05em;
+  line-height: 1;
+}
+
+.home-event-card {
+  box-shadow: 0 3px 10px rgba(53, 37, 82, 0.07), 0 10px 24px rgba(53, 37, 82, 0.045);
+}
+
+.home-event-card:hover {
+  box-shadow: 0 6px 14px rgba(53, 37, 82, 0.09), 0 16px 32px rgba(53, 37, 82, 0.065);
+}
+
+.top-bar-surface {
+  border-color: #BDB0DD;
+  background: linear-gradient(90deg, rgba(205, 193, 238, 0.97), rgba(221, 208, 244, 0.97) 52%, rgba(211, 195, 232, 0.97));
+  box-shadow: 0 2px 12px rgba(71, 51, 125, 0.12);
+}
+
+/* Quiet, non-interactive atmosphere behind the Home feeds. */
+.home-decorations {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.home-decorations::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  opacity: 0.2;
+  background-image: radial-gradient(circle, rgba(78, 64, 110, 0.11) 0.45px, transparent 0.55px);
+  background-size: 5px 5px;
+  mix-blend-mode: multiply;
+}
+
+.home-decoration-glow,
+.home-decoration-doodle {
+  position: absolute;
+}
+
+.home-decoration-glow {
+  border-radius: 999px;
+  filter: blur(54px);
+  opacity: 0.34;
+}
+
+.home-decoration-glow-violet {
+  top: -5rem;
+  left: 7%;
+  width: 19rem;
+  height: 15rem;
+  background: rgba(184, 166, 255, 0.38);
+}
+
+.home-decoration-glow-pink {
+  top: 18rem;
+  right: -7rem;
+  width: 17rem;
+  height: 18rem;
+  background: rgba(255, 190, 218, 0.3);
+}
+
+.home-decoration-glow-peach {
+  bottom: 4rem;
+  left: -6rem;
+  width: 19rem;
+  height: 16rem;
+  background: rgba(255, 205, 169, 0.27);
+}
+
+.home-decoration-glow-mint {
+  right: 20%;
+  bottom: -7rem;
+  width: 17rem;
+  height: 16rem;
+  background: rgba(185, 239, 220, 0.28);
+}
+
+.home-decoration-doodle {
+  color: #6846ff;
+  opacity: 0.055;
+}
+
+.home-doodle-friends { top: 5.5rem; right: -2.5rem; width: 8.5rem; transform: rotate(-5deg); }
+.home-doodle-pin { top: 36%; left: -1.2rem; width: 3.7rem; color: #8a70ff; transform: rotate(8deg); }
+.home-doodle-coffee { top: 54%; right: -1rem; width: 4.3rem; color: #d46f9f; transform: rotate(-7deg); }
+.home-doodle-heart { top: 68%; left: -0.8rem; width: 3.3rem; color: #df7da9; transform: rotate(-10deg); }
+.home-doodle-chat { top: 79%; right: -1rem; width: 4.1rem; color: #7395d1; transform: rotate(7deg); }
+.home-doodle-music { display: none; }
+.home-doodle-bike { display: none; }
+.home-doodle-sparkles { top: 8.5rem; left: 1%; width: 3rem; color: #8a70ff; opacity: 0.045; }
+
+@media (max-width: 639px) {
+  .home-decoration-glow {
+    filter: blur(48px);
+    opacity: 0.3;
+  }
+
+  .home-decoration-doodle { opacity: 0.04; }
+  .home-doodle-friends { top: 8rem; right: -3.8rem; width: 7rem; }
+  .home-doodle-pin { top: 42%; left: -1.4rem; width: 3rem; }
+  .home-doodle-heart { top: 72%; left: -1.1rem; width: 2.8rem; }
+  .home-doodle-coffee,
+  .home-doodle-chat,
+  .home-doodle-music,
+  .home-doodle-bike { display: none; }
+}
+
+@media (min-width: 1024px) {
+  .home-decoration-glow { filter: blur(68px); }
+  .home-decoration-glow-violet { top: -8rem; left: 4%; width: 28rem; height: 22rem; }
+  .home-decoration-glow-pink { top: 20%; right: -5rem; width: 25rem; height: 24rem; }
+  .home-decoration-glow-peach { bottom: -6rem; left: -5rem; width: 25rem; height: 23rem; }
+  .home-decoration-glow-mint { right: 25%; bottom: -10rem; width: 26rem; height: 23rem; }
+
+  .home-doodle-friends { top: 5.5rem; right: 0.5%; width: 10.5rem; }
+  .home-doodle-pin { top: 39%; left: 0.7%; width: 4.8rem; }
+  .home-doodle-coffee { top: 55%; right: 0.7%; width: 5.2rem; }
+  .home-doodle-heart { top: 17%; left: 1.5%; width: 3.5rem; }
+  .home-doodle-chat { top: 72%; right: 1%; width: 5rem; }
+  .home-doodle-music { display: block; top: 43%; right: 1%; width: 4.6rem; color: #7395d1; }
+  .home-doodle-bike { display: block; bottom: -1.5rem; left: 1%; width: 10rem; color: #7395d1; opacity: 0.045; }
+  .home-doodle-sparkles { top: 5.2rem; left: 14%; width: 4rem; }
 }
 
 button,
