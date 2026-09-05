@@ -306,31 +306,31 @@ export default function HomeScreen() {
 
       <div className="relative z-10 mx-auto w-full max-w-[1440px] px-4 py-3 sm:px-6 sm:py-4 lg:min-h-0 lg:flex-1 lg:overflow-hidden lg:px-7 lg:py-6 xl:px-10">
         <div className="grid min-w-0 grid-cols-1 items-start gap-6 sm:gap-7 lg:h-full lg:min-h-0 lg:grid-cols-[minmax(280px,0.4fr)_minmax(0,0.6fr)] lg:items-stretch lg:gap-6 xl:grid-cols-[minmax(340px,0.4fr)_minmax(0,0.6fr)] xl:gap-7">
-          <section className="min-w-0 rounded-[22px] border border-[#c9bfdd] bg-home-tape-lavender p-2 pb-1.5 shadow-[0_8px_28px_rgba(64,45,112,0.07)] sm:p-3 sm:pb-1.5 lg:flex lg:min-h-0 lg:flex-col">
-            {loadingDiscovery && <HomeCarousel id="personal-events-loading" label="Завантаження особистих зустрічей" className="lg:space-y-3">{[1, 2, 3].map((item) => <div role="listitem" key={item} className="h-56 w-[88%] flex-none snap-start animate-pulse rounded-2xl border border-brand-border bg-white min-[420px]:w-[86%] sm:w-[46%] md:w-[44%] lg:w-auto" />)}</HomeCarousel>}
+          <section className="min-w-0 rounded-[24px] border border-[#c5badc] bg-[#e4def1] p-2 pb-0 shadow-[0_10px_30px_rgba(61,45,96,0.09)] sm:p-3 sm:pb-0 lg:flex lg:min-h-0 lg:flex-col">
+            {loadingDiscovery && <HomeCarousel id="personal-events-loading" label="Завантаження знайомств" className="lg:space-y-3">{[1, 2, 3].map((item) => <div role="listitem" key={item} className="h-56 w-[88%] flex-none snap-start animate-pulse rounded-2xl border border-brand-border bg-white min-[420px]:w-[86%] sm:w-[46%] md:w-[44%] lg:w-auto" />)}</HomeCarousel>}
             {!loadingDiscovery && personalEvents.length === 0 && (
               <div className="rounded-2xl border border-dashed border-brand-border-strong bg-white px-4 py-6 text-center lg:flex-1"><p className="text-sm font-bold text-brand-ink">{discoveryError ? 'Не вдалося завантажити події.' : 'Поки немає особистих подій поруч.'}</p>{!discoveryError && <Link to="/create" className="mt-3 inline-flex min-h-10 items-center rounded-xl bg-brand-accent px-4 text-xs font-bold text-white transition hover:bg-brand-accent-hover">Створити подію</Link>}</div>
             )}
-            {!loadingDiscovery && personalEvents.length > 0 && <HomeCarousel id="personal-events-carousel" label="Особисті зустрічі поруч" className="gap-3.5 lg:space-y-3.5">{personalEvents.map((event) => <div role="listitem" key={event.eventId} className="w-[88%] flex-none snap-start [scroll-snap-stop:always] min-[420px]:w-[86%] sm:w-[46%] md:w-[44%] lg:w-auto"><PersonalEventCard event={event} /></div>)}</HomeCarousel>}
+            {!loadingDiscovery && personalEvents.length > 0 && <HomeCarousel id="personal-events-carousel" label="Знайомства поруч" className="gap-3.5 lg:space-y-3.5">{personalEvents.map((event) => <div role="listitem" key={event.eventId} className="w-[88%] flex-none snap-start [scroll-snap-stop:always] min-[420px]:w-[86%] sm:w-[46%] md:w-[44%] lg:w-auto"><PersonalEventCard event={event} /></div>)}</HomeCarousel>}
 
-            <div className="mt-1 flex flex-none items-center gap-1.5 border-t border-[#ddd5ed] pt-1.5">
-              <h1 className="text-sm font-extrabold tracking-[-0.02em] text-brand-ink">Особисті зустрічі</h1>
-              {!loadingDiscovery && <span className="inline-flex min-w-5 items-center justify-center rounded-full bg-white/70 px-1.5 py-0.5 text-[10px] font-bold tabular-nums text-brand-ink-muted" aria-label={`${personalEvents.length} особистих зустрічей`}>{personalEvents.length}</span>}
+            <div className="-mx-2 mt-1 flex min-h-9 flex-none items-center gap-2 rounded-b-[23px] border-t border-[#cfc4e2] bg-white/30 px-3 py-2 sm:-mx-3">
+              <h1 className="text-sm font-extrabold tracking-[-0.02em] text-brand-ink">Знайомства</h1>
+              {!loadingDiscovery && <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full border border-white/70 bg-white/75 px-1.5 text-[10px] font-bold tabular-nums text-brand-ink-muted" aria-label={`${personalEvents.length} подій у стрічці Знайомства`}>{personalEvents.length}</span>}
             </div>
           </section>
 
-          <section className="min-w-0 rounded-[22px] border border-[#dbc9c0] bg-home-tape-peach p-2 pb-1.5 shadow-[0_8px_28px_rgba(92,61,43,0.06)] sm:p-3 sm:pb-1.5 lg:flex lg:min-h-0 lg:flex-col">
-            {loadingDiscovery && <HomeCarousel id="public-events-loading" label="Завантаження публічних подій" className="lg:space-y-3">{[1, 2, 3, 4].map((item) => <div role="listitem" key={item} className="h-72 w-[88%] flex-none snap-start animate-pulse rounded-2xl border border-brand-border bg-white min-[420px]:w-[86%] sm:w-[46%] md:w-[44%] lg:w-auto" />)}</HomeCarousel>}
+          <section className="min-w-0 rounded-[24px] border border-[#dcc7bb] bg-[#f4e6de] p-2 pb-0 shadow-[0_10px_30px_rgba(91,61,44,0.08)] sm:p-3 sm:pb-0 lg:flex lg:min-h-0 lg:flex-col">
+            {loadingDiscovery && <HomeCarousel id="public-events-loading" label="Завантаження афіші" className="lg:space-y-3">{[1, 2, 3, 4].map((item) => <div role="listitem" key={item} className="h-72 w-[88%] flex-none snap-start animate-pulse rounded-2xl border border-brand-border bg-white min-[420px]:w-[86%] sm:w-[46%] md:w-[44%] lg:w-auto" />)}</HomeCarousel>}
             {!loadingDiscovery && shownPublic.length === 0 && <div className="rounded-2xl border border-dashed border-brand-border-strong bg-white px-4 py-6 text-center lg:flex-1"><p className="text-sm font-bold text-brand-ink">{discoveryError ? 'Не вдалося завантажити події.' : 'Поки немає публічних подій поруч.'}</p>{!discoveryError && selectedCategory !== 'all' && <p className="mt-1.5 text-xs text-brand-ink-muted">Спробуйте іншу категорію або збільшіть радіус.</p>}</div>}
-            {!loadingDiscovery && shownPublic.length > 0 && <HomeCarousel id="public-events-carousel" label="Публічні події поруч" className="gap-3.5 lg:space-y-3.5">{shownPublic.map((event) => <div role="listitem" key={event.id} className="w-[88%] flex-none snap-start [scroll-snap-stop:always] min-[420px]:w-[86%] sm:w-[46%] md:w-[44%] lg:w-auto"><PublicEventCard event={event} isNew={event.id === newEventId} /></div>)}</HomeCarousel>}
+            {!loadingDiscovery && shownPublic.length > 0 && <HomeCarousel id="public-events-carousel" label="Афіша поруч" className="gap-3.5 lg:space-y-3.5">{shownPublic.map((event) => <div role="listitem" key={event.id} className="w-[88%] flex-none snap-start [scroll-snap-stop:always] min-[420px]:w-[86%] sm:w-[46%] md:w-[44%] lg:w-auto"><PublicEventCard event={event} isNew={event.id === newEventId} /></div>)}</HomeCarousel>}
 
             {hasMorePublic && <button type="button" onClick={() => setPublicPage((page) => page + 1)} className="mt-4 w-full rounded-xl border border-brand-border bg-white py-3 text-sm font-bold text-brand-ink-soft transition hover:border-brand-border-strong hover:bg-brand-surface-muted">Показати більше ({filteredPublic.length - shownPublic.length})</button>}
-            <div className="mt-1 flex-none border-t border-[#e6ddd7] pt-1 xl:flex xl:items-center xl:gap-1.5">
+            <div className="-mx-2 mt-1 flex-none rounded-b-[23px] border-t border-[#dfcec4] bg-white/28 px-3 py-2 sm:-mx-3 xl:flex xl:min-h-11 xl:items-center xl:gap-2">
               <div className="flex items-center gap-1.5">
-                <h2 className="text-sm font-extrabold tracking-[-0.02em] text-brand-ink">Публічні події</h2>
-                {!loadingDiscovery && <span className="inline-flex min-w-5 items-center justify-center rounded-full bg-white/70 px-1.5 py-0.5 text-[10px] font-bold tabular-nums text-brand-ink-muted" aria-label={`${filteredPublic.length} публічних подій`}>{filteredPublic.length}</span>}
+                <h2 className="text-sm font-extrabold tracking-[-0.02em] text-brand-ink">Афіша</h2>
+                {!loadingDiscovery && <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full border border-white/70 bg-white/75 px-1.5 text-[10px] font-bold tabular-nums text-brand-ink-muted" aria-label={`${filteredPublic.length} подій у стрічці Афіша`}>{filteredPublic.length}</span>}
               </div>
-              <div className="mt-0.5 min-w-0 xl:mt-0 xl:flex-1 [&>div]:pb-0 [&_button]:min-h-7 [&_button]:rounded-lg [&_button]:px-2 [&_button]:text-[10px]"><CategoryChips items={TABS} selected={selectedCategory} onSelect={(key) => { setSelectedCategory(key); setPublicPage(1) }} /></div>
+              <div className="mt-1 min-w-0 xl:mt-0 xl:flex-1 [&>div]:pb-0 [&_button]:min-h-7 [&_button]:rounded-[10px] [&_button]:px-2.5 [&_button]:text-[10px]"><CategoryChips items={TABS} selected={selectedCategory} onSelect={(key) => { setSelectedCategory(key); setPublicPage(1) }} /></div>
             </div>
           </section>
         </div>
