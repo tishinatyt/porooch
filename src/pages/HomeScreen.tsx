@@ -9,8 +9,7 @@ import { CategoryChips } from '@/components/home/HomeControls'
 import HomeCarousel from '@/components/home/HomeCarousel'
 import HomeBackgroundDecorations from '@/components/home/HomeBackgroundDecorations'
 import type { PersonalEventData, PublicEventData } from '@/components/home/types'
-import { DEMO_PERSONAL_EVENTS, DEMO_PUBLIC_EVENTS, PUBLIC_CATEGORIES } from '@/components/home/demoEvents'
-import { Icon } from '@/components/icons'
+import { DEMO_EVENTS_ENABLED, DEMO_PERSONAL_EVENTS, DEMO_PUBLIC_EVENTS, PUBLIC_CATEGORIES } from '@/components/home/demoEvents'
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -103,20 +102,41 @@ export default function HomeScreen() {
   const [excludedEventIds, setExcludedEventIds] = useState<Set<string>>(new Set())
 
   const [loadingDiscovery, setLoadingDiscovery] = useState(true)
+  const [discoveryError, setDiscoveryError] = useState(false)
   const [newEventId, setNewEventId] = useState<string | null>(null)
 
   const fetchDiscoveryEvents = useCallback(async () => {
     if (!supaUser) return
     setLoadingDiscovery(true)
+    setDiscoveryError(false)
 
     const geo = await getCurrentPosition()
     const [nearbyResult, participationResult] = await Promise.all([
       supabase.rpc('events_nearby', { user_lat: geo.lat, user_lng: geo.lng, radius_km: 100 }),
-      supabase.from('event_participants').select('event_id, status').eq('user_id', supaUser.id).in('status', ['joined', 'pending']),
+      supabase.from('event_participants').select('event_id, status, role').eq('user_id', supaUser.id).in('status', ['joined', 'pending']),
     ])
 
-    if (nearbyResult.error) console.error('[fetchDiscoveryEvents] nearby error:', nearbyResult.error)
-    if (participationResult.error) console.error('[fetchDiscoveryEvents] participation error:', participationResult.error)
+    if (nearbyResult.error) {
+      console.error('[fetchDiscoveryEvents] nearby error:', {
+        code: nearbyResult.error.code,
+        message: nearbyResult.error.message,
+        details: nearbyResult.error.details,
+        hint: nearbyResult.error.hint,
+      })
+      setAllDiscoveryEvents([])
+      setExcludedEventIds(new Set())
+      setDiscoveryError(true)
+      setLoadingDiscovery(false)
+      return
+    }
+    if (participationResult.error) {
+      console.error('[fetchDiscoveryEvents] participation error:', {
+        code: participationResult.error.code,
+        message: participationResult.error.message,
+        details: participationResult.error.details,
+        hint: participationResult.error.hint,
+      })
+    }
 
     const nearbyRows = (nearbyResult.data ?? []) as Record<string, unknown>[]
     const ids = nearbyRows.map((row) => row.id as string)
@@ -127,7 +147,19 @@ export default function HomeScreen() {
         .from('events')
         .select('id, event_type, join_mode, is_public')
         .in('id', ids)
-      if (typeError) console.error('[fetchDiscoveryEvents] event type error:', typeError)
+      if (typeError) {
+        console.error('[fetchDiscoveryEvents] event type error:', {
+          code: typeError.code,
+          message: typeError.message,
+          details: typeError.details,
+          hint: typeError.hint,
+        })
+        setAllDiscoveryEvents([])
+        setExcludedEventIds(new Set())
+        setDiscoveryError(true)
+        setLoadingDiscovery(false)
+        return
+      }
       for (const row of typeRows ?? []) {
         typeById.set(row.id, {
           event_type: (row.event_type ?? 'public') as 'personal' | 'public',
@@ -137,7 +169,7 @@ export default function HomeScreen() {
       }
     }
 
-    const excludedIds = new Set((participationResult.data ?? []).map((row) => row.event_id))
+    const excludedIds = new Set((participationResult.data ?? []).filter((row) => row.role === 'participant').map((row) => row.event_id))
     setExcludedEventIds(excludedIds)
 
     const events: PublicEventData[] = nearbyRows.map((row) => {
@@ -226,7 +258,6 @@ export default function HomeScreen() {
   // ── Derived / filtered lists ───────────────────────────────────────────────
 
   const eligibleDiscovery = allDiscoveryEvents
-    .filter((event) => event.organizer?.id !== supaUser?.id)
     .filter((event) => !excludedEventIds.has(event.id))
     .filter((event) => isEligible(event, profile?.age, profile?.gender))
     .filter((event) => event.distance_km === null || event.distance_km <= radiusKm)
@@ -237,7 +268,7 @@ export default function HomeScreen() {
 
   const realPersonalIds = new Set(realPersonalEvents.map((event) => event.id))
   const personalDemoLimit = realPersonalEvents.length >= 3 ? 0 : 4 - realPersonalEvents.length
-  const personalDemoFallbacks = DEMO_PERSONAL_EVENTS
+  const personalDemoFallbacks = (DEMO_EVENTS_ENABLED ? DEMO_PERSONAL_EVENTS : [])
     .filter((event) => !realPersonalIds.has(event.id))
     .filter((event) => event.distance_km === null || event.distance_km <= radiusKm)
     .filter((event) => matchesSearch(event, searchQuery))
@@ -249,7 +280,7 @@ export default function HomeScreen() {
     .filter((e) => selectedCategory === 'all' || e.category === selectedCategory)
 
   const categoriesWithRealEvents = new Set(realPublic.map((event) => event.category))
-  const demoFallbacks = DEMO_PUBLIC_EVENTS.filter((event) =>
+  const demoFallbacks = (DEMO_EVENTS_ENABLED ? DEMO_PUBLIC_EVENTS : []).filter((event) =>
     (selectedCategory === 'all' ? PUBLIC_CATEGORIES.includes(event.category as typeof PUBLIC_CATEGORIES[number]) : event.category === selectedCategory)
     && !categoriesWithRealEvents.has(event.category)
     && (event.distance_km === null || event.distance_km <= radiusKm)
@@ -275,38 +306,32 @@ export default function HomeScreen() {
 
       <div className="relative z-10 mx-auto w-full max-w-[1440px] px-4 py-3 sm:px-6 sm:py-4 lg:min-h-0 lg:flex-1 lg:overflow-hidden lg:px-7 lg:py-6 xl:px-10">
         <div className="grid min-w-0 grid-cols-1 items-start gap-6 sm:gap-7 lg:h-full lg:min-h-0 lg:grid-cols-[minmax(280px,0.4fr)_minmax(0,0.6fr)] lg:items-stretch lg:gap-6 xl:grid-cols-[minmax(340px,0.4fr)_minmax(0,0.6fr)] xl:gap-7">
-          <section className="min-w-0 rounded-[22px] border border-[#c9bfdd] bg-home-tape-lavender p-3 shadow-[0_8px_28px_rgba(64,45,112,0.07)] sm:p-4 lg:flex lg:min-h-0 lg:flex-col">
-            <div className="mb-3 flex items-center justify-between gap-3 border-b border-[#ddd5ed] pb-3 lg:mb-4 lg:items-start">
-              <div>
-              <h1 className="text-base font-extrabold tracking-[-0.02em] text-brand-ink lg:text-lg">Особисті зустрічі</h1>
-              <p className="mt-1 hidden text-xs leading-5 text-brand-ink-muted sm:block">Зустрічі від людей поруч із вами</p>
-              </div>
-              <div className="flex items-center gap-2">{!loadingDiscovery && personalEvents.length > 0 && <span className="text-xs font-bold tabular-nums text-brand-ink-muted" aria-label={`${personalEvents.length} особистих зустрічей`}>{personalEvents.length}</span>}<Link to="/create?type=personal" className="inline-flex min-h-8 items-center rounded-lg bg-brand-accent-soft px-2.5 text-[10px] font-extrabold text-brand-accent lg:hidden">+ Створити</Link><Link to="/create?type=personal" className="hidden h-10 items-center gap-1.5 rounded-xl bg-brand-accent px-3.5 text-xs font-extrabold text-white transition hover:bg-brand-accent-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-accent lg:inline-flex"><Icon name="plus" className="h-4 w-4" />Додати</Link></div>
-            </div>
-
+          <section className="min-w-0 rounded-[22px] border border-[#c9bfdd] bg-home-tape-lavender p-2 pb-1.5 shadow-[0_8px_28px_rgba(64,45,112,0.07)] sm:p-3 sm:pb-1.5 lg:flex lg:min-h-0 lg:flex-col">
             {loadingDiscovery && <HomeCarousel id="personal-events-loading" label="Завантаження особистих зустрічей" className="lg:space-y-3">{[1, 2, 3].map((item) => <div role="listitem" key={item} className="h-56 w-[88%] flex-none snap-start animate-pulse rounded-2xl border border-brand-border bg-white min-[420px]:w-[86%] sm:w-[46%] md:w-[44%] lg:w-auto" />)}</HomeCarousel>}
             {!loadingDiscovery && personalEvents.length === 0 && (
-              <div className="rounded-2xl border border-dashed border-brand-border-strong bg-white px-4 py-6 text-center"><p className="text-sm font-bold text-brand-ink">Поки немає особистих подій поруч.</p><Link to="/create" className="mt-3 inline-flex min-h-10 items-center rounded-xl bg-brand-accent px-4 text-xs font-bold text-white transition hover:bg-brand-accent-hover">Створити подію</Link></div>
+              <div className="rounded-2xl border border-dashed border-brand-border-strong bg-white px-4 py-6 text-center lg:flex-1"><p className="text-sm font-bold text-brand-ink">{discoveryError ? 'Не вдалося завантажити події.' : 'Поки немає особистих подій поруч.'}</p>{!discoveryError && <Link to="/create" className="mt-3 inline-flex min-h-10 items-center rounded-xl bg-brand-accent px-4 text-xs font-bold text-white transition hover:bg-brand-accent-hover">Створити подію</Link>}</div>
             )}
             {!loadingDiscovery && personalEvents.length > 0 && <HomeCarousel id="personal-events-carousel" label="Особисті зустрічі поруч" className="gap-3.5 lg:space-y-3.5">{personalEvents.map((event) => <div role="listitem" key={event.eventId} className="w-[88%] flex-none snap-start [scroll-snap-stop:always] min-[420px]:w-[86%] sm:w-[46%] md:w-[44%] lg:w-auto"><PersonalEventCard event={event} /></div>)}</HomeCarousel>}
 
+            <div className="mt-1 flex flex-none items-center gap-1.5 border-t border-[#ddd5ed] pt-1.5">
+              <h1 className="text-sm font-extrabold tracking-[-0.02em] text-brand-ink">Особисті зустрічі</h1>
+              {!loadingDiscovery && <span className="inline-flex min-w-5 items-center justify-center rounded-full bg-white/70 px-1.5 py-0.5 text-[10px] font-bold tabular-nums text-brand-ink-muted" aria-label={`${personalEvents.length} особистих зустрічей`}>{personalEvents.length}</span>}
+            </div>
           </section>
 
-          <section className="min-w-0 rounded-[22px] border border-[#dbc9c0] bg-home-tape-peach p-3 shadow-[0_8px_28px_rgba(92,61,43,0.06)] sm:p-4 lg:flex lg:min-h-0 lg:flex-col">
-            <div className="mb-3 flex items-center justify-between gap-3 border-b border-[#e6ddd7] pb-3 lg:mb-4 lg:items-start">
-              <div>
-              <h2 className="text-base font-extrabold tracking-[-0.02em] text-brand-ink lg:text-lg">Публічні події</h2>
-              <p className="mt-1 hidden text-xs leading-5 text-brand-ink-muted sm:block">Відкриті події, до яких можна приєднатися</p>
-              </div>
-              <div className="flex items-center gap-2">{!loadingDiscovery && shownPublic.length > 0 && <span className="mt-0.5 text-xs font-bold tabular-nums text-brand-ink-muted" aria-label={`${filteredPublic.length} публічних подій`}>{filteredPublic.length}</span>}<Link to="/create?type=public" className="hidden h-10 items-center gap-1.5 rounded-xl bg-brand-accent px-3.5 text-xs font-extrabold text-white transition hover:bg-brand-accent-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-accent lg:inline-flex"><Icon name="plus" className="h-4 w-4" />Додати</Link></div>
-            </div>
-
-            <div className="mb-3 lg:mb-4"><CategoryChips items={TABS} selected={selectedCategory} onSelect={(key) => { setSelectedCategory(key); setPublicPage(1) }} /></div>
+          <section className="min-w-0 rounded-[22px] border border-[#dbc9c0] bg-home-tape-peach p-2 pb-1.5 shadow-[0_8px_28px_rgba(92,61,43,0.06)] sm:p-3 sm:pb-1.5 lg:flex lg:min-h-0 lg:flex-col">
             {loadingDiscovery && <HomeCarousel id="public-events-loading" label="Завантаження публічних подій" className="lg:space-y-3">{[1, 2, 3, 4].map((item) => <div role="listitem" key={item} className="h-72 w-[88%] flex-none snap-start animate-pulse rounded-2xl border border-brand-border bg-white min-[420px]:w-[86%] sm:w-[46%] md:w-[44%] lg:w-auto" />)}</HomeCarousel>}
-            {!loadingDiscovery && shownPublic.length === 0 && <div className="rounded-2xl border border-dashed border-brand-border-strong bg-white px-4 py-6 text-center"><p className="text-sm font-bold text-brand-ink">Поки немає публічних подій поруч.</p>{selectedCategory !== 'all' && <p className="mt-1.5 text-xs text-brand-ink-muted">Спробуйте іншу категорію або збільшіть радіус.</p>}</div>}
+            {!loadingDiscovery && shownPublic.length === 0 && <div className="rounded-2xl border border-dashed border-brand-border-strong bg-white px-4 py-6 text-center lg:flex-1"><p className="text-sm font-bold text-brand-ink">{discoveryError ? 'Не вдалося завантажити події.' : 'Поки немає публічних подій поруч.'}</p>{!discoveryError && selectedCategory !== 'all' && <p className="mt-1.5 text-xs text-brand-ink-muted">Спробуйте іншу категорію або збільшіть радіус.</p>}</div>}
             {!loadingDiscovery && shownPublic.length > 0 && <HomeCarousel id="public-events-carousel" label="Публічні події поруч" className="gap-3.5 lg:space-y-3.5">{shownPublic.map((event) => <div role="listitem" key={event.id} className="w-[88%] flex-none snap-start [scroll-snap-stop:always] min-[420px]:w-[86%] sm:w-[46%] md:w-[44%] lg:w-auto"><PublicEventCard event={event} isNew={event.id === newEventId} /></div>)}</HomeCarousel>}
 
             {hasMorePublic && <button type="button" onClick={() => setPublicPage((page) => page + 1)} className="mt-4 w-full rounded-xl border border-brand-border bg-white py-3 text-sm font-bold text-brand-ink-soft transition hover:border-brand-border-strong hover:bg-brand-surface-muted">Показати більше ({filteredPublic.length - shownPublic.length})</button>}
+            <div className="mt-1 flex-none border-t border-[#e6ddd7] pt-1 xl:flex xl:items-center xl:gap-1.5">
+              <div className="flex items-center gap-1.5">
+                <h2 className="text-sm font-extrabold tracking-[-0.02em] text-brand-ink">Публічні події</h2>
+                {!loadingDiscovery && <span className="inline-flex min-w-5 items-center justify-center rounded-full bg-white/70 px-1.5 py-0.5 text-[10px] font-bold tabular-nums text-brand-ink-muted" aria-label={`${filteredPublic.length} публічних подій`}>{filteredPublic.length}</span>}
+              </div>
+              <div className="mt-0.5 min-w-0 xl:mt-0 xl:flex-1 [&>div]:pb-0 [&_button]:min-h-7 [&_button]:rounded-lg [&_button]:px-2 [&_button]:text-[10px]"><CategoryChips items={TABS} selected={selectedCategory} onSelect={(key) => { setSelectedCategory(key); setPublicPage(1) }} /></div>
+            </div>
           </section>
         </div>
       </div>

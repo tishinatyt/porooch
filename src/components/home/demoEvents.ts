@@ -1,6 +1,7 @@
 import type { PublicEventData } from '@/components/home/types'
 
 export const PUBLIC_CATEGORIES = ['cinema', 'theatre', 'bar', 'sport', 'music', 'other'] as const
+export const DEMO_EVENTS_ENABLED = import.meta.env.DEV && import.meta.env.VITE_ENABLE_DEMO_EVENTS === 'true'
 
 function upcomingDate(dayOffset: number, hour: number, minute: number) {
   const date = new Date()
@@ -65,5 +66,6 @@ export const DEMO_PERSONAL_EVENTS: PublicEventData[] = [
 ]
 
 export function getDemoEvent(id: string | undefined) {
+  if (!DEMO_EVENTS_ENABLED) return null
   return [...DEMO_PUBLIC_EVENTS, ...DEMO_PERSONAL_EVENTS].find((event) => event.id === id) ?? null
 }
