@@ -203,12 +203,6 @@ textarea {
   line-height: 1;
 }
 
-.home-card-cta::before {
-  position: absolute;
-  inset: -6px 0;
-  content: '';
-}
-
 button,
 a,
 select {
