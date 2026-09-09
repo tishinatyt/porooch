@@ -129,6 +129,16 @@ Desktop behavior at 1024px and above:
 - Section headers/actions remain outside those scrollports.
 - The Home viewport uses flex/grid with `min-height: 0`; do not turn it into one giant body-scrolling event list.
 
+Home discovery does not remove an otherwise eligible event because of the current user's participation state. Participant memberships enrich the card CTA while the same event may also appear in My Events:
+
+- no participant membership → `ДОЄДНАТИСЬ`;
+- participant + `joined` → `ВИ УЧАСНИК`;
+- participant + `pending` → `ЗАПИТ НАДІСЛАНО`;
+- participant + `rejected` → `ЗАПИТ ВІДХИЛЕНО`;
+- organizer + `joined` → `КЕРУВАТИ`.
+
+Home must wait for the current user's membership query before rendering discovery cards so these states are correct on first paint. Membership state must never be used to exclude an event from Home; only the existing discovery, eligibility, radius, search, category, date, visibility, and event-status rules may do that.
+
 Desktop section CTAs are filled purple buttons with the existing plus icon:
 
 - Personal: `/create?type=personal`

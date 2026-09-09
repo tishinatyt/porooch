@@ -48,19 +48,21 @@ export function PersonalEventCard({ event, management = false, isOrganizer = fal
       navigate(`/event/${event.eventId}`)
       return
     }
-    if (joining || isFull || event.participationStatus === 'pending' || event.participationStatus === 'rejected') return
+    if (joining || isFull || event.participationStatus === 'joined' || event.participationStatus === 'pending' || event.participationStatus === 'rejected') return
     setJoining(true)
     await onJoin()
     setJoining(false)
   }
   const actionLabel = isOrganizer
     ? 'КЕРУВАТИ'
-    : event.participationStatus === 'pending'
+    : event.participationStatus === 'joined'
+      ? 'ВИ УЧАСНИК'
+      : event.participationStatus === 'pending'
       ? 'ЗАПИТ НАДІСЛАНО'
       : event.participationStatus === 'rejected'
         ? 'ЗАПИТ ВІДХИЛЕНО'
         : isFull ? 'МІСЦЬ НЕМАЄ' : joining ? 'НАДСИЛАЄМО…' : 'ДОЄДНАТИСЬ'
-  const actionDisabled = !isOrganizer && (joining || isFull || event.participationStatus === 'pending' || event.participationStatus === 'rejected')
+  const actionDisabled = !isOrganizer && (joining || isFull || event.participationStatus === 'joined' || event.participationStatus === 'pending' || event.participationStatus === 'rejected')
 
   return (
     <article className="home-event-card h-full rounded-[18px] border border-[#d8d0e7] bg-white p-3 transition-[transform,box-shadow,border-color] duration-200 hover:border-[#c7b9df] sm:p-3.5">
@@ -107,19 +109,21 @@ export function PublicEventCard({ event, isNew = false, isOrganizer = false, onJ
       openEvent()
       return
     }
-    if (joining || isFull || event.participationStatus === 'pending' || event.participationStatus === 'rejected') return
+    if (joining || isFull || event.participationStatus === 'joined' || event.participationStatus === 'pending' || event.participationStatus === 'rejected') return
     setJoining(true)
     await onJoin()
     setJoining(false)
   }
   const actionLabel = isOrganizer
     ? 'КЕРУВАТИ'
-    : event.participationStatus === 'pending'
+    : event.participationStatus === 'joined'
+      ? 'ВИ УЧАСНИК'
+      : event.participationStatus === 'pending'
       ? 'ЗАПИТ НАДІСЛАНО'
       : event.participationStatus === 'rejected'
         ? 'ЗАПИТ ВІДХИЛЕНО'
         : isFull ? 'МІСЦЬ НЕМАЄ' : joining ? 'НАДСИЛАЄМО…' : 'ДОЄДНАТИСЬ'
-  const actionDisabled = !isOrganizer && (joining || isFull || event.participationStatus === 'pending' || event.participationStatus === 'rejected')
+  const actionDisabled = !isOrganizer && (joining || isFull || event.participationStatus === 'joined' || event.participationStatus === 'pending' || event.participationStatus === 'rejected')
 
   return (
     <article className={`home-event-card group h-full rounded-[18px] border bg-white p-3 transition-[transform,box-shadow,border-color] duration-200 hover:border-[#c9bedb] sm:p-3.5 ${isNew ? 'border-brand-accent/50 ring-2 ring-brand-accent/10' : 'border-[#d9d2e4]'}`}>

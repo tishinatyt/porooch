@@ -104,7 +104,6 @@ export default function HomeScreen() {
   const [radiusKm, setRadiusKm] = useState(5)
 
   const [allDiscoveryEvents, setAllDiscoveryEvents] = useState<PublicEventData[]>([])
-  const [excludedEventIds, setExcludedEventIds] = useState<Set<string>>(new Set())
   const [membershipsReady, setMembershipsReady] = useState(false)
   const discoveryRequestId = useRef(0)
 
@@ -145,7 +144,6 @@ export default function HomeScreen() {
         })
       }
       setAllDiscoveryEvents([])
-      setExcludedEventIds(new Set())
       setDiscoveryError(true)
       setLoadingDiscovery(false)
       return
@@ -175,7 +173,6 @@ export default function HomeScreen() {
           hint: typeError.hint,
         })
         setAllDiscoveryEvents([])
-        setExcludedEventIds(new Set())
         setDiscoveryError(true)
         setLoadingDiscovery(false)
         return
@@ -200,12 +197,6 @@ export default function HomeScreen() {
         .filter((row) => row.role === 'participant')
         .map((row) => [row.event_id, row.status as 'pending' | 'joined' | 'rejected']),
     )
-    const excludedIds = new Set(
-      [...participantMembershipById.entries()]
-        .filter(([, status]) => status === 'joined')
-        .map(([eventId]) => eventId),
-    )
-    setExcludedEventIds(excludedIds)
     setMembershipsReady(true)
 
     const events: PublicEventData[] = nearbyRows.map((row) => {
@@ -248,7 +239,6 @@ export default function HomeScreen() {
     }
 
     setAllDiscoveryEvents((events) => events.map((event) => event.id === eventId ? { ...event, participationStatus: status } : event))
-    if (status === 'joined') setExcludedEventIds((ids) => new Set(ids).add(eventId))
     await reloadMyEvents()
     return status
   }, [reloadMyEvents, supaUser])
@@ -309,7 +299,6 @@ export default function HomeScreen() {
   // ── Derived / filtered lists ───────────────────────────────────────────────
 
   const eligibleDiscovery = membershipsReady ? allDiscoveryEvents
-    .filter((event) => !excludedEventIds.has(event.id))
     .filter((event) => isEligible(event, profile?.age, profile?.gender))
     .filter((event) => event.distance_km === null || event.distance_km <= radiusKm)
     .filter((event) => matchesSearch(event, searchQuery)) : []
@@ -347,22 +336,20 @@ export default function HomeScreen() {
 
   useEffect(() => {
     if (!import.meta.env.DEV || loadingDiscovery) return
-    const afterParticipation = allDiscoveryEvents.filter((event) => !excludedEventIds.has(event.id))
-    const afterEligibility = afterParticipation.filter((event) => isEligible(event, profile?.age, profile?.gender))
+    const afterEligibility = allDiscoveryEvents.filter((event) => isEligible(event, profile?.age, profile?.gender))
     const afterRadius = afterEligibility.filter((event) => event.distance_km === null || event.distance_km <= radiusKm)
     const afterSearch = afterRadius.filter((event) => matchesSearch(event, searchQuery))
     const summarize = (events: PublicEventData[]) => events.map(({ id, title }) => ({ id, title }))
 
     console.info('[Home discovery diagnostic] Filter counts', {
       rpcMapped: { count: allDiscoveryEvents.length, events: summarize(allDiscoveryEvents) },
-      afterParticipation: { count: afterParticipation.length, events: summarize(afterParticipation) },
       afterEligibility: { count: afterEligibility.length, events: summarize(afterEligibility) },
       afterRadius: { count: afterRadius.length, events: summarize(afterRadius) },
       afterSearch: { count: afterSearch.length, events: summarize(afterSearch) },
       finalPersonal: { count: realPersonalEvents.length, events: summarize(realPersonalEvents) },
       finalPublic: { count: realPublic.length, events: summarize(realPublic) },
     })
-  }, [allDiscoveryEvents, excludedEventIds, loadingDiscovery, profile?.age, profile?.gender, radiusKm, realPersonalEvents, realPublic, searchQuery])
+  }, [allDiscoveryEvents, loadingDiscovery, profile?.age, profile?.gender, radiusKm, realPersonalEvents, realPublic, searchQuery])
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
