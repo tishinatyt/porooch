@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
@@ -105,6 +105,8 @@ export default function HomeScreen() {
 
   const [allDiscoveryEvents, setAllDiscoveryEvents] = useState<PublicEventData[]>([])
   const [excludedEventIds, setExcludedEventIds] = useState<Set<string>>(new Set())
+  const [membershipsReady, setMembershipsReady] = useState(false)
+  const discoveryRequestId = useRef(0)
 
   const [loadingDiscovery, setLoadingDiscovery] = useState(true)
   const [discoveryError, setDiscoveryError] = useState(false)
@@ -112,7 +114,9 @@ export default function HomeScreen() {
 
   const fetchDiscoveryEvents = useCallback(async () => {
     if (!supaUser) return
+    const requestId = ++discoveryRequestId.current
     setLoadingDiscovery(true)
+    setMembershipsReady(false)
     setDiscoveryError(false)
 
     const geo = await getCurrentPosition()
@@ -121,26 +125,30 @@ export default function HomeScreen() {
       supabase.from('event_participants').select('event_id, status, role').eq('user_id', supaUser.id).in('status', ['joined', 'pending', 'rejected']),
     ])
 
-    if (nearbyResult.error) {
-      console.error('[fetchDiscoveryEvents] nearby error:', {
-        code: nearbyResult.error.code,
-        message: nearbyResult.error.message,
-        details: nearbyResult.error.details,
-        hint: nearbyResult.error.hint,
-      })
+    if (requestId !== discoveryRequestId.current) return
+
+    if (nearbyResult.error || participationResult.error) {
+      if (nearbyResult.error) {
+        console.error('[fetchDiscoveryEvents] nearby error:', {
+          code: nearbyResult.error.code,
+          message: nearbyResult.error.message,
+          details: nearbyResult.error.details,
+          hint: nearbyResult.error.hint,
+        })
+      }
+      if (participationResult.error) {
+        console.error('[fetchDiscoveryEvents] participation error:', {
+          code: participationResult.error.code,
+          message: participationResult.error.message,
+          details: participationResult.error.details,
+          hint: participationResult.error.hint,
+        })
+      }
       setAllDiscoveryEvents([])
       setExcludedEventIds(new Set())
       setDiscoveryError(true)
       setLoadingDiscovery(false)
       return
-    }
-    if (participationResult.error) {
-      console.error('[fetchDiscoveryEvents] participation error:', {
-        code: participationResult.error.code,
-        message: participationResult.error.message,
-        details: participationResult.error.details,
-        hint: participationResult.error.hint,
-      })
     }
 
     const nearbyRows = (nearbyResult.data ?? []) as Record<string, unknown>[]
@@ -158,6 +166,7 @@ export default function HomeScreen() {
         .from('events')
         .select('id, event_type, join_mode, is_public')
         .in('id', ids)
+      if (requestId !== discoveryRequestId.current) return
       if (typeError) {
         console.error('[fetchDiscoveryEvents] event type error:', {
           code: typeError.code,
@@ -197,6 +206,7 @@ export default function HomeScreen() {
         .map(([eventId]) => eventId),
     )
     setExcludedEventIds(excludedIds)
+    setMembershipsReady(true)
 
     const events: PublicEventData[] = nearbyRows.map((row) => {
       const e = row as Record<string, unknown>
@@ -298,11 +308,11 @@ export default function HomeScreen() {
 
   // ── Derived / filtered lists ───────────────────────────────────────────────
 
-  const eligibleDiscovery = allDiscoveryEvents
+  const eligibleDiscovery = membershipsReady ? allDiscoveryEvents
     .filter((event) => !excludedEventIds.has(event.id))
     .filter((event) => isEligible(event, profile?.age, profile?.gender))
     .filter((event) => event.distance_km === null || event.distance_km <= radiusKm)
-    .filter((event) => matchesSearch(event, searchQuery))
+    .filter((event) => matchesSearch(event, searchQuery)) : []
 
   const realPersonalEvents = eligibleDiscovery
     .filter((event) => event.event_type === 'personal')
