@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import type { User } from '@/types'
+import { joinEventParticipation } from '@/lib/eventParticipation'
 
 export interface EventDetail {
   id: string
@@ -168,13 +169,7 @@ export function useEvent(eventId: string) {
   }
 
   async function joinEvent(userId: string): Promise<{ error: string | null; status: 'pending' | 'joined' | null }> {
-    const requestedStatus = event?.join_mode === 'approval' ? 'pending' : 'joined'
-    const { error: err } = await supabase
-      .from('event_participants')
-      .upsert(
-        { event_id: eventId, user_id: userId, role: 'participant', status: requestedStatus },
-        { onConflict: 'event_id,user_id' },
-      )
+    const { error: err, status: requestedStatus } = await joinEventParticipation(eventId, userId, event?.join_mode ?? 'open')
 
     if (err) {
       console.error('Failed to join event', err)

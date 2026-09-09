@@ -4,9 +4,9 @@ import TopBar from '@/components/TopBar'
 import { EmptyState } from '@/components/home/HomeControls'
 import ParticipantAvatars from '@/components/home/ParticipantAvatars'
 import { Icon } from '@/components/icons'
-import { useMyEvents } from '@/hooks/useMyEvents'
+import { useMyEventsContext } from '@/contexts/MyEventsContext'
 import type { PersonalEventData } from '@/components/home/types'
-import { getEventAccessLabel } from '@/lib/eventAccess'
+import { getEventAccessChipClass, getEventAccessLabel } from '@/lib/eventAccess'
 
 type MyEventsTab = 'organizing' | 'joined' | 'pending'
 
@@ -56,6 +56,7 @@ function MyEventCard({ event, tab }: { event: PersonalEventData; tab: MyEventsTa
           <p className="mt-0.5 text-[10px] text-brand-ink-muted">{isOrganizer ? 'Керуйте подією та заявками в деталях' : 'Організатор події'}</p>
         </div>
         <span className={`flex-shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold ${isPending ? 'bg-white text-brand-ink-soft' : 'bg-white text-brand-accent'}`}>{roleLabel}</span>
+        {isOrganizer && Boolean(event.pending_request_count) && <button type="button" onClick={() => navigate(`/event/${event.eventId}`)} className="flex-shrink-0 rounded-full border border-amber-200 bg-amber-100 px-2.5 py-1 text-[10px] font-extrabold text-amber-900" aria-label={`${event.pending_request_count} запитів на участь`}>Запити · {event.pending_request_count}</button>}
       </div>
 
       <button type="button" onClick={() => navigate(`/event/${event.eventId}`)} className="mt-3 block w-full text-left">
@@ -69,7 +70,7 @@ function MyEventCard({ event, tab }: { event: PersonalEventData; tab: MyEventsTa
 
       <div className="mt-3 flex flex-wrap items-center gap-1.5">
         <span className="rounded-md bg-white px-2 py-1 text-[10px] font-bold text-brand-accent">{CATEGORY_LABEL[event.category] ?? event.category}</span>
-        <span className="rounded-md bg-white px-2 py-1 text-[10px] font-semibold text-brand-ink-muted">{getEventAccessLabel(event)}</span>
+        <span className={`rounded-md border px-2 py-1 text-[10px] font-semibold ${getEventAccessChipClass(event)}`}>{getEventAccessLabel(event)}</span>
         {isPending && <span className="rounded-md border border-[#e8e3f7] bg-white px-2 py-1 text-[10px] font-semibold text-brand-ink-muted">Організатор ще не відповів</span>}
       </div>
 
@@ -91,7 +92,7 @@ function MyEventCard({ event, tab }: { event: PersonalEventData; tab: MyEventsTa
 }
 
 export default function MyEvents() {
-  const { events, loading } = useMyEvents()
+  const { events, loading } = useMyEventsContext()
   const [selectedTab, setSelectedTab] = useState<MyEventsTab>('organizing')
 
   const eventsByTab: Record<MyEventsTab, PersonalEventData[]> = {

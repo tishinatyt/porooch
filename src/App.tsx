@@ -12,6 +12,7 @@ import AppSidebar from '@/components/AppSidebar'
 import MyEvents from '@/pages/MyEvents'
 import { UnreadMessagesProvider } from '@/contexts/UnreadMessagesContext'
 import { ProfilePreviewProvider } from '@/contexts/ProfilePreviewContext'
+import { MyEventsProvider } from '@/contexts/MyEventsContext'
 import PublicProfile from '@/pages/PublicProfile'
 
 // Routes with their own full-screen bottom CTA — BottomNav would cover them
@@ -52,9 +53,11 @@ export default function App() {
       <AuthProvider>
         <ProtectedRoute>
           <UnreadMessagesProvider>
-            <ProfilePreviewProvider>
-              <AppLayout />
-            </ProfilePreviewProvider>
+            <MyEventsProvider>
+              <ProfilePreviewProvider>
+                <AppLayout />
+              </ProfilePreviewProvider>
+            </MyEventsProvider>
           </UnreadMessagesProvider>
         </ProtectedRoute>
       </AuthProvider>

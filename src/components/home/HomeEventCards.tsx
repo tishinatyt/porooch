@@ -1,86 +1,151 @@
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import EventMedia from '@/components/EventMedia'
 import { Icon } from '@/components/icons'
 import ParticipantAvatars from '@/components/home/ParticipantAvatars'
 import type { PersonalEventData, PublicEventData } from '@/components/home/types'
 import ProfileAvatar from '@/components/ProfileAvatar'
-import { getEventAccessLabel } from '@/lib/eventAccess'
+import { getEventAccessChipClass, getEventAccessLabel } from '@/lib/eventAccess'
 
 const CATEGORY_LABEL: Record<string, string> = { cinema: 'Кіно', theatre: 'Театр', bar: 'Бар', sport: 'Спорт', music: 'Музика', food: 'Їжа', games: 'Ігри', walk: 'Прогулянка', art: 'Мистецтво', communication: 'Спілкування', other: 'Інше' }
 const GENDER_LABEL: Record<string, string> = { any: 'Для всіх', male: 'Хлопці', female: 'Дівчата' }
+const CATEGORY_CHIP: Record<string, string> = {
+  cinema: 'border-violet-200 bg-violet-100 text-violet-800',
+  theatre: 'border-fuchsia-200 bg-fuchsia-100 text-fuchsia-800',
+  bar: 'border-rose-200 bg-rose-100 text-rose-800',
+  sport: 'border-blue-200 bg-blue-100 text-blue-800',
+  music: 'border-purple-200 bg-purple-100 text-purple-800',
+  food: 'border-orange-200 bg-orange-100 text-orange-800',
+  games: 'border-sky-200 bg-sky-100 text-sky-800',
+  walk: 'border-emerald-200 bg-emerald-100 text-emerald-800',
+  art: 'border-pink-200 bg-pink-100 text-pink-800',
+  communication: 'border-indigo-200 bg-indigo-100 text-indigo-800',
+  other: 'border-slate-200 bg-slate-100 text-slate-700',
+}
 
 function formatDateTime(iso: string) {
   return new Date(iso).toLocaleString('uk-UA', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
 }
 
 function MetaRow({ icon, children }: { icon: 'pin' | 'clock'; children: React.ReactNode }) {
-  return <div className="flex min-w-0 items-center gap-2 text-[11px] font-medium leading-4 text-brand-ink-muted sm:text-xs"><span className="grid h-6 w-6 flex-shrink-0 place-items-center rounded-lg bg-[#f4f3f7] text-brand-ink-muted"><Icon name={icon} className="h-3.5 w-3.5"/></span><span className="truncate">{children}</span></div>
+  return <div className="flex min-w-0 items-center gap-1.5 text-[11px] font-medium leading-4 text-brand-ink-muted sm:text-xs"><span className="grid h-5 w-5 flex-shrink-0 place-items-center rounded-md bg-[#f0edf6] text-brand-ink-muted"><Icon name={icon} className="h-3 w-3"/></span><span className="truncate">{children}</span></div>
 }
 
-export function PersonalEventCard({ event, management = false }: { event: PersonalEventData; management?: boolean }) {
+interface HomeJoinProps {
+  isOrganizer?: boolean
+  onJoin?: () => Promise<'pending' | 'joined' | null>
+}
+
+export function PersonalEventCard({ event, management = false, isOrganizer = false, onJoin }: { event: PersonalEventData; management?: boolean } & HomeJoinProps) {
   const navigate = useNavigate()
+  const [joining, setJoining] = useState(false)
   const participantUsers = event.participants.map((participant) => ({ id: participant.user_id, name: participant.user?.name, avatar_url: participant.user?.avatar_url ?? null }))
   const visibleUsers = participantUsers.length > 0 ? participantUsers : event.organizer ? [{ id: event.organizer.id, name: event.organizer.name, avatar_url: event.organizer.avatar_url }] : []
   const participantCount = event.participant_count ?? event.participants.length
+  const isFull = participantCount >= event.max_participants
+  const handleJoin = async () => {
+    if (isOrganizer || !onJoin) {
+      navigate(`/event/${event.eventId}`)
+      return
+    }
+    if (joining || isFull || event.participationStatus === 'pending' || event.participationStatus === 'rejected') return
+    setJoining(true)
+    await onJoin()
+    setJoining(false)
+  }
+  const actionLabel = isOrganizer
+    ? 'КЕРУВАТИ'
+    : event.participationStatus === 'pending'
+      ? 'ЗАПИТ НАДІСЛАНО'
+      : event.participationStatus === 'rejected'
+        ? 'ЗАПИТ ВІДХИЛЕНО'
+        : isFull ? 'МІСЦЬ НЕМАЄ' : joining ? 'НАДСИЛАЄМО…' : 'ДОЄДНАТИСЬ'
+  const actionDisabled = !isOrganizer && (joining || isFull || event.participationStatus === 'pending' || event.participationStatus === 'rejected')
 
   return (
-    <article className="home-event-card h-full rounded-[20px] border border-[#d8d0e7] bg-white p-3.5 transition-[transform,box-shadow,border-color] duration-200 hover:border-[#c7b9df] sm:p-4">
-      <div className="mb-3 flex items-center gap-2.5 sm:gap-3">
-        {event.organizer ? <ProfileAvatar profile={{ id: event.organizer.id, name: event.organizer.name, age: event.organizer.age, avatar_url: event.organizer.avatar_url }} className="grid h-11 w-11 flex-shrink-0 place-items-center overflow-hidden rounded-full border-2 border-white bg-brand-accent-soft text-sm font-extrabold text-brand-accent shadow-[0_2px_8px_rgba(62,44,105,0.14)]" /> : <div className="grid h-11 w-11 place-items-center rounded-full border-2 border-white bg-brand-accent-soft text-sm font-extrabold text-brand-accent shadow-[0_2px_8px_rgba(62,44,105,0.14)]">О</div>}
+    <article className="home-event-card h-full rounded-[18px] border border-[#d8d0e7] bg-white p-3 transition-[transform,box-shadow,border-color] duration-200 hover:border-[#c7b9df] sm:p-3.5">
+      <div className="mb-2 flex items-center gap-2.5">
+        {event.organizer ? <ProfileAvatar profile={{ id: event.organizer.id, name: event.organizer.name, age: event.organizer.age, avatar_url: event.organizer.avatar_url }} className="grid h-8 w-8 flex-shrink-0 place-items-center overflow-hidden rounded-full border border-white bg-brand-accent-soft text-xs font-extrabold text-brand-accent shadow-[0_2px_7px_rgba(62,44,105,0.13)]" /> : <div className="grid h-8 w-8 place-items-center rounded-full border border-white bg-brand-accent-soft text-xs font-extrabold text-brand-accent shadow-[0_2px_7px_rgba(62,44,105,0.13)]">О</div>}
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-bold text-brand-ink sm:text-[15px]">{event.organizer?.name ?? 'Організатор'}{event.organizer?.age ? `, ${event.organizer.age}` : ''}</p>
           <p className="mt-0.5 text-[10px] font-medium text-brand-ink-muted">Запрошує на особисту зустріч</p>
         </div>
-        <span className="rounded-full border border-[#e5dff1] bg-[#f7f4fb] px-2.5 py-1 text-[10px] font-bold text-brand-ink-soft">Особиста</span>
+        <span className="rounded-full border border-violet-200 bg-violet-100 px-2 py-0.5 text-[10px] font-bold text-violet-800">Особиста</span>
       </div>
 
       <button type="button" onClick={() => navigate(`/event/${event.eventId}`)} className="block w-full text-left">
-        <h3 className="mb-2.5 text-[18px] font-extrabold leading-[1.18] tracking-[-0.03em] text-brand-ink sm:text-[19px] lg:text-xl">{event.title}</h3>
-        <div className="space-y-1.5"><MetaRow icon="clock">{formatDateTime(event.event_datetime)}</MetaRow><MetaRow icon="pin">{event.address_text || 'Місце не вказано'}{event.distance_km != null ? ` · ${event.distance_km.toFixed(1)} км` : ''}</MetaRow></div>
+        <h3 className="mb-2 line-clamp-2 text-[17px] font-extrabold leading-[1.16] tracking-[-0.025em] text-brand-ink sm:text-lg">{event.title}</h3>
+        <div className="space-y-1"><MetaRow icon="clock">{formatDateTime(event.event_datetime)}</MetaRow><MetaRow icon="pin">{event.address_text || 'Місце не вказано'}{event.distance_km != null ? ` · ${event.distance_km.toFixed(1)} км` : ''}</MetaRow></div>
       </button>
 
-      <div className="mt-3 flex flex-wrap gap-1.5">
-        <span className="rounded-lg border border-[#ebe7f0] bg-[#faf9fc] px-2.5 py-1 text-[10px] font-semibold text-brand-ink-soft">{CATEGORY_LABEL[event.category] ?? event.category}</span>
-        <span className="rounded-lg border border-[#ebe7f0] bg-[#faf9fc] px-2.5 py-1 text-[10px] font-semibold text-brand-ink-soft">{event.min_age}–{event.max_age} · {GENDER_LABEL[event.gender_filter] ?? event.gender_filter}</span>
-        <span className="rounded-lg border border-[#e2dcf3] bg-[#f6f3ff] px-2.5 py-1 text-[10px] font-bold text-brand-accent">{getEventAccessLabel(event)}</span>
+      <div className="mt-2 flex flex-wrap gap-1">
+        <span className={`rounded-lg border px-2 py-0.5 text-[10px] font-bold ${CATEGORY_CHIP[event.category] ?? CATEGORY_CHIP.other}`}>{CATEGORY_LABEL[event.category] ?? event.category}</span>
+        <span className="rounded-lg border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-900">{event.min_age}–{event.max_age} · {GENDER_LABEL[event.gender_filter] ?? event.gender_filter}</span>
+        <span className={`rounded-lg border px-2 py-0.5 text-[10px] font-bold ${getEventAccessChipClass(event)}`}>{getEventAccessLabel(event)}</span>
       </div>
 
-      <div className="mt-3 flex items-center justify-between gap-2 border-t border-[#ece8f2] pt-3">
+      <div className="mt-2 flex items-center justify-between gap-2 border-t border-[#ece8f2] pt-2">
         <div className="flex min-w-0 items-center gap-2"><ParticipantAvatars users={visibleUsers} totalCount={participantCount}/><span className="truncate text-[11px] font-semibold text-brand-ink-muted">{participantCount}/{event.max_participants} учасників</span></div>
         <div className="flex gap-1.5">
+          {isOrganizer && Boolean(event.pending_request_count) && <button type="button" onClick={() => navigate(`/event/${event.eventId}`)} className="rounded-lg border border-amber-200 bg-amber-100 px-2 text-[9px] font-extrabold text-amber-900" aria-label={`${event.pending_request_count} запитів на участь`}>Запити · {event.pending_request_count}</button>}
           {management && <button type="button" onClick={() => navigate(`/event/${event.eventId}`)} className="h-10 rounded-xl border border-brand-border px-3 text-[11px] font-bold text-brand-ink-soft transition hover:border-brand-accent hover:text-brand-accent">Деталі</button>}
-          <button type="button" onClick={() => navigate(management && event.participationStatus === 'joined' ? `/event/${event.eventId}/chat` : `/event/${event.eventId}`)} className="h-10 rounded-xl bg-brand-accent px-3.5 text-[11px] font-bold text-white transition hover:bg-brand-accent-hover">{management && event.participationStatus === 'joined' ? 'Чат' : event.participationStatus === 'pending' ? 'Очікує' : 'Деталі'}</button>
+          <button type="button" onClick={management ? () => navigate(event.participationStatus === 'joined' ? `/event/${event.eventId}/chat` : `/event/${event.eventId}`) : () => { void handleJoin() }} disabled={!management && actionDisabled} aria-label={!management ? `${actionLabel}: «${event.title}»` : undefined} className={`home-card-cta font-extrabold tracking-[0.02em] transition ${actionDisabled ? 'cursor-not-allowed bg-brand-surface-muted text-brand-ink-muted' : 'bg-brand-accent text-white hover:bg-brand-accent-hover'}`}>{management && event.participationStatus === 'joined' ? 'Чат' : management && event.participationStatus === 'pending' ? 'Очікує' : management ? 'Деталі' : actionLabel}</button>
         </div>
       </div>
     </article>
   )
 }
 
-export function PublicEventCard({ event, isNew = false }: { event: PublicEventData; isNew?: boolean }) {
+export function PublicEventCard({ event, isNew = false, isOrganizer = false, onJoin }: { event: PublicEventData; isNew?: boolean } & HomeJoinProps) {
   const navigate = useNavigate()
+  const [joining, setJoining] = useState(false)
   const participantUsers = event.participants ?? (event.organizer ? [{ id: event.organizer.id, name: event.organizer.name, avatar_url: event.organizer.avatar_url }] : [])
   const openEvent = () => navigate(`/event/${event.id}`)
+  const isFull = event.participant_count >= event.max_participants
+  const handleJoin = async () => {
+    if (isOrganizer || !onJoin) {
+      openEvent()
+      return
+    }
+    if (joining || isFull || event.participationStatus === 'pending' || event.participationStatus === 'rejected') return
+    setJoining(true)
+    await onJoin()
+    setJoining(false)
+  }
+  const actionLabel = isOrganizer
+    ? 'КЕРУВАТИ'
+    : event.participationStatus === 'pending'
+      ? 'ЗАПИТ НАДІСЛАНО'
+      : event.participationStatus === 'rejected'
+        ? 'ЗАПИТ ВІДХИЛЕНО'
+        : isFull ? 'МІСЦЬ НЕМАЄ' : joining ? 'НАДСИЛАЄМО…' : 'ДОЄДНАТИСЬ'
+  const actionDisabled = !isOrganizer && (joining || isFull || event.participationStatus === 'pending' || event.participationStatus === 'rejected')
 
   return (
-    <article className={`home-event-card group h-full overflow-hidden rounded-[20px] border bg-white transition-[transform,box-shadow,border-color] duration-200 hover:border-[#c9bedb] ${isNew ? 'border-brand-accent/50 ring-2 ring-brand-accent/10' : 'border-[#d9d2e4]'}`}>
-      <button type="button" onClick={openEvent} aria-label={`Відкрити подію «${event.title}»`} className="relative block h-32 w-full overflow-hidden bg-brand-surface-muted text-left sm:h-36 xl:h-40">
-        <EventMedia category={event.category} coverUrl={event.cover_photo_url} alt={event.cover_photo_url ? event.title : ''} className="h-full w-full" imageClassName="transition duration-300 group-hover:scale-[1.025]" />
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/35 to-transparent" />
-        <span className="absolute bottom-3 left-3 rounded-[10px] border border-white/50 bg-white/92 px-2.5 py-1 text-[10px] font-extrabold text-brand-accent shadow-sm">{CATEGORY_LABEL[event.category] ?? event.category}</span>
-        {isNew && <span className="absolute right-3 top-3 rounded-full bg-white px-2.5 py-1 text-[10px] font-extrabold text-brand-accent shadow-sm">НОВА</span>}
-      </button>
+    <article className={`home-event-card group h-full rounded-[18px] border bg-white p-3 transition-[transform,box-shadow,border-color] duration-200 hover:border-[#c9bedb] sm:p-3.5 ${isNew ? 'border-brand-accent/50 ring-2 ring-brand-accent/10' : 'border-[#d9d2e4]'}`}>
+      <div className="flex min-w-0 gap-3">
+        <div className="min-w-0 flex-1">
+          <div className="mb-1.5 flex items-center gap-1.5">
+            <span className={`rounded-lg border px-2 py-0.5 text-[10px] font-extrabold ${CATEGORY_CHIP[event.category] ?? CATEGORY_CHIP.other}`}>{CATEGORY_LABEL[event.category] ?? event.category}</span>
+            {isNew && <span className="rounded-full bg-brand-accent px-2 py-0.5 text-[9px] font-extrabold text-white">НОВА</span>}
+          </div>
+          <button type="button" onClick={openEvent} className="block w-full text-left"><h3 className="line-clamp-2 text-[18px] font-extrabold leading-[1.16] tracking-[-0.025em] text-brand-ink sm:text-[19px]">{event.title}</h3></button>
+          <div className="mt-2 space-y-1"><MetaRow icon="clock">{formatDateTime(event.event_datetime)}</MetaRow><MetaRow icon="pin">{event.address_text || 'Місце не вказано'}{event.distance_km !== null ? ` · ${event.distance_km.toFixed(1)} км` : ''}</MetaRow></div>
+        </div>
+        <button type="button" onClick={openEvent} aria-label={`Відкрити подію «${event.title}»`} className="relative h-20 w-20 flex-none overflow-hidden rounded-xl bg-brand-surface-muted text-left sm:h-24 sm:w-24 lg:h-20 lg:w-20 xl:h-24 xl:w-24">
+          <EventMedia category={event.category} coverUrl={event.cover_photo_url} alt={event.cover_photo_url ? event.title : ''} compactFallback className="h-full w-full" imageClassName="transition duration-300 group-hover:scale-[1.04]" />
+        </button>
+      </div>
 
-      <div className="flex min-w-0 flex-col p-3.5 sm:p-4">
-        <button type="button" onClick={openEvent} className="text-left"><h3 className="line-clamp-2 text-[19px] font-extrabold leading-[1.18] tracking-[-0.03em] text-brand-ink sm:text-xl lg:text-[21px]">{event.title}</h3></button>
-        <div className="mt-2.5 space-y-1.5"><MetaRow icon="clock">{formatDateTime(event.event_datetime)}</MetaRow><MetaRow icon="pin">{event.address_text || 'Місце не вказано'}{event.distance_km !== null ? ` · ${event.distance_km.toFixed(1)} км` : ''}</MetaRow></div>
-
-        <div className="mt-3 flex items-center justify-between gap-3 border-t border-[#ece9f0] pt-3">
+      <div className="mt-2 flex items-center justify-between gap-2 border-t border-[#ece9f0] pt-2">
           <div className="flex min-w-0 items-center gap-2">
             <ParticipantAvatars users={participantUsers} totalCount={event.participant_count} />
-            <div className="min-w-0"><p className="truncate text-[11px] font-bold text-brand-ink-soft">{event.participant_count}/{event.max_participants} учасників</p><p className="mt-0.5 truncate text-[10px] font-semibold text-brand-accent">{getEventAccessLabel(event)}</p></div>
+            <div className="min-w-0"><p className="truncate text-[11px] font-bold text-brand-ink-soft">{event.participant_count}/{event.max_participants} учасників</p><p className={`mt-0.5 inline-flex max-w-full truncate rounded-md border px-1.5 py-0.5 text-[9px] font-bold ${getEventAccessChipClass(event)}`}>{getEventAccessLabel(event)}</p></div>
           </div>
-          <button type="button" onClick={openEvent} className="h-10 min-w-[88px] flex-shrink-0 rounded-xl bg-brand-accent px-4 text-xs font-extrabold text-white transition hover:bg-brand-accent-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-accent">Деталі</button>
-        </div>
+          <div className="flex flex-shrink-0 items-center gap-1.5">
+            {isOrganizer && Boolean(event.pending_request_count) && <button type="button" onClick={openEvent} className="home-card-cta border border-amber-200 bg-amber-100 font-extrabold text-amber-900" aria-label={`${event.pending_request_count} запитів на участь`}>Запити · {event.pending_request_count}</button>}
+            <button type="button" onClick={() => { void handleJoin() }} disabled={actionDisabled} aria-label={`${actionLabel}: «${event.title}»`} className={`home-card-cta font-extrabold tracking-[0.02em] transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-accent ${actionDisabled ? 'cursor-not-allowed bg-brand-surface-muted text-brand-ink-muted' : 'bg-brand-accent text-white hover:bg-brand-accent-hover'}`}>{actionLabel}</button>
+          </div>
       </div>
     </article>
   )

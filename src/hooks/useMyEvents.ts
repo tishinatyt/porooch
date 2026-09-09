@@ -12,6 +12,8 @@ export function useMyEvents() {
   const { supaUser } = useAuth()
   const [events, setEvents] = useState<PersonalEventData[]>([])
   const [loading, setLoading] = useState(true)
+  const [pendingRequestCount, setPendingRequestCount] = useState(0)
+  const [pendingRequestCountByEvent, setPendingRequestCountByEvent] = useState<Record<string, number>>({})
 
   const reload = useCallback(async () => {
     if (!supaUser) return
@@ -28,6 +30,8 @@ export function useMyEvents() {
     if (membershipError) console.error('[useMyEvents] memberships error:', membershipError)
     if (!memberships?.length) {
       setEvents([])
+      setPendingRequestCount(0)
+      setPendingRequestCountByEvent({})
       setLoading(false)
       return
     }
@@ -37,6 +41,9 @@ export function useMyEvents() {
         .map((membership) => [membership.event_id, { role: membership.role, status: membership.status }]),
     )
     const eventIds = [...membershipByEvent.keys()]
+    const organizedEventIds = [...membershipByEvent.entries()]
+      .filter(([, membership]) => membership.role === 'organizer')
+      .map(([eventId]) => eventId)
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const [eventsResult, participantsResult] = await Promise.all([
@@ -58,6 +65,21 @@ export function useMyEvents() {
 
     if (eventsResult.error) console.error('[useMyEvents] events error:', eventsResult.error)
     if (participantsResult.error) console.error('[useMyEvents] participants error:', participantsResult.error)
+
+    const pendingRequestsResult = organizedEventIds.length > 0
+      ? await (supabase as any)
+        .from('event_participants')
+        .select('event_id')
+        .in('event_id', organizedEventIds)
+        .eq('role', 'participant')
+        .eq('status', 'pending')
+      : { data: [], error: null }
+
+    if (pendingRequestsResult.error) console.error('[useMyEvents] pending requests error:', pendingRequestsResult.error)
+    const requestCounts: Record<string, number> = {}
+    for (const request of (pendingRequestsResult.data ?? []) as { event_id: string }[]) {
+      requestCounts[request.event_id] = (requestCounts[request.event_id] ?? 0) + 1
+    }
 
     const participantsByEvent = new Map<string, ParticipantInfo[]>()
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -88,10 +110,13 @@ export function useMyEvents() {
         join_mode: event.join_mode,
         organizer: toSingle(event.organizer) as OrganizerInfo | null,
         participants: participantsByEvent.get(event.id) ?? [],
+        pending_request_count: requestCounts[event.id] ?? 0,
       }
     })
 
     setEvents(mapped)
+    setPendingRequestCount((pendingRequestsResult.data ?? []).length)
+    setPendingRequestCountByEvent(requestCounts)
     setLoading(false)
   }, [supaUser])
 
@@ -107,5 +132,5 @@ export function useMyEvents() {
     return () => { void supabase.removeChannel(channel) }
   }, [reload, supaUser])
 
-  return { events, loading, reload }
+  return { events, loading, reload, pendingRequestCount, pendingRequestCountByEvent }
 }

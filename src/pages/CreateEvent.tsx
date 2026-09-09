@@ -7,7 +7,7 @@ import { Icon } from '@/components/icons'
 import EventMedia from '@/components/EventMedia'
 import TopBar from '@/components/TopBar'
 import CreateEventMap from '@/components/CreateEventMap'
-import { getEventAccessLabel } from '@/lib/eventAccess'
+import { getEventAccessChipClass, getEventAccessLabel } from '@/lib/eventAccess'
 
 const CATEGORIES = [
   { value: 'other', label: 'Спілкування', emoji: '💬' },
@@ -202,7 +202,22 @@ export default function CreateEvent() {
       status: 'upcoming',
     }
 
+    if (import.meta.env.DEV) {
+      console.info('[CreateEvent diagnostic] CREATE EVENT START', {
+        organizer_id: payload.organizer_id,
+        event_type: payload.event_type,
+        is_public: payload.is_public,
+        join_mode: payload.join_mode,
+        event_datetime: payload.event_datetime,
+        location: payload.location,
+        status: payload.status,
+      })
+    }
     const { data, error } = await supabase.from('events').insert(payload).select('id').single()
+    if (import.meta.env.DEV) {
+      console.info('[CreateEvent diagnostic] EVENT INSERT RESULT', { id: data?.id ?? null, succeeded: !error && Boolean(data?.id) })
+      if (error) console.error('[CreateEvent diagnostic] EVENT INSERT ERROR', { code: error.code, message: error.message, details: error.details, hint: error.hint })
+    }
     if (error || !data?.id) {
       console.error('[CreateEvent] Event insert/returning failed', {
         operation: "supabase.from('events').insert(payload).select('id').single()",
@@ -223,6 +238,24 @@ export default function CreateEvent() {
       setSubmitting(false)
       submittingRef.current = false
       return
+    }
+    if (import.meta.env.DEV) {
+      console.info('[CreateEvent diagnostic] CREATED EVENT ID', data.id)
+      const membershipResult = await supabase
+        .from('event_participants')
+        .select('event_id, user_id, role, status')
+        .eq('event_id', data.id)
+        .eq('user_id', supaUser.id)
+        .maybeSingle()
+      console.info('[CreateEvent diagnostic] ORGANIZER MEMBERSHIP INSERT RESULT', membershipResult.data)
+      if (membershipResult.error) {
+        console.error('[CreateEvent diagnostic] ORGANIZER MEMBERSHIP ERROR', {
+          code: membershipResult.error.code,
+          message: membershipResult.error.message,
+          details: membershipResult.error.details,
+          hint: membershipResult.error.hint,
+        })
+      }
     }
     navigate(`/event/${data.id}`)
   }
@@ -379,7 +412,7 @@ export default function CreateEvent() {
                 {form.event_type === 'personal' && <div className="grid h-9 w-9 flex-shrink-0 place-items-center rounded-full bg-white text-lg">{selectedCategory?.emoji}</div>}
                 <div className="min-w-0 flex-1">
                   <span className="rounded-md bg-white px-2 py-1 text-[10px] font-bold text-brand-accent">{selectedCategory?.label}</span>
-                  <span className="ml-1.5 rounded-md border border-brand-border bg-white px-2 py-1 text-[10px] font-bold text-brand-ink-muted">{getEventAccessLabel(form)}</span>
+                  <span className={`ml-1.5 rounded-md border px-2 py-1 text-[10px] font-bold ${getEventAccessChipClass(form)}`}>{getEventAccessLabel(form)}</span>
                   <h3 className="mt-2 truncate text-sm font-extrabold">{form.title.trim() || 'Назва вашої події'}</h3>
                   {previewDate && !Number.isNaN(previewDate.getTime()) && <p className="mt-1 text-[11px] text-brand-ink-muted">{previewDate.toLocaleString('uk-UA', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })}</p>}
                   <p className="mt-1 truncate text-[11px] text-brand-ink-muted">{[form.venue_name, form.address].filter(Boolean).join(', ') || 'Місце ще не вказано'}</p>

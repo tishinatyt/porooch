@@ -94,8 +94,8 @@ export function PendingRequestList({ requests, processingUserId, onApprove, onRe
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-2 sm:flex">
-                  <button type="button" disabled={processing} onClick={() => onReject(request.user_id)} className="h-10 rounded-xl border border-brand-border px-3 text-xs font-bold text-brand-ink-soft transition hover:border-brand-ink-muted hover:bg-brand-surface-muted disabled:cursor-wait disabled:opacity-50">Відхилити</button>
-                  <button type="button" disabled={processing} onClick={() => onApprove(request.user_id)} className="h-10 rounded-xl bg-brand-accent px-3 text-xs font-extrabold text-white transition hover:bg-brand-accent-hover disabled:cursor-wait disabled:opacity-50">{processing ? 'Обробляємо…' : 'Прийняти'}</button>
+                  <button type="button" disabled={processing} onClick={() => onReject(request.user_id)} className="h-10 rounded-xl border border-brand-border px-3 text-[11px] font-extrabold text-brand-ink-soft transition hover:border-brand-ink-muted hover:bg-brand-surface-muted disabled:cursor-wait disabled:opacity-50">ВІДХИЛИТИ</button>
+                  <button type="button" disabled={processing} onClick={() => onApprove(request.user_id)} className="h-10 rounded-xl bg-brand-accent px-3 text-[11px] font-extrabold text-white transition hover:bg-brand-accent-hover disabled:cursor-wait disabled:opacity-50">{processing ? 'ОБРОБЛЯЄМО…' : 'ПІДТВЕРДИТИ'}</button>
                 </div>
               </article>
             )

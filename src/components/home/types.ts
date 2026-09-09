@@ -14,7 +14,7 @@ export interface ParticipantInfo {
 export interface PersonalEventData {
   eventId: string
   role?: 'organizer' | 'participant'
-  participationStatus?: 'pending' | 'joined'
+  participationStatus?: 'pending' | 'joined' | 'rejected'
   title: string
   category: string
   address_text: string
@@ -33,6 +33,7 @@ export interface PersonalEventData {
   is_public?: boolean
   description?: string
   isDemo?: true
+  pending_request_count?: number
 }
 
 export interface PublicEventData {
@@ -58,4 +59,6 @@ export interface PublicEventData {
   location_lat?: number | null
   location_lng?: number | null
   isDemo?: true
+  participationStatus?: 'pending' | 'joined' | 'rejected'
+  pending_request_count?: number
 }

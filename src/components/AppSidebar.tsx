@@ -3,6 +3,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { Icon, type IconName } from '@/components/icons'
 import BrandLogo from '@/components/BrandLogo'
 import { useUnreadMessages } from '@/contexts/UnreadMessagesContext'
+import { useMyEventsContext } from '@/contexts/MyEventsContext'
 
 const primaryItems: { to: string; label: string; icon: IconName; primary?: boolean; unread?: boolean }[] = [
   { to: '/', label: 'Головна', icon: 'home' },
@@ -15,6 +16,7 @@ const profileItem = { to: '/profile', label: 'Профіль', icon: 'user' as I
 export default function AppSidebar() {
   const { profile } = useAuth()
   const { unreadCount } = useUnreadMessages()
+  const { events: myEvents, loading: myEventsLoading, pendingRequestCount } = useMyEventsContext()
 
   return (
     <aside className="fixed inset-y-0 left-0 z-40 hidden w-56 flex-col border-r border-brand-border bg-white px-3 py-5 lg:flex xl:w-60">
@@ -46,7 +48,7 @@ export default function AppSidebar() {
             )}
           </NavLink>
         ))}
-        <NavLink to="/my-events" className={({ isActive }) => `flex min-h-11 items-center gap-3 rounded-xl px-3 py-2 text-[13px] font-semibold transition-colors ${isActive ? 'bg-brand-accent-soft text-brand-accent' : 'text-brand-ink-soft hover:bg-brand-bg hover:text-brand-ink'}`}><Icon name="calendar" className="h-4.5 w-4.5"/>Мої події</NavLink>
+        <NavLink to="/my-events" className={({ isActive }) => `flex min-h-11 items-center gap-3 rounded-xl px-3 py-2 text-[13px] font-semibold transition-colors ${isActive ? 'bg-brand-accent-soft text-brand-accent' : 'text-brand-ink-soft hover:bg-brand-bg hover:text-brand-ink'}`}><Icon name="calendar" className="h-4.5 w-4.5"/><span>Мої події</span>{!myEventsLoading && <span className="ml-auto flex items-center gap-1">{myEvents.length > 0 && <span className="inline-flex min-h-5 min-w-5 items-center justify-center rounded-full bg-brand-accent px-1.5 text-[10px] font-extrabold leading-none text-white" aria-label={`${myEvents.length} подій у розділі Мої події`}>{myEvents.length > 99 ? '99+' : myEvents.length}</span>}{pendingRequestCount > 0 && <span className="inline-flex min-h-5 min-w-5 items-center justify-center rounded-full border border-amber-300 bg-amber-100 px-1.5 text-[10px] font-extrabold leading-none text-amber-900 shadow-sm" aria-label={`${pendingRequestCount} запитів на участь очікують розгляду`}>{pendingRequestCount > 99 ? '99+' : pendingRequestCount}</span>}</span>}</NavLink>
         <NavLink to={profileItem.to} className={({ isActive }) => `flex min-h-11 items-center gap-3 rounded-xl px-3 py-2 text-[13px] font-semibold transition-colors ${isActive ? 'bg-brand-accent-soft text-brand-accent' : 'text-brand-ink-soft hover:bg-brand-bg hover:text-brand-ink'}`}><Icon name={profileItem.icon} className="h-4.5 w-4.5"/>{profileItem.label}</NavLink>
       </nav>
 

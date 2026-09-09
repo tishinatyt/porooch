@@ -10,6 +10,8 @@ import HomeCarousel from '@/components/home/HomeCarousel'
 import HomeBackgroundDecorations from '@/components/home/HomeBackgroundDecorations'
 import type { PersonalEventData, PublicEventData } from '@/components/home/types'
 import { DEMO_EVENTS_ENABLED, DEMO_PERSONAL_EVENTS, DEMO_PUBLIC_EVENTS, PUBLIC_CATEGORIES } from '@/components/home/demoEvents'
+import { useMyEventsContext } from '@/contexts/MyEventsContext'
+import { joinEventParticipation } from '@/lib/eventParticipation'
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -85,6 +87,8 @@ function asPersonalEvent(event: PublicEventData): PersonalEventData {
     is_public: event.is_public,
     description: event.description,
     isDemo: event.isDemo,
+    participationStatus: event.participationStatus,
+    pending_request_count: event.pending_request_count,
   }
 }
 
@@ -92,6 +96,7 @@ function asPersonalEvent(event: PublicEventData): PersonalEventData {
 
 export default function HomeScreen() {
   const { supaUser, profile } = useAuth()
+  const { pendingRequestCountByEvent, reload: reloadMyEvents } = useMyEventsContext()
 
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedCategory, setSelectedCategory] = useState('all')
@@ -113,7 +118,7 @@ export default function HomeScreen() {
     const geo = await getCurrentPosition()
     const [nearbyResult, participationResult] = await Promise.all([
       supabase.rpc('events_nearby', { user_lat: geo.lat, user_lng: geo.lng, radius_km: 100 }),
-      supabase.from('event_participants').select('event_id, status, role').eq('user_id', supaUser.id).in('status', ['joined', 'pending']),
+      supabase.from('event_participants').select('event_id, status, role').eq('user_id', supaUser.id).in('status', ['joined', 'pending', 'rejected']),
     ])
 
     if (nearbyResult.error) {
@@ -140,6 +145,12 @@ export default function HomeScreen() {
 
     const nearbyRows = (nearbyResult.data ?? []) as Record<string, unknown>[]
     const ids = nearbyRows.map((row) => row.id as string)
+    if (import.meta.env.DEV) {
+      console.info('[Home discovery diagnostic] RPC returned', {
+        count: nearbyRows.length,
+        events: nearbyRows.map((row) => ({ id: row.id, title: row.title })),
+      })
+    }
     const typeById = new Map<string, { event_type: 'personal' | 'public'; join_mode: 'open' | 'approval'; is_public: boolean }>()
 
     if (ids.length > 0) {
@@ -167,9 +178,24 @@ export default function HomeScreen() {
           is_public: row.is_public ?? true,
         })
       }
+      if (import.meta.env.DEV) {
+        console.info('[Home discovery diagnostic] Metadata returned', {
+          count: typeRows?.length ?? 0,
+          events: (typeRows ?? []).map((row) => ({ id: row.id, event_type: row.event_type })),
+        })
+      }
     }
 
-    const excludedIds = new Set((participationResult.data ?? []).filter((row) => row.role === 'participant').map((row) => row.event_id))
+    const participantMembershipById = new Map(
+      (participationResult.data ?? [])
+        .filter((row) => row.role === 'participant')
+        .map((row) => [row.event_id, row.status as 'pending' | 'joined' | 'rejected']),
+    )
+    const excludedIds = new Set(
+      [...participantMembershipById.entries()]
+        .filter(([, status]) => status === 'joined')
+        .map(([eventId]) => eventId),
+    )
     setExcludedEventIds(excludedIds)
 
     const events: PublicEventData[] = nearbyRows.map((row) => {
@@ -193,6 +219,7 @@ export default function HomeScreen() {
         event_type: metadata?.event_type ?? 'public',
         join_mode: metadata?.join_mode ?? 'open',
         is_public: metadata?.is_public ?? (e.is_public as boolean | undefined) ?? true,
+        participationStatus: participantMembershipById.get(e.id as string),
       } as PublicEventData
     })
     events.sort(sortDiscovery)
@@ -201,6 +228,20 @@ export default function HomeScreen() {
   }, [supaUser])
 
   useEffect(() => { void fetchDiscoveryEvents() }, [fetchDiscoveryEvents])
+
+  const handleHomeJoin = useCallback(async (eventId: string, joinMode: 'open' | 'approval') => {
+    if (!supaUser) return null
+    const { error, status } = await joinEventParticipation(eventId, supaUser.id, joinMode)
+    if (error) {
+      console.error('[HomeScreen] Failed to join event', error)
+      return null
+    }
+
+    setAllDiscoveryEvents((events) => events.map((event) => event.id === eventId ? { ...event, participationStatus: status } : event))
+    if (status === 'joined') setExcludedEventIds((ids) => new Set(ids).add(eventId))
+    await reloadMyEvents()
+    return status
+  }, [reloadMyEvents, supaUser])
 
   // Re-fetch authoritative discovery data for inserts, edits/cancellation, and deletes.
 
@@ -273,7 +314,9 @@ export default function HomeScreen() {
     .filter((event) => event.distance_km === null || event.distance_km <= radiusKm)
     .filter((event) => matchesSearch(event, searchQuery))
     .slice(0, personalDemoLimit)
-  const personalEvents = [...realPersonalEvents, ...personalDemoFallbacks].map(asPersonalEvent)
+  const personalEvents = [...realPersonalEvents, ...personalDemoFallbacks]
+    .map((event) => ({ ...event, pending_request_count: pendingRequestCountByEvent[event.id] ?? 0 }))
+    .map(asPersonalEvent)
 
   const realPublic = eligibleDiscovery
     .filter((event) => event.event_type === 'public')
@@ -287,9 +330,29 @@ export default function HomeScreen() {
     && matchesSearch(event, searchQuery)
   )
   const filteredPublic = [...realPublic, ...demoFallbacks]
+    .map((event) => ({ ...event, pending_request_count: pendingRequestCountByEvent[event.id] ?? 0 }))
 
   const shownPublic = filteredPublic.slice(0, publicPage * PAGE_SIZE)
   const hasMorePublic = filteredPublic.length > publicPage * PAGE_SIZE
+
+  useEffect(() => {
+    if (!import.meta.env.DEV || loadingDiscovery) return
+    const afterParticipation = allDiscoveryEvents.filter((event) => !excludedEventIds.has(event.id))
+    const afterEligibility = afterParticipation.filter((event) => isEligible(event, profile?.age, profile?.gender))
+    const afterRadius = afterEligibility.filter((event) => event.distance_km === null || event.distance_km <= radiusKm)
+    const afterSearch = afterRadius.filter((event) => matchesSearch(event, searchQuery))
+    const summarize = (events: PublicEventData[]) => events.map(({ id, title }) => ({ id, title }))
+
+    console.info('[Home discovery diagnostic] Filter counts', {
+      rpcMapped: { count: allDiscoveryEvents.length, events: summarize(allDiscoveryEvents) },
+      afterParticipation: { count: afterParticipation.length, events: summarize(afterParticipation) },
+      afterEligibility: { count: afterEligibility.length, events: summarize(afterEligibility) },
+      afterRadius: { count: afterRadius.length, events: summarize(afterRadius) },
+      afterSearch: { count: afterSearch.length, events: summarize(afterSearch) },
+      finalPersonal: { count: realPersonalEvents.length, events: summarize(realPersonalEvents) },
+      finalPublic: { count: realPublic.length, events: summarize(realPublic) },
+    })
+  }, [allDiscoveryEvents, excludedEventIds, loadingDiscovery, profile?.age, profile?.gender, radiusKm, realPersonalEvents, realPublic, searchQuery])
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
@@ -311,7 +374,7 @@ export default function HomeScreen() {
             {!loadingDiscovery && personalEvents.length === 0 && (
               <div className="rounded-2xl border border-dashed border-brand-border-strong bg-white px-4 py-6 text-center lg:flex-1"><p className="text-sm font-bold text-brand-ink">{discoveryError ? 'Не вдалося завантажити події.' : 'Поки немає особистих подій поруч.'}</p>{!discoveryError && <Link to="/create" className="mt-3 inline-flex min-h-10 items-center rounded-xl bg-brand-accent px-4 text-xs font-bold text-white transition hover:bg-brand-accent-hover">Створити подію</Link>}</div>
             )}
-            {!loadingDiscovery && personalEvents.length > 0 && <HomeCarousel id="personal-events-carousel" label="Знайомства поруч" className="gap-3.5 lg:space-y-3.5">{personalEvents.map((event) => <div role="listitem" key={event.eventId} className="w-[88%] flex-none snap-start [scroll-snap-stop:always] min-[420px]:w-[86%] sm:w-[46%] md:w-[44%] lg:w-auto"><PersonalEventCard event={event} /></div>)}</HomeCarousel>}
+            {!loadingDiscovery && personalEvents.length > 0 && <HomeCarousel id="personal-events-carousel" label="Знайомства поруч" showScrollControls className="gap-3.5 lg:space-y-3.5">{personalEvents.map((event) => <div role="listitem" key={event.eventId} className="w-[88%] flex-none snap-start [scroll-snap-stop:always] min-[420px]:w-[86%] sm:w-[46%] md:w-[44%] lg:w-auto"><PersonalEventCard event={event} isOrganizer={event.organizer?.id === supaUser?.id} onJoin={event.isDemo ? undefined : () => handleHomeJoin(event.eventId, event.join_mode ?? 'open')} /></div>)}</HomeCarousel>}
 
             <div className="-mx-2 mt-1 flex min-h-9 flex-none items-center gap-2 rounded-b-[23px] border-t border-[#cfc4e2] bg-white/30 px-3 py-2 sm:-mx-3">
               <h1 className="text-sm font-extrabold tracking-[-0.02em] text-brand-ink">Знайомства</h1>
@@ -322,7 +385,7 @@ export default function HomeScreen() {
           <section className="min-w-0 rounded-[24px] border border-[#dcc7bb] bg-[#f4e6de] p-2 pb-0 shadow-[0_10px_30px_rgba(91,61,44,0.08)] sm:p-3 sm:pb-0 lg:flex lg:min-h-0 lg:flex-col">
             {loadingDiscovery && <HomeCarousel id="public-events-loading" label="Завантаження афіші" className="lg:space-y-3">{[1, 2, 3, 4].map((item) => <div role="listitem" key={item} className="h-72 w-[88%] flex-none snap-start animate-pulse rounded-2xl border border-brand-border bg-white min-[420px]:w-[86%] sm:w-[46%] md:w-[44%] lg:w-auto" />)}</HomeCarousel>}
             {!loadingDiscovery && shownPublic.length === 0 && <div className="rounded-2xl border border-dashed border-brand-border-strong bg-white px-4 py-6 text-center lg:flex-1"><p className="text-sm font-bold text-brand-ink">{discoveryError ? 'Не вдалося завантажити події.' : 'Поки немає публічних подій поруч.'}</p>{!discoveryError && selectedCategory !== 'all' && <p className="mt-1.5 text-xs text-brand-ink-muted">Спробуйте іншу категорію або збільшіть радіус.</p>}</div>}
-            {!loadingDiscovery && shownPublic.length > 0 && <HomeCarousel id="public-events-carousel" label="Афіша поруч" className="gap-3.5 lg:space-y-3.5">{shownPublic.map((event) => <div role="listitem" key={event.id} className="w-[88%] flex-none snap-start [scroll-snap-stop:always] min-[420px]:w-[86%] sm:w-[46%] md:w-[44%] lg:w-auto"><PublicEventCard event={event} isNew={event.id === newEventId} /></div>)}</HomeCarousel>}
+            {!loadingDiscovery && shownPublic.length > 0 && <HomeCarousel id="public-events-carousel" label="Афіша поруч" showScrollControls className="gap-3.5 lg:space-y-3.5">{shownPublic.map((event) => <div role="listitem" key={event.id} className="w-[88%] flex-none snap-start [scroll-snap-stop:always] min-[420px]:w-[86%] sm:w-[46%] md:w-[44%] lg:w-auto"><PublicEventCard event={event} isNew={event.id === newEventId} isOrganizer={event.organizer?.id === supaUser?.id} onJoin={event.isDemo ? undefined : () => handleHomeJoin(event.id, event.join_mode ?? 'open')} /></div>)}</HomeCarousel>}
 
             {hasMorePublic && <button type="button" onClick={() => setPublicPage((page) => page + 1)} className="mt-4 w-full rounded-xl border border-brand-border bg-white py-3 text-sm font-bold text-brand-ink-soft transition hover:border-brand-border-strong hover:bg-brand-surface-muted">Показати більше ({filteredPublic.length - shownPublic.length})</button>}
             <div className="-mx-2 mt-1 flex-none rounded-b-[23px] border-t border-[#dfcec4] bg-white/28 px-3 py-2 sm:-mx-3 xl:flex xl:min-h-11 xl:items-center xl:gap-2">
