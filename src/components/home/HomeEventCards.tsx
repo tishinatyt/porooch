@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import EventMedia from '@/components/EventMedia'
 import { Icon } from '@/components/icons'
@@ -31,28 +30,12 @@ function MetaRow({ icon, children }: { icon: 'pin' | 'clock'; children: React.Re
   return <div className="flex min-w-0 items-center gap-1.5 text-[11px] font-medium leading-4 text-brand-ink-muted sm:text-xs"><span className="grid h-5 w-5 flex-shrink-0 place-items-center rounded-md bg-[#f0edf6] text-brand-ink-muted"><Icon name={icon} className="h-3 w-3"/></span><span className="truncate">{children}</span></div>
 }
 
-interface HomeJoinProps {
-  isOrganizer?: boolean
-  onJoin?: () => Promise<'pending' | 'joined' | null>
-}
-
-export function PersonalEventCard({ event, management = false, isOrganizer = false, onJoin }: { event: PersonalEventData; management?: boolean } & HomeJoinProps) {
+export function PersonalEventCard({ event, management = false, isOrganizer = false }: { event: PersonalEventData; management?: boolean; isOrganizer?: boolean }) {
   const navigate = useNavigate()
-  const [joining, setJoining] = useState(false)
   const participantUsers = event.participants.map((participant) => ({ id: participant.user_id, name: participant.user?.name, avatar_url: participant.user?.avatar_url ?? null }))
   const visibleUsers = participantUsers.length > 0 ? participantUsers : event.organizer ? [{ id: event.organizer.id, name: event.organizer.name, avatar_url: event.organizer.avatar_url }] : []
   const participantCount = event.participant_count ?? event.participants.length
   const isFull = participantCount >= event.max_participants
-  const handleJoin = async () => {
-    if (isOrganizer || !onJoin) {
-      navigate(`/event/${event.eventId}`)
-      return
-    }
-    if (joining || isFull || event.participationStatus === 'joined' || event.participationStatus === 'pending' || event.participationStatus === 'rejected') return
-    setJoining(true)
-    await onJoin()
-    setJoining(false)
-  }
   const actionLabel = isOrganizer
     ? 'КЕРУВАТИ'
     : event.participationStatus === 'joined'
@@ -61,8 +44,8 @@ export function PersonalEventCard({ event, management = false, isOrganizer = fal
       ? 'ЗАПИТ НАДІСЛАНО'
       : event.participationStatus === 'rejected'
         ? 'ЗАПИТ ВІДХИЛЕНО'
-        : isFull ? 'МІСЦЬ НЕМАЄ' : joining ? 'НАДСИЛАЄМО…' : 'ДОЄДНАТИСЬ'
-  const actionDisabled = !isOrganizer && (joining || isFull || event.participationStatus === 'joined' || event.participationStatus === 'pending' || event.participationStatus === 'rejected')
+        : isFull ? 'МІСЦЬ НЕМАЄ' : 'ДОЄДНАТИСЬ'
+  const actionMuted = !isOrganizer && (isFull || Boolean(event.participationStatus))
 
   return (
     <article className="home-event-card h-full rounded-[18px] border border-[#d8d0e7] bg-white p-3 transition-[transform,box-shadow,border-color] duration-200 hover:border-[#c7b9df] sm:p-3.5">
@@ -91,29 +74,18 @@ export function PersonalEventCard({ event, management = false, isOrganizer = fal
         <div className="flex gap-1.5">
           {isOrganizer && Boolean(event.pending_request_count) && <button type="button" onClick={() => navigate(`/event/${event.eventId}`)} className="rounded-lg border border-amber-200 bg-amber-100 px-2 text-[9px] font-extrabold text-amber-900" aria-label={`${event.pending_request_count} запитів на участь`}>Запити · {event.pending_request_count}</button>}
           {management && <button type="button" onClick={() => navigate(`/event/${event.eventId}`)} className="h-10 rounded-xl border border-brand-border px-3 text-[11px] font-bold text-brand-ink-soft transition hover:border-brand-accent hover:text-brand-accent">Деталі</button>}
-          <button type="button" onClick={(clickEvent) => { clickEvent.stopPropagation(); if (management) navigate(event.participationStatus === 'joined' ? `/event/${event.eventId}/chat` : `/event/${event.eventId}`); else void handleJoin() }} disabled={!management && actionDisabled} aria-label={!management ? `${actionLabel}: «${event.title}»` : undefined} className={`home-card-cta font-extrabold tracking-[0.02em] transition ${actionDisabled ? 'cursor-not-allowed bg-brand-surface-muted text-brand-ink-muted' : 'bg-brand-accent text-white hover:bg-brand-accent-hover'}`}>{management && event.participationStatus === 'joined' ? 'Чат' : management && event.participationStatus === 'pending' ? 'Очікує' : management ? 'Деталі' : actionLabel}</button>
+          <button type="button" onClick={() => navigate(`/event/${event.eventId}`)} aria-label={`${actionLabel}: «${event.title}»`} className={`home-card-cta font-extrabold tracking-[0.02em] transition ${actionMuted ? 'bg-brand-surface-muted text-brand-ink-muted hover:bg-brand-border' : 'bg-brand-accent text-white hover:bg-brand-accent-hover'}`}>{actionLabel}</button>
         </div>
       </div>
     </article>
   )
 }
 
-export function PublicEventCard({ event, isNew = false, isOrganizer = false, onJoin }: { event: PublicEventData; isNew?: boolean } & HomeJoinProps) {
+export function PublicEventCard({ event, isNew = false, isOrganizer = false }: { event: PublicEventData; isNew?: boolean; isOrganizer?: boolean }) {
   const navigate = useNavigate()
-  const [joining, setJoining] = useState(false)
   const participantUsers = event.participants ?? (event.organizer ? [{ id: event.organizer.id, name: event.organizer.name, avatar_url: event.organizer.avatar_url }] : [])
   const openEvent = () => navigate(`/event/${event.id}`)
   const isFull = event.participant_count >= event.max_participants
-  const handleJoin = async () => {
-    if (isOrganizer || !onJoin) {
-      openEvent()
-      return
-    }
-    if (joining || isFull || event.participationStatus === 'joined' || event.participationStatus === 'pending' || event.participationStatus === 'rejected') return
-    setJoining(true)
-    await onJoin()
-    setJoining(false)
-  }
   const actionLabel = isOrganizer
     ? 'КЕРУВАТИ'
     : event.participationStatus === 'joined'
@@ -122,8 +94,8 @@ export function PublicEventCard({ event, isNew = false, isOrganizer = false, onJ
       ? 'ЗАПИТ НАДІСЛАНО'
       : event.participationStatus === 'rejected'
         ? 'ЗАПИТ ВІДХИЛЕНО'
-        : isFull ? 'МІСЦЬ НЕМАЄ' : joining ? 'НАДСИЛАЄМО…' : 'ДОЄДНАТИСЬ'
-  const actionDisabled = !isOrganizer && (joining || isFull || event.participationStatus === 'joined' || event.participationStatus === 'pending' || event.participationStatus === 'rejected')
+        : isFull ? 'МІСЦЬ НЕМАЄ' : 'ДОЄДНАТИСЬ'
+  const actionMuted = !isOrganizer && (isFull || Boolean(event.participationStatus))
 
   return (
     <article className={`home-event-card group h-full rounded-[18px] border bg-white p-3 transition-[transform,box-shadow,border-color] duration-200 hover:border-[#c9bedb] sm:p-3.5 ${isNew ? 'border-brand-accent/50 ring-2 ring-brand-accent/10' : 'border-[#d9d2e4]'}`}>
@@ -148,7 +120,7 @@ export function PublicEventCard({ event, isNew = false, isOrganizer = false, onJ
           </div>
           <div className="flex flex-shrink-0 items-center gap-1.5">
             {isOrganizer && Boolean(event.pending_request_count) && <button type="button" onClick={openEvent} className="home-card-cta border border-amber-200 bg-amber-100 font-extrabold text-amber-900" aria-label={`${event.pending_request_count} запитів на участь`}>Запити · {event.pending_request_count}</button>}
-            <button type="button" onClick={(clickEvent) => { clickEvent.stopPropagation(); void handleJoin() }} disabled={actionDisabled} aria-label={`${actionLabel}: «${event.title}»`} className={`home-card-cta font-extrabold tracking-[0.02em] transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-accent ${actionDisabled ? 'cursor-not-allowed bg-brand-surface-muted text-brand-ink-muted' : 'bg-brand-accent text-white hover:bg-brand-accent-hover'}`}>{actionLabel}</button>
+            <button type="button" onClick={openEvent} aria-label={`${actionLabel}: «${event.title}»`} className={`home-card-cta font-extrabold tracking-[0.02em] transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-accent ${actionMuted ? 'bg-brand-surface-muted text-brand-ink-muted hover:bg-brand-border' : 'bg-brand-accent text-white hover:bg-brand-accent-hover'}`}>{actionLabel}</button>
           </div>
       </div>
     </article>
