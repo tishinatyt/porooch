@@ -98,25 +98,26 @@ export function PublicEventCard({ event, isNew = false, isOrganizer = false }: {
   const actionMuted = !isOrganizer && (isFull || Boolean(event.participationStatus))
 
   return (
-    <article className={`home-event-card group h-full rounded-[18px] border bg-white p-3 transition-[transform,box-shadow,border-color] duration-200 hover:border-[#c9bedb] sm:p-3.5 ${isNew ? 'border-brand-accent/50 ring-2 ring-brand-accent/10' : 'border-[#d9d2e4]'}`}>
-      <div className="flex min-w-0 gap-3">
+    <article className={`home-event-card group h-full rounded-[18px] border bg-white p-3 transition-[transform,box-shadow,border-color] duration-200 hover:border-[#c9bedb] sm:p-3.5 lg:min-h-[190px] lg:p-3 ${isNew ? 'border-brand-accent/50 ring-2 ring-brand-accent/10' : 'border-[#d9d2e4]'}`}>
+      <div className="flex min-w-0 gap-3 lg:gap-2.5">
         <div className="min-w-0 flex-1">
-          <div className="mb-1.5 flex items-center gap-1.5">
+          <div className="mb-1 flex items-center gap-1.5">
             <span className={`rounded-lg border px-2 py-0.5 text-[10px] font-extrabold ${CATEGORY_CHIP[event.category] ?? CATEGORY_CHIP.other}`}>{CATEGORY_LABEL[event.category] ?? event.category}</span>
             {isNew && <span className="rounded-full bg-brand-accent px-2 py-0.5 text-[9px] font-extrabold text-white">НОВА</span>}
           </div>
           <button type="button" onClick={openEvent} className="block w-full text-left"><h3 className="line-clamp-2 text-[18px] font-extrabold leading-[1.16] tracking-[-0.025em] text-brand-ink sm:text-[19px]">{event.title}</h3></button>
-          <div className="mt-2 space-y-1"><MetaRow icon="clock">{formatDateTime(event.event_datetime)}</MetaRow><MetaRow icon="pin">{event.address_text || 'Місце не вказано'}{event.distance_km !== null ? ` · ${event.distance_km.toFixed(1)} км` : ''}</MetaRow></div>
+          <div className="mt-1.5 space-y-0.5"><MetaRow icon="clock">{formatDateTime(event.event_datetime)}</MetaRow><MetaRow icon="pin">{event.address_text || 'Місце не вказано'}{event.distance_km !== null ? ` · ${event.distance_km.toFixed(1)} км` : ''}</MetaRow></div>
         </div>
-        <button type="button" onClick={openEvent} aria-label={`Відкрити подію «${event.title}»`} className="relative h-20 w-20 flex-none overflow-hidden rounded-xl bg-brand-surface-muted text-left sm:h-24 sm:w-24 lg:h-20 lg:w-20 xl:h-24 xl:w-24">
+        <button type="button" onClick={openEvent} aria-label={`Відкрити подію «${event.title}»`} className="relative h-20 w-20 flex-none overflow-hidden rounded-xl bg-brand-surface-muted text-left sm:h-24 sm:w-24 lg:h-[104px] lg:w-[104px] xl:h-[108px] xl:w-[108px]">
           <EventMedia category={event.category} coverUrl={event.cover_photo_url} alt={event.cover_photo_url ? event.title : ''} compactFallback className="h-full w-full" imageClassName="transition duration-300 group-hover:scale-[1.04]" />
         </button>
       </div>
 
-      <div className="mt-2 flex items-center justify-between gap-2 border-t border-[#ece9f0] pt-2">
-          <div className="flex min-w-0 items-center gap-2">
+      <div className="mt-1.5 flex items-center justify-between gap-2 border-t border-[#ece9f0] pt-1.5">
+          <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
             <ParticipantAvatars users={participantUsers} totalCount={event.participant_count} />
-            <div className="min-w-0"><p className="truncate text-[11px] font-bold text-brand-ink-soft">{event.participant_count}/{event.max_participants} учасників</p><p className={`mt-0.5 inline-flex max-w-full truncate rounded-md border px-1.5 py-0.5 text-[9px] font-bold ${getEventAccessChipClass(event)}`}>{getEventAccessLabel(event)}</p></div>
+            <p className="truncate text-[11px] font-bold text-brand-ink-soft">{event.participant_count}/{event.max_participants} учасників</p>
+            <p className={`inline-flex max-w-full truncate rounded-md border px-1.5 py-0.5 text-[9px] font-bold ${getEventAccessChipClass(event)}`}>{getEventAccessLabel(event)}</p>
           </div>
           <div className="flex flex-shrink-0 items-center gap-1.5">
             {isOrganizer && Boolean(event.pending_request_count) && <button type="button" onClick={openEvent} className="home-card-cta border border-amber-200 bg-amber-100 font-extrabold text-amber-900" aria-label={`${event.pending_request_count} запитів на участь`}>Запити · {event.pending_request_count}</button>}

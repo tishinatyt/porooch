@@ -1,6 +1,7 @@
 import { useAuth } from '@/contexts/AuthContext'
 import { Icon } from '@/components/icons'
 import BrandLogo from '@/components/BrandLogo'
+import { Link } from 'react-router-dom'
 
 interface Props {
   title?: string
@@ -46,6 +47,7 @@ export default function TopBar({ title, searchQuery = '', onSearchChange, radius
           >
             {radiusOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
           </select>}
+          {!title && <Link to="/create" className="hidden h-9 items-center gap-1.5 rounded-lg bg-brand-accent px-3 text-[11px] font-extrabold text-white shadow-[0_3px_10px_rgba(104,70,255,0.18)] transition hover:bg-brand-accent-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-accent lg:inline-flex" aria-label="Додати подію"><Icon name="plus" className="h-4 w-4" /><span>Додати</span></Link>}
           <button type="button" disabled title="Сповіщення з’являться незабаром" className="hidden h-9 w-9 cursor-not-allowed place-items-center rounded-xl text-brand-ink-muted opacity-55 sm:grid lg:h-11 lg:w-11" aria-label="Сповіщення — незабаром">
             <Icon name="bell" className="h-4.5 w-4.5" />
           </button>
