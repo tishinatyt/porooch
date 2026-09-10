@@ -351,7 +351,7 @@ export default function HomeScreen() {
       />
 
       <div className="relative z-10 mx-auto w-full max-w-[1440px] px-4 py-3 sm:px-6 sm:py-4 lg:min-h-0 lg:flex-1 lg:overflow-hidden lg:px-7 lg:py-6 xl:px-10">
-        <div className="grid min-w-0 grid-cols-1 items-start gap-6 sm:gap-7 lg:h-full lg:min-h-0 lg:grid-cols-[minmax(280px,0.4fr)_minmax(0,0.6fr)] lg:items-stretch lg:gap-6 xl:grid-cols-[minmax(340px,0.4fr)_minmax(0,0.6fr)] xl:gap-7">
+        <div className="grid min-w-0 grid-cols-1 items-start gap-6 sm:gap-7 lg:h-full lg:min-h-0 lg:grid-cols-[minmax(280px,0.4fr)_minmax(0,0.6fr)] lg:items-stretch lg:gap-3 xl:grid-cols-[minmax(340px,0.4fr)_minmax(0,0.6fr)] xl:gap-3.5">
           <section className="min-w-0 rounded-[24px] border border-[#c5badc] bg-[#e4def1] p-2 pb-0 shadow-[0_10px_30px_rgba(61,45,96,0.09)] sm:p-3 sm:pb-0 lg:flex lg:min-h-0 lg:flex-col">
             {loadingDiscovery && <HomeCarousel id="personal-events-loading" label="Завантаження знайомств" className="lg:space-y-3">{[1, 2, 3].map((item) => <div role="listitem" key={item} className="h-56 w-[88%] flex-none snap-start animate-pulse rounded-2xl border border-brand-border bg-white min-[420px]:w-[86%] sm:w-[46%] md:w-[44%] lg:w-auto" />)}</HomeCarousel>}
             {!loadingDiscovery && personalEvents.length === 0 && (
@@ -365,13 +365,13 @@ export default function HomeScreen() {
             </div>
           </section>
 
-          <section className="min-w-0 rounded-[24px] border border-[#dcc7bb] bg-[#f4e6de] p-2 pb-0 shadow-[0_10px_30px_rgba(91,61,44,0.08)] sm:p-3 sm:pb-0 lg:flex lg:min-h-0 lg:flex-col">
+          <section className="min-w-0 rounded-[24px] border border-[#dcc7bb] bg-[#f4e6de] p-2 pb-0 shadow-[0_10px_30px_rgba(91,61,44,0.08)] sm:p-3 sm:pb-0 lg:flex lg:min-h-0 lg:flex-col lg:p-2.5 lg:pb-0">
             {loadingDiscovery && <HomeCarousel id="public-events-loading" label="Завантаження афіші" className="lg:space-y-3">{[1, 2, 3, 4].map((item) => <div role="listitem" key={item} className="h-72 w-[88%] flex-none snap-start animate-pulse rounded-2xl border border-brand-border bg-white min-[420px]:w-[86%] sm:w-[46%] md:w-[44%] lg:w-auto" />)}</HomeCarousel>}
             {!loadingDiscovery && shownPublic.length === 0 && <div className="rounded-2xl border border-dashed border-brand-border-strong bg-white px-4 py-6 text-center lg:flex-1"><p className="text-sm font-bold text-brand-ink">{discoveryError ? 'Не вдалося завантажити події.' : 'Поки немає публічних подій поруч.'}</p>{!discoveryError && selectedCategory !== 'all' && <p className="mt-1.5 text-xs text-brand-ink-muted">Спробуйте іншу категорію або збільшіть радіус.</p>}</div>}
-            {!loadingDiscovery && shownPublic.length > 0 && <HomeCarousel id="public-events-carousel" label="Афіша поруч" showScrollControls className="gap-3.5 lg:space-y-3">{shownPublic.map((event) => <div role="listitem" key={event.id} className="w-[88%] flex-none snap-start [scroll-snap-stop:always] min-[420px]:w-[86%] sm:w-[46%] md:w-[44%] lg:w-auto"><PublicEventCard event={event} isNew={event.id === newEventId} isOrganizer={event.organizer?.id === supaUser?.id} /></div>)}</HomeCarousel>}
+            {!loadingDiscovery && shownPublic.length > 0 && <HomeCarousel id="public-events-carousel" label="Афіша поруч" showScrollControls className="gap-3.5 lg:space-y-2">{shownPublic.map((event) => <div role="listitem" key={event.id} className="w-[88%] flex-none snap-start [scroll-snap-stop:always] min-[420px]:w-[86%] sm:w-[46%] md:w-[44%] lg:w-auto"><PublicEventCard event={event} isNew={event.id === newEventId} isOrganizer={event.organizer?.id === supaUser?.id} /></div>)}</HomeCarousel>}
 
             {hasMorePublic && <button type="button" onClick={() => setPublicPage((page) => page + 1)} className="mt-4 w-full rounded-xl border border-brand-border bg-white py-3 text-sm font-bold text-brand-ink-soft transition hover:border-brand-border-strong hover:bg-brand-surface-muted">Показати більше ({filteredPublic.length - shownPublic.length})</button>}
-            <div className="-mx-2 mt-1 flex-none rounded-b-[23px] border-t border-[#dfcec4] bg-white/28 px-3 py-2 sm:-mx-3 xl:flex xl:min-h-11 xl:items-center xl:gap-2">
+            <div className="-mx-2 mt-1 flex-none rounded-b-[23px] border-t border-[#dfcec4] bg-white/28 px-3 py-2 sm:-mx-3 lg:-mx-2.5 xl:flex xl:min-h-11 xl:items-center xl:gap-2">
               <div className="flex items-center gap-1.5">
                 <h2 className="text-sm font-extrabold tracking-[-0.02em] text-brand-ink">Афіша</h2>
                 {!loadingDiscovery && <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full border border-white/70 bg-white/75 px-1.5 text-[10px] font-bold tabular-nums text-brand-ink-muted" aria-label={`${filteredPublic.length} подій у стрічці Афіша`}>{filteredPublic.length}</span>}

@@ -98,7 +98,7 @@ export function PublicEventCard({ event, isNew = false, isOrganizer = false }: {
   const actionMuted = !isOrganizer && (isFull || Boolean(event.participationStatus))
 
   return (
-    <article className={`home-event-card group h-full rounded-[18px] border bg-white p-3 transition-[transform,box-shadow,border-color] duration-200 hover:border-[#c9bedb] sm:p-3.5 lg:min-h-[190px] lg:p-3 ${isNew ? 'border-brand-accent/50 ring-2 ring-brand-accent/10' : 'border-[#d9d2e4]'}`}>
+    <article className={`home-event-card group h-full rounded-[18px] border bg-white p-3 transition-[transform,box-shadow,border-color] duration-200 hover:border-[#c9bedb] sm:p-3.5 lg:h-auto lg:p-3 ${isNew ? 'border-brand-accent/50 ring-2 ring-brand-accent/10' : 'border-[#d9d2e4]'}`}>
       <div className="flex min-w-0 gap-3 lg:gap-2.5">
         <div className="min-w-0 flex-1">
           <div className="mb-1 flex items-center gap-1.5">
