@@ -350,8 +350,8 @@ export default function HomeScreen() {
         radiusOptions={RADIUS_OPTIONS}
       />
 
-      <div className="relative z-10 mx-auto w-full max-w-[1440px] px-4 py-3 sm:px-6 sm:py-4 lg:min-h-0 lg:flex-1 lg:overflow-hidden lg:px-7 lg:py-6 xl:px-10">
-        <div className="grid min-w-0 grid-cols-1 items-start gap-6 sm:gap-7 lg:h-full lg:min-h-0 lg:grid-cols-[minmax(280px,0.4fr)_minmax(0,0.6fr)] lg:items-stretch lg:gap-3 xl:grid-cols-[minmax(340px,0.4fr)_minmax(0,0.6fr)] xl:gap-3.5">
+      <div className="relative z-10 mx-auto w-full max-w-[1440px] px-4 py-3 sm:px-6 sm:py-4 lg:min-h-0 lg:max-w-none lg:flex-1 lg:overflow-hidden lg:px-4 lg:py-6 xl:px-4">
+        <div className="grid min-w-0 grid-cols-1 items-start gap-6 sm:gap-7 lg:h-full lg:min-h-0 lg:grid-cols-[minmax(280px,0.4fr)_minmax(0,0.6fr)] lg:items-stretch lg:gap-2 xl:grid-cols-[minmax(340px,0.4fr)_minmax(0,0.6fr)] xl:gap-2.5">
           <section className="min-w-0 rounded-[24px] border border-[#c5badc] bg-[#e4def1] p-2 pb-0 shadow-[0_10px_30px_rgba(61,45,96,0.09)] sm:p-3 sm:pb-0 lg:flex lg:min-h-0 lg:flex-col">
             {loadingDiscovery && <HomeCarousel id="personal-events-loading" label="Завантаження знайомств" className="lg:space-y-3">{[1, 2, 3].map((item) => <div role="listitem" key={item} className="h-56 w-[88%] flex-none snap-start animate-pulse rounded-2xl border border-brand-border bg-white min-[420px]:w-[86%] sm:w-[46%] md:w-[44%] lg:w-auto" />)}</HomeCarousel>}
             {!loadingDiscovery && personalEvents.length === 0 && (
