@@ -7,7 +7,7 @@ import { useMyEventsContext } from '@/contexts/MyEventsContext'
 
 const primaryItems: { to: string; label: string; icon: IconName; primary?: boolean; unread?: boolean }[] = [
   { to: '/', label: 'Головна', icon: 'home' },
-  { to: '/create', label: 'Додати подію', icon: 'plus', primary: true },
+  { to: '/create', label: 'Додати', icon: 'plus', primary: true },
   { to: '/chats', label: 'Повідомлення', icon: 'message', unread: true },
 ]
 
