@@ -366,7 +366,7 @@ export default function HomeScreen() {
             </div>
           </section>
 
-          <Link to="/create" className="absolute bottom-1 left-[calc(40%+2px)] z-20 hidden h-8 -translate-x-1/2 items-center gap-1 rounded-full border border-white/70 bg-brand-accent px-2 text-[9px] font-extrabold text-white shadow-[0_5px_14px_rgba(104,70,255,0.24)] transition hover:bg-brand-accent-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-accent lg:inline-flex xl:left-[calc(40%+3px)]" aria-label="Додати подію">
+          <Link to="/create" className="absolute top-2 left-[calc(40%+2px)] z-20 hidden h-8 -translate-x-1/2 items-center gap-1 rounded-full border border-white/70 bg-brand-accent px-2 text-[9px] font-extrabold text-white shadow-[0_5px_14px_rgba(104,70,255,0.24)] transition hover:bg-brand-accent-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-accent lg:inline-flex xl:left-[calc(40%+3px)]" aria-label="Додати подію">
             <Icon name="plus" className="h-3.5 w-3.5" />
             <span>Додати</span>
           </Link>
