@@ -8,6 +8,7 @@ import { PersonalEventCard, PublicEventCard } from '@/components/home/HomeEventC
 import { CategoryChips } from '@/components/home/HomeControls'
 import HomeCarousel from '@/components/home/HomeCarousel'
 import HomeBackgroundDecorations from '@/components/home/HomeBackgroundDecorations'
+import { Icon } from '@/components/icons'
 import type { PersonalEventData, PublicEventData } from '@/components/home/types'
 import { DEMO_EVENTS_ENABLED, DEMO_PERSONAL_EVENTS, DEMO_PUBLIC_EVENTS, PUBLIC_CATEGORIES } from '@/components/home/demoEvents'
 import { useMyEventsContext } from '@/contexts/MyEventsContext'
@@ -351,7 +352,7 @@ export default function HomeScreen() {
       />
 
       <div className="relative z-10 mx-auto w-full max-w-[1440px] px-4 py-3 sm:px-6 sm:py-4 lg:min-h-0 lg:flex-1 lg:overflow-hidden lg:px-7 lg:py-6 xl:px-10">
-        <div className="grid min-w-0 grid-cols-1 items-start gap-6 sm:gap-7 lg:h-full lg:min-h-0 lg:grid-cols-[minmax(280px,0.4fr)_minmax(0,0.6fr)] lg:items-stretch lg:gap-6 xl:grid-cols-[minmax(340px,0.4fr)_minmax(0,0.6fr)] xl:gap-7">
+        <div className="grid min-w-0 grid-cols-1 items-start gap-6 sm:gap-7 lg:h-full lg:min-h-0 lg:grid-cols-[minmax(280px,0.4fr)_auto_minmax(0,0.6fr)] lg:items-stretch lg:gap-2 xl:grid-cols-[minmax(340px,0.4fr)_auto_minmax(0,0.6fr)] xl:gap-3">
           <section className="min-w-0 rounded-[24px] border border-[#c5badc] bg-[#e4def1] p-2 pb-0 shadow-[0_10px_30px_rgba(61,45,96,0.09)] sm:p-3 sm:pb-0 lg:flex lg:min-h-0 lg:flex-col">
             {loadingDiscovery && <HomeCarousel id="personal-events-loading" label="Завантаження знайомств" className="lg:space-y-3">{[1, 2, 3].map((item) => <div role="listitem" key={item} className="h-56 w-[88%] flex-none snap-start animate-pulse rounded-2xl border border-brand-border bg-white min-[420px]:w-[86%] sm:w-[46%] md:w-[44%] lg:w-auto" />)}</HomeCarousel>}
             {!loadingDiscovery && personalEvents.length === 0 && (
@@ -364,6 +365,11 @@ export default function HomeScreen() {
               {!loadingDiscovery && <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full border border-white/70 bg-white/75 px-1.5 text-[10px] font-bold tabular-nums text-brand-ink-muted" aria-label={`${personalEvents.length} подій у стрічці Знайомства`}>{personalEvents.length}</span>}
             </div>
           </section>
+
+          <Link to="/create" className="hidden h-9 self-center items-center gap-1 rounded-full border border-brand-accent/20 bg-brand-accent px-2.5 text-[10px] font-extrabold text-white shadow-[0_5px_14px_rgba(104,70,255,0.2)] transition hover:bg-brand-accent-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-accent lg:inline-flex" aria-label="Додати подію">
+            <Icon name="plus" className="h-3.5 w-3.5" />
+            <span>Додати</span>
+          </Link>
 
           <section className="min-w-0 rounded-[24px] border border-[#dcc7bb] bg-[#f4e6de] p-2 pb-0 shadow-[0_10px_30px_rgba(91,61,44,0.08)] sm:p-3 sm:pb-0 lg:flex lg:min-h-0 lg:flex-col">
             {loadingDiscovery && <HomeCarousel id="public-events-loading" label="Завантаження афіші" className="lg:space-y-3">{[1, 2, 3, 4].map((item) => <div role="listitem" key={item} className="h-72 w-[88%] flex-none snap-start animate-pulse rounded-2xl border border-brand-border bg-white min-[420px]:w-[86%] sm:w-[46%] md:w-[44%] lg:w-auto" />)}</HomeCarousel>}
