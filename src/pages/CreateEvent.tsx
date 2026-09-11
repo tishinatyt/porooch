@@ -23,6 +23,15 @@ const CATEGORIES = [
 ] as const
 
 const CAPACITY_OPTIONS = [2, 4, 6, 10]
+const DEMO_QR_PATTERN = [
+  1, 1, 1, 0, 1, 1, 1,
+  1, 0, 1, 1, 1, 0, 1,
+  1, 1, 1, 0, 1, 1, 1,
+  0, 1, 0, 1, 0, 1, 0,
+  1, 1, 1, 0, 1, 0, 1,
+  1, 0, 1, 1, 0, 1, 1,
+  1, 1, 1, 0, 1, 1, 0,
+] as const
 
 type EventType = 'personal' | 'public'
 type JoinMode = 'open' | 'approval'
@@ -47,7 +56,7 @@ interface FormState {
   max_age: number
   gender_filter: GenderFilter
 }
-type FormErrors = Partial<Record<keyof FormState | 'submit', string>>
+type FormErrors = Partial<Record<keyof FormState | 'ticket_quantity' | 'ticket_price' | 'submit', string>>
 
 interface EventInsertPayload {
   organizer_id: string
@@ -113,6 +122,9 @@ export default function CreateEvent() {
   const [submitting, setSubmitting] = useState(false)
   const [geocoding, setGeocoding] = useState(false)
   const [locating, setLocating] = useState(false)
+  const [ticketsEnabled, setTicketsEnabled] = useState(false)
+  const [ticketQuantity, setTicketQuantity] = useState('50')
+  const [ticketPrice, setTicketPrice] = useState('200')
 
   const set = useCallback(<Key extends keyof FormState>(key: Key, value: FormState[Key]) => {
     setForm((current) => ({ ...current, [key]: value }))
@@ -166,6 +178,14 @@ export default function CreateEvent() {
     }
 
     if (!Number.isInteger(form.max_participants) || form.max_participants < 1 || form.max_participants > 1000) nextErrors.max_participants = 'Вкажіть від 1 до 1000 учасників'
+    if (ticketsEnabled) {
+      const quantity = Number(ticketQuantity)
+      const price = Number(ticketPrice)
+      if (!ticketQuantity.trim()) nextErrors.ticket_quantity = 'Вкажіть кількість квитків'
+      else if (!Number.isInteger(quantity) || quantity < 1) nextErrors.ticket_quantity = 'Кількість має бути цілим числом від 1'
+      if (!ticketPrice.trim()) nextErrors.ticket_price = 'Вкажіть ціну квитка'
+      else if (!Number.isFinite(price) || price < 0) nextErrors.ticket_price = 'Ціна не може бути від’ємною'
+    }
     if (form.min_age < 16 || form.max_age > 100) nextErrors.min_age = 'Допустимий вік — від 16 до 100 років'
     else if (form.min_age > form.max_age) nextErrors.min_age = 'Мінімальний вік не може бути більшим за максимальний'
     if (!form.address.trim()) nextErrors.address = 'Вкажіть адресу події'
@@ -262,7 +282,7 @@ export default function CreateEvent() {
 
   const selectedCategory = CATEGORIES.find((category) => category.value === form.category)
   const previewDate = form.event_date && form.event_time ? new Date(`${form.event_date}T${form.event_time}`) : null
-  const inputClass = (field: keyof FormState) => `h-11 w-full rounded-xl border bg-[#fcfcfe] px-3.5 text-sm text-brand-ink outline-none transition placeholder:text-brand-ink-muted focus:bg-white focus:ring-2 focus:ring-brand-accent/10 ${errors[field] ? 'border-red-400 focus:border-red-400' : 'border-brand-border focus:border-brand-accent'}`
+  const inputClass = (field: keyof FormErrors) => `h-11 w-full rounded-xl border bg-[#fcfcfe] px-3.5 text-sm text-brand-ink outline-none transition placeholder:text-brand-ink-muted focus:bg-white focus:ring-2 focus:ring-brand-accent/10 ${errors[field] ? 'border-red-400 focus:border-red-400' : 'border-brand-border focus:border-brand-accent'}`
   const labelClass = 'mb-1.5 block text-xs font-bold text-brand-ink-soft'
 
   return (
@@ -402,6 +422,94 @@ export default function CreateEvent() {
                   const selected = form.join_mode === option.value
                   return <button key={option.value} type="button" onClick={() => set('join_mode', option.value)} aria-pressed={selected} className={`rounded-2xl border p-3.5 text-left transition ${selected ? 'border-brand-accent bg-brand-accent-soft' : 'border-brand-border bg-[#fcfcfe]'}`}><span className="flex items-center gap-2"><span className={`grid h-4 w-4 place-items-center rounded-full border ${selected ? 'border-brand-accent' : 'border-brand-border-strong'}`}>{selected && <span className="h-2 w-2 rounded-full bg-brand-accent"/>}</span><strong className="text-xs text-brand-ink">{option.title}</strong></span><span className="mt-2 block pl-6 text-[11px] leading-[18px] text-brand-ink-muted">{option.text}</span></button>
                 })}
+              </div>
+            </SectionCard>
+
+            <SectionCard number="8" title="Квитки" description="Необов’язковий демо-режим для майбутньої квиткової системи.">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <p className="text-xs font-extrabold text-brand-ink">Генерувати квитки</p>
+                    <p className="mt-0.5 text-[10px] leading-4 text-brand-ink-muted">Налаштування не зберігаються після створення події.</p>
+                  </div>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={ticketsEnabled}
+                    onClick={() => {
+                      setTicketsEnabled((enabled) => !enabled)
+                      setErrors((current) => ({ ...current, ticket_quantity: undefined, ticket_price: undefined, submit: undefined }))
+                    }}
+                    className={`relative h-7 w-12 flex-none rounded-full transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-accent ${ticketsEnabled ? 'bg-brand-accent' : 'bg-brand-border-strong'}`}
+                    aria-label="Генерувати квитки"
+                  >
+                    <span className={`absolute left-0 top-1 h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${ticketsEnabled ? 'translate-x-6' : 'translate-x-1'}`} />
+                  </button>
+                </div>
+
+                {ticketsEnabled && (
+                  <div className="grid gap-4 border-t border-brand-border pt-4 lg:grid-cols-[minmax(0,1fr)_minmax(220px,0.8fr)]">
+                    <div className="grid content-start gap-3 sm:grid-cols-2 lg:grid-cols-1">
+                      <div>
+                        <label className={labelClass} htmlFor="ticket_quantity">Кількість квитків *</label>
+                        <input
+                          id="ticket_quantity"
+                          type="number"
+                          min={1}
+                          step={1}
+                          value={ticketQuantity}
+                          onChange={(event) => {
+                            setTicketQuantity(event.target.value)
+                            setErrors((current) => ({ ...current, ticket_quantity: undefined, submit: undefined }))
+                          }}
+                          className={`${inputClass('ticket_quantity')} max-w-full`}
+                        />
+                        {errors.ticket_quantity && <p className="mt-1.5 text-xs text-red-600">{errors.ticket_quantity}</p>}
+                      </div>
+                      <div>
+                        <label className={labelClass} htmlFor="ticket_price">Ціна за квиток *</label>
+                        <div className="relative">
+                          <input
+                            id="ticket_price"
+                            type="number"
+                            min={0}
+                            step="0.01"
+                            value={ticketPrice}
+                            onChange={(event) => {
+                              setTicketPrice(event.target.value)
+                              setErrors((current) => ({ ...current, ticket_price: undefined, submit: undefined }))
+                            }}
+                            className={`${inputClass('ticket_price')} pr-10`}
+                          />
+                          <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-brand-ink-muted">₴</span>
+                        </div>
+                        {errors.ticket_price && <p className="mt-1.5 text-xs text-red-600">{errors.ticket_price}</p>}
+                      </div>
+                    </div>
+
+                    <div className="overflow-hidden rounded-2xl border border-[#ddd5f6] bg-gradient-to-br from-white to-[#f5f1ff] p-3.5 shadow-sm">
+                      <div className="flex min-w-0 items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-[9px] font-extrabold uppercase tracking-[0.18em] text-brand-accent">Квиток</p>
+                          <p className="mt-1.5 truncate text-sm font-extrabold text-brand-ink">{form.title.trim() || 'Назва події'}</p>
+                          <p className="mt-2 text-[11px] font-semibold text-brand-ink-soft">
+                            {Number.isInteger(Number(ticketQuantity)) && Number(ticketQuantity) >= 1 ? `${Number(ticketQuantity)} квитків` : '— квитків'}
+                          </p>
+                          <p className="mt-0.5 text-sm font-extrabold text-brand-accent">
+                            {ticketPrice.trim() && Number(ticketPrice) === 0 ? 'Безкоштовно' : ticketPrice.trim() && Number(ticketPrice) >= 0 ? `${Number(ticketPrice)} ₴` : '— ₴'}
+                          </p>
+                        </div>
+                        <div className="flex flex-none flex-col items-center">
+                          <div className="grid h-16 w-16 grid-cols-7 gap-px rounded-lg border border-brand-border bg-white p-1.5" aria-hidden="true">
+                            {DEMO_QR_PATTERN.map((filled, index) => <span key={index} className={filled ? 'bg-brand-ink' : 'bg-transparent'} />)}
+                          </div>
+                          <span className="mt-1 text-[8px] font-bold uppercase tracking-wide text-brand-ink-muted">Демо QR</span>
+                        </div>
+                      </div>
+                      <p className="mt-3 border-t border-brand-border pt-2 text-[9px] leading-4 text-brand-ink-muted">QR буде створено після запуску квиткової системи.</p>
+                    </div>
+                  </div>
+                )}
               </div>
             </SectionCard>
 
