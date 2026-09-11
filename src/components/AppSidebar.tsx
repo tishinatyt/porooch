@@ -20,8 +20,8 @@ export default function AppSidebar() {
 
   return (
     <aside className="fixed inset-y-0 left-0 z-40 hidden w-56 flex-col border-r border-brand-border bg-white px-3 py-5 lg:flex xl:w-60">
-      <NavLink to="/" className="mb-6 flex items-center gap-2.5 px-3" aria-label="porooch — головна">
-        <BrandLogo wordmarkClassName="text-xl" />
+      <NavLink to="/" className="mb-6 flex items-center px-3" aria-label="Poruch — головна">
+        <BrandLogo className="w-32" />
       </NavLink>
 
       <nav className="space-y-1" aria-label="Головна навігація">

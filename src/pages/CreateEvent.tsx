@@ -277,7 +277,7 @@ export default function CreateEvent() {
         <div className="mx-auto max-w-[880px] px-4 py-5 sm:px-6 md:py-7">
           <div className="mb-5">
             <h1 className="text-2xl font-extrabold tracking-[-0.035em] sm:text-[28px]">Створити подію</h1>
-            <p className="mt-1 text-xs leading-5 text-brand-ink-muted">Заповніть деталі — і ваша зустріч з’явиться в porooch</p>
+            <p className="mt-1 text-xs leading-5 text-brand-ink-muted">Заповніть деталі — і ваша зустріч з’явиться в Poruch</p>
           </div>
 
           <div className="space-y-3.5">

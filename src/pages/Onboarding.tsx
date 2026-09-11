@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { OnboardingProgress } from '@/components/profile/ProfileComponents'
+import BrandLogo from '@/components/BrandLogo'
 
 export default function Onboarding() {
   const { signInWithGoogle } = useAuth()
@@ -19,7 +20,7 @@ export default function Onboarding() {
       <main className="w-full max-w-md rounded-3xl border border-brand-border bg-white p-6 shadow-card sm:p-8">
         <OnboardingProgress step={1} />
         <div className="py-12 text-center sm:py-16">
-          <p className="text-3xl font-extrabold tracking-[-0.05em] text-brand-accent">porooch</p>
+          <BrandLogo className="mx-auto w-44" />
           <h1 className="mt-7 text-3xl font-extrabold leading-tight tracking-[-0.04em]">Знайди людей для реальних зустрічей</h1>
           <p className="mt-4 text-sm leading-6 text-brand-ink-muted">Кава, спорт, кіно, прогулянки чи спонтанні плани — обирай подію та приєднуйся.</p>
         </div>

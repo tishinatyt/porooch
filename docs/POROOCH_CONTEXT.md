@@ -1,14 +1,16 @@
-# porooch — Project Context
+# Poruch — Project Context
 
 > Source of truth for product semantics and architecture. Before significant work: read this document, then verify the relevant current code and migrations.
 
 ## 1. Product
 
-**Product name:** porooch in technical/internal identifiers; the visible logo wordmark is **Porooch**.
+**Current product brand:** **Poruch**.
+
+Legacy technical identifiers may still use `porooch` for compatibility because the GitHub repository and current GitHub Pages deployment remain under `/porooch/`. Do not rename those deployment paths or existing storage keys until a compatible migration is planned.
 
 **Primary UI language:** Ukrainian.
 
-porooch helps people find people nearby through common interests and turn online discovery into real-life meetings and shared events. Its core concepts are personal meetings/events, public events, nearby discovery by interests, and moving interaction from online to offline.
+Poruch helps people find people nearby through common interests and turn online discovery into real-life meetings and shared events. Its core concepts are personal meetings/events, public events, nearby discovery by interests, and moving interaction from online to offline.
 
 Event concepts are independent:
 
@@ -41,7 +43,7 @@ The app is an installable PWA. Current production manifest values are:
 - `start_url: /porooch/`
 - `scope: /porooch/`
 - `id: /porooch/`
-- standalone display, Ukrainian language, and porooch branding.
+- standalone display, Ukrainian language, and Poruch branding.
 
 The generated service worker uses auto-update, outdated-cache cleanup, `skipWaiting`, `clientsClaim`, and an hourly online update check. Do not reintroduce demo avatars into the precache.
 
@@ -150,7 +152,7 @@ Desktop section CTAs are filled purple buttons with the existing plus icon:
 
 ## 7. Event visuals / branding
 
-Technical brand identifiers remain **porooch**. `src/components/BrandLogo.tsx` contains the reusable inline-SVG proximity/two-people symbol and the visible **Porooch** wordmark.
+The visible product brand is **Poruch**. `src/components/BrandLogo.tsx` renders the supplied `public/poruch-logo.png` asset. Legacy deployment and storage identifiers remain `porooch` where compatibility requires them.
 
 `EventMedia` displays a valid real cover image first and falls back after a missing URL or image error. `CategoryPlaceholder` provides lightweight category-specific gradients, patterns, and existing icons for cinema, theatre, bar, sport, music, food, games, walk, art, communication, and other. It is reused by cards, EventDetail, chat/event thumbnails, and creation preview where applicable.
 
@@ -240,12 +242,12 @@ Relevant commits currently in history, newest first:
 - `d12b43f` — Add desktop event creation buttons.
 - `4dcfe05` — Fix private event access and organizer visibility.
 - `9d7240c` — Add independent desktop feeds and improve card readability.
-- `4d44e78` — Add porooch logo and independent Home carousels.
+- `4d44e78` — Add the original brand logo and independent Home carousels.
 - `888cc4b` — Optimize mobile Home vertical density.
 - `0ca5f94` — Add mobile horizontal event carousels.
-- `973cd18` — Polish porooch event cards and category visuals.
-- `0f61ff5` — Fix porooch PWA startup on GitHub Pages.
-- `5a6f16e` — Release porooch beta with event visuals and GitHub Pages.
+- `973cd18` — Polish Poruch event cards and category visuals.
+- `0f61ff5` — Fix Poruch PWA startup on GitHub Pages.
+- `5a6f16e` — Release the Poruch beta with event visuals and GitHub Pages.
 
 Use `git log --oneline` for newer milestones; update this section when an architectural/product milestone lands.
 
@@ -289,7 +291,7 @@ Use `git log --oneline` for newer milestones; update this section when an archit
 
 ## 14. How future AI sessions should start
 
-**Before making significant changes to porooch:**
+**Before making significant changes to Poruch:**
 
 1. Read `docs/POROOCH_CONTEXT.md`.
 2. Inspect the relevant current code.

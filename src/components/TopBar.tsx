@@ -24,7 +24,7 @@ export default function TopBar({ title, searchQuery = '', onSearchChange, radius
             <span>Чернігів, Україна</span>
             <span className="text-brand-ink-muted">⌄</span>
           </div>
-          <BrandLogo className="lg:hidden" symbolClassName="h-6 w-6" wordmarkClassName="text-[19px]" />
+          <BrandLogo className="w-24 lg:hidden" />
         </div>
 
         {title ? <div className="min-w-0 flex-1 text-sm font-bold text-brand-ink">{title}</div> : <div id="search" className="relative min-w-0">

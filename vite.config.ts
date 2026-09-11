@@ -21,8 +21,8 @@ export default defineConfig(({ command }) => {
       injectRegister: false,
       includeAssets: ['favicon.svg', 'icons/*.svg'],
       manifest: {
-        name: 'porooch',
-        short_name: 'porooch',
+        name: 'Poruch',
+        short_name: 'Poruch',
         description: 'Події та люди поруч',
         lang: 'uk',
         theme_color: '#6846FF',

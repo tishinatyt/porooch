@@ -23,7 +23,7 @@ const TABS: { key: MyEventsTab; label: string }[] = [
 
 const EMPTY_CONTENT: Record<MyEventsTab, { title: string; description: string; action: string; to: string }> = {
   organizing: { title: 'Ви ще не створили жодної події', description: 'Створіть зустріч і запросіть людей приєднатися.', action: 'Створити подію', to: '/create' },
-  joined: { title: 'Ви ще не приєдналися до подій', description: 'Знайдіть цікаву зустріч у стрічці porooch.', action: 'Знайти події', to: '/' },
+  joined: { title: 'Ви ще не приєдналися до подій', description: 'Знайдіть цікаву зустріч у стрічці Poruch.', action: 'Знайти події', to: '/' },
   pending: { title: 'Немає заявок, що очікують підтвердження', description: 'Надіслані заявки з’являться тут, доки організатор не відповість.', action: 'Знайти події', to: '/' },
 }
 

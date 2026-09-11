@@ -1,6 +1,6 @@
-# porooch
+# Poruch
 
-porooch is a mobile-first social events PWA for finding real-world activities, joining them, coordinating in an event chat, and meeting offline.
+Poruch is a mobile-first social events PWA for finding real-world activities, joining them, coordinating in an event chat, and meeting offline.
 
 ## Project context
 
@@ -83,4 +83,4 @@ Configure Supabase Auth redirect allow-list entries for both `http://localhost:5
 - Event invitations, notifications, unread counters, and direct messages are not part of the MVP.
 - Location search uses OpenStreetMap/Nominatim and depends on network availability.
 - Organizer request management is available on Event Detail; there is no separate moderation dashboard.
-- Historical activity/match database tables remain for compatibility but are not used by the porooch UI.
+- Historical activity/match database tables remain for compatibility but are not used by the Poruch UI.
