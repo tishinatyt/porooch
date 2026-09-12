@@ -56,7 +56,8 @@ GitHub Pages SPA fallback uses `public/404.html` and `index.html`. The sessionSt
 Important current tables:
 
 - `public.users`: application profiles (not `profiles`), keyed to `auth.users`; name, age, gender, avatar, verification, city, bio, interests, and timestamps.
-- `public.events`: event content, `event_type`, visibility, join mode, organizer, geography/address, timing, requirements, capacity, and status.
+- `public.users.profile_photos` stores up to six ordered Storage object paths for the optional profile gallery; `avatar_url` remains the primary identity image.
+- `public.events`: event content, `event_type`, visibility, join mode, organizer, geography/address, timing, requirements, capacity, status, and the optional personal-event bank prototype fields.
 - `public.event_participants`: event membership and approval states (`pending`, `joined`, `left`, `rejected`) with organizer/participant roles.
 - `public.event_chats`: one group chat per event.
 - `public.event_chat_messages`: chat, sender, content, and creation timestamp.
@@ -112,6 +113,8 @@ In Create Event:
 They are independent. A valid invitation-only event can be `is_public = false` and `join_mode = open`.
 
 `src/lib/eventAccess.ts` provides `getEventAccessLabel(event)` and is the canonical UI mapping. It is used by Home personal/public cards, EventDetail, CreateEvent preview, and My Events cards. Keep new event surfaces on this helper.
+
+Personal events may optionally persist `bank_enabled` and a short `bank_note`. This is a UI prototype only: the displayed QR is deliberately non-functional and never changes participation or represents payment. Public events cannot enable the bank under the database constraint.
 
 ## 6. Home UX
 
@@ -213,6 +216,7 @@ Do not reintroduce old `/meetnow/` redirect paths.
 12. `012_repair_events_insert_policy.sql` — canonical authenticated owner-only event INSERT policy.
 13. `013_events_organizer_select.sql` — authenticated organizer SELECT access to their own events.
 14. `014_event_chat_unread_counts.sql` — one access-controlled grouped RPC for per-chat unread counts in Chats.
+15. `015_profile_gallery_and_event_bank.sql` — ordered max-six profile gallery paths, personal-event bank prototype fields, constraints, and owner-only avatar-object deletion.
 
 Never rewrite an applied migration. Add the next numbered migration when schema changes are genuinely required.
 

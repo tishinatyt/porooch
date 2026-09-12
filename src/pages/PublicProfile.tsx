@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { InterestChips } from '@/components/profile/ProfileComponents'
 import TopBar from '@/components/TopBar'
 import type { ProfilePreviewData } from '@/contexts/ProfilePreviewContext'
+import { ProfilePhotoGallery } from '@/components/profile/ProfilePhotoGallery'
 
 export default function PublicProfile() {
   const { userId } = useParams<{ userId: string }>()
@@ -17,7 +18,7 @@ export default function PublicProfile() {
   useEffect(() => {
     if (!userId || userId === supaUser?.id) return
     setLoading(true)
-    void supabase.from('users').select('id, name, age, city, bio, interests, avatar_url, google_verified').eq('id', userId).maybeSingle().then(({ data, error: profileError }) => {
+    void supabase.from('users').select('id, name, age, city, bio, interests, avatar_url, profile_photos, google_verified').eq('id', userId).maybeSingle().then(({ data, error: profileError }) => {
       if (profileError) console.error('[PublicProfile] Failed to load profile:', profileError)
       setProfile(data as ProfilePreviewData | null)
       setError(Boolean(profileError) || !data)
@@ -41,6 +42,7 @@ export default function PublicProfile() {
             {profile.city && <p className="mt-1 text-sm text-brand-ink-muted">{profile.city}</p>}
           </div>
           {profile.bio && <section className="mt-7 border-t border-brand-border pt-6"><h2 className="text-sm font-extrabold">Про себе</h2><p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-brand-ink-soft">{profile.bio}</p></section>}
+          <ProfilePhotoGallery photos={profile.profile_photos ?? []} name={profile.name} />
           {profile.interests?.length ? <section className="mt-6"><h2 className="mb-3 text-sm font-extrabold">Інтереси</h2><InterestChips selected={profile.interests} /></section> : null}
         </article>}
       </div>

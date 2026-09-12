@@ -11,6 +11,8 @@ export interface EventDetail {
   is_public: boolean
   event_type: 'personal' | 'public'
   join_mode: 'open' | 'approval'
+  bank_enabled: boolean
+  bank_note: string | null
   organizer_id: string
   cover_photo_url: string | null
   address_text: string
@@ -103,7 +105,7 @@ export function useEvent(eventId: string) {
       supabase
         .from('events')
         .select(`
-          id, title, description, category, is_public, event_type, join_mode,
+          id, title, description, category, is_public, event_type, join_mode, bank_enabled, bank_note,
           organizer_id, cover_photo_url, address_text,
           event_datetime, max_participants, min_age, max_age,
           gender_filter, status, created_at,
@@ -146,6 +148,8 @@ export function useEvent(eventId: string) {
       is_public: raw.is_public,
       event_type: (raw.event_type ?? 'public') as 'personal' | 'public',
       join_mode: (raw.join_mode ?? 'open') as 'open' | 'approval',
+      bank_enabled: raw.bank_enabled ?? false,
+      bank_note: raw.bank_note ?? null,
       organizer_id: raw.organizer_id,
       cover_photo_url: raw.cover_photo_url,
       address_text: raw.address_text,

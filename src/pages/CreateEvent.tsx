@@ -8,6 +8,7 @@ import EventMedia from '@/components/EventMedia'
 import TopBar from '@/components/TopBar'
 import CreateEventMap from '@/components/CreateEventMap'
 import { getEventAccessChipClass, getEventAccessLabel } from '@/lib/eventAccess'
+import DemoQrPlaceholder from '@/components/DemoQrPlaceholder'
 
 const CATEGORIES = [
   { value: 'other', label: 'Спілкування', emoji: '💬' },
@@ -23,15 +24,6 @@ const CATEGORIES = [
 ] as const
 
 const CAPACITY_OPTIONS = [2, 4, 6, 10]
-const DEMO_QR_PATTERN = [
-  1, 1, 1, 0, 1, 1, 1,
-  1, 0, 1, 1, 1, 0, 1,
-  1, 1, 1, 0, 1, 1, 1,
-  0, 1, 0, 1, 0, 1, 0,
-  1, 1, 1, 0, 1, 0, 1,
-  1, 0, 1, 1, 0, 1, 1,
-  1, 1, 1, 0, 1, 1, 0,
-] as const
 
 type EventType = 'personal' | 'public'
 type JoinMode = 'open' | 'approval'
@@ -55,6 +47,8 @@ interface FormState {
   min_age: number
   max_age: number
   gender_filter: GenderFilter
+  bank_enabled: boolean
+  bank_note: string
 }
 type FormErrors = Partial<Record<keyof FormState | 'ticket_quantity' | 'ticket_price' | 'submit', string>>
 
@@ -74,6 +68,8 @@ interface EventInsertPayload {
   min_age: number
   max_age: number
   gender_filter: GenderFilter
+  bank_enabled: boolean
+  bank_note: string | null
   status: 'upcoming'
 }
 
@@ -116,7 +112,7 @@ export default function CreateEvent() {
   const [form, setForm] = useState<FormState>({
     event_type: searchParams.get('type') === 'public' ? 'public' : 'personal', is_public: true, join_mode: 'open', title: '', description: '', category: 'other',
     cover_photo_url: '', event_date: defaults.date, event_time: defaults.time, venue_name: '', address: '',
-    lat: null, lng: null, max_participants: 10, min_age: 18, max_age: 60, gender_filter: 'any',
+    lat: null, lng: null, max_participants: 10, min_age: 18, max_age: 60, gender_filter: 'any', bank_enabled: false, bank_note: '',
   })
   const [errors, setErrors] = useState<FormErrors>({})
   const [submitting, setSubmitting] = useState(false)
@@ -132,7 +128,7 @@ export default function CreateEvent() {
   }, [])
 
   const selectEventType = (eventType: EventType) => {
-    setForm((current) => ({ ...current, event_type: eventType }))
+    setForm((current) => ({ ...current, event_type: eventType, ...(eventType === 'public' ? { bank_enabled: false, bank_note: '' } : {}) }))
   }
 
   const reverseGeocode = useCallback(async (lat: number, lng: number) => {
@@ -178,6 +174,7 @@ export default function CreateEvent() {
     }
 
     if (!Number.isInteger(form.max_participants) || form.max_participants < 1 || form.max_participants > 1000) nextErrors.max_participants = 'Вкажіть від 1 до 1000 учасників'
+    if (form.bank_note.trim().length > 200) nextErrors.bank_note = 'Мета збору може містити до 200 символів'
     if (ticketsEnabled) {
       const quantity = Number(ticketQuantity)
       const price = Number(ticketPrice)
@@ -219,6 +216,8 @@ export default function CreateEvent() {
       min_age: form.min_age,
       max_age: form.max_age,
       gender_filter: form.gender_filter,
+      bank_enabled: form.event_type === 'personal' && form.bank_enabled,
+      bank_note: form.event_type === 'personal' && form.bank_enabled ? form.bank_note.trim() || null : null,
       status: 'upcoming',
     }
 
@@ -425,7 +424,20 @@ export default function CreateEvent() {
               </div>
             </SectionCard>
 
-            <SectionCard number="8" title="Квитки" description="Необов’язковий демо-режим для майбутньої квиткової системи.">
+            {form.event_type === 'personal' && <SectionCard number="8" title="Банка на захід" description="Необов’язковий прототип збору для особистої зустрічі.">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between gap-4">
+                  <div><p className="text-xs font-extrabold text-brand-ink">Банка на захід</p><p className="mt-0.5 text-[10px] leading-4 text-brand-ink-muted">Участь у події не залежить від банки.</p></div>
+                  <button type="button" role="switch" aria-checked={form.bank_enabled} onClick={() => set('bank_enabled', !form.bank_enabled)} className={`relative h-7 w-12 flex-none rounded-full transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-accent ${form.bank_enabled ? 'bg-brand-accent' : 'bg-brand-border-strong'}`} aria-label="Банка на захід"><span className={`absolute left-0 top-1 h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${form.bank_enabled ? 'translate-x-6' : 'translate-x-1'}`} /></button>
+                </div>
+                {form.bank_enabled && <div className="grid gap-4 border-t border-brand-border pt-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+                  <div><label className={labelClass} htmlFor="bank_note">Мета збору</label><input id="bank_note" value={form.bank_note} maxLength={200} onChange={(event) => set('bank_note', event.target.value)} placeholder="На оренду столика та закуски" className={inputClass('bank_note')} />{errors.bank_note && <p className="mt-1.5 text-xs text-red-600">{errors.bank_note}</p>}<p className="mt-2 text-[10px] leading-4 text-brand-ink-muted">Демо QR — підключення реальної банки буде додано пізніше.</p></div>
+                  <div className="flex flex-col items-center rounded-xl bg-brand-accent-soft/50 p-3"><DemoQrPlaceholder className="h-20 w-20" /><span className="mt-1 text-[8px] font-bold uppercase tracking-wide text-brand-ink-muted">Демо QR</span></div>
+                </div>}
+              </div>
+            </SectionCard>}
+
+            <SectionCard number={form.event_type === 'personal' ? '9' : '8'} title="Квитки" description="Необов’язковий демо-режим для майбутньої квиткової системи.">
               <div className="space-y-4">
                 <div className="flex items-center justify-between gap-4">
                   <div>
@@ -500,9 +512,7 @@ export default function CreateEvent() {
                           </p>
                         </div>
                         <div className="flex flex-none flex-col items-center">
-                          <div className="grid h-16 w-16 grid-cols-7 gap-px rounded-lg border border-brand-border bg-white p-1.5" aria-hidden="true">
-                            {DEMO_QR_PATTERN.map((filled, index) => <span key={index} className={filled ? 'bg-brand-ink' : 'bg-transparent'} />)}
-                          </div>
+                          <DemoQrPlaceholder className="h-16 w-16 p-1.5" />
                           <span className="mt-1 text-[8px] font-bold uppercase tracking-wide text-brand-ink-muted">Демо QR</span>
                         </div>
                       </div>

@@ -3,6 +3,8 @@ import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
 import TopBar from '@/components/TopBar'
 import { InterestChips } from '@/components/profile/ProfileComponents'
+import { ProfilePhotoGallery, ProfilePhotoGalleryEditor } from '@/components/profile/ProfilePhotoGallery'
+import { removeProfilePhoto } from '@/lib/profilePhotos'
 
 export default function Profile() {
   const { profile, supaUser, signOut, refreshProfile } = useAuth()
@@ -68,6 +70,26 @@ export default function Profile() {
     setUploading(false)
   }
 
+  async function addGalleryPhoto(path: string) {
+    if (!supaUser || !profile) return
+    const photos = [...(profile.profile_photos ?? []), path].slice(0, 6)
+    const { error: updateError } = await supabase.from('users').update({ profile_photos: photos }).eq('id', supaUser.id)
+    if (updateError) {
+      await removeProfilePhoto(path).catch(() => undefined)
+      throw updateError
+    }
+    await refreshProfile()
+  }
+
+  async function deleteGalleryPhoto(path: string) {
+    if (!supaUser || !profile) return
+    const photos = (profile.profile_photos ?? []).filter((photo) => photo !== path)
+    const { error: updateError } = await supabase.from('users').update({ profile_photos: photos }).eq('id', supaUser.id)
+    if (updateError) throw updateError
+    await refreshProfile()
+    await removeProfilePhoto(path)
+  }
+
   if (!profile) return <div className="min-h-screen bg-brand-bg"><TopBar title="Профіль" /><div className="mx-auto max-w-[960px] px-4 py-6 sm:px-6 lg:px-8"><div className="h-48 animate-pulse rounded-2xl border border-brand-border bg-white" /><div className="mt-4 grid gap-4 sm:grid-cols-2"><div className="h-36 animate-pulse rounded-2xl border border-brand-border bg-white" /><div className="h-36 animate-pulse rounded-2xl border border-brand-border bg-white" /></div></div></div>
 
   return (
@@ -100,11 +122,13 @@ export default function Profile() {
             <label className="text-xs font-bold text-brand-ink-soft sm:col-span-2">Місто<input value={city} maxLength={80} onChange={(event) => setCity(event.target.value)} placeholder="Наприклад, Чернігів" className="mt-1.5 h-11 w-full rounded-xl border border-brand-border bg-brand-bg px-3.5 text-sm font-normal text-brand-ink outline-none focus:border-brand-accent focus:bg-white focus:ring-3 focus:ring-brand-accent/10" /></label>
           </div>
           <label className="block text-xs font-bold text-brand-ink-soft">Про себе<textarea value={bio} maxLength={300} rows={4} onChange={(event) => setBio(event.target.value)} placeholder="Кілька слів про вас" className="mt-1.5 w-full resize-none rounded-xl border border-brand-border bg-brand-bg px-3.5 py-3 text-sm font-normal leading-6 text-brand-ink outline-none focus:border-brand-accent focus:bg-white focus:ring-3 focus:ring-brand-accent/10" /><span className="mt-1 block text-right text-xs font-normal text-brand-ink-muted">{bio.length}/300</span></label>
+          <ProfilePhotoGalleryEditor userId={supaUser!.id} photos={profile.profile_photos ?? []} onAdd={addGalleryPhoto} onRemove={deleteGalleryPhoto} disabled={saving || uploading} />
           <div className="border-t border-brand-border pt-5"><div className="mb-3 flex justify-between gap-3"><h2 className="text-sm font-extrabold text-brand-ink">Інтереси</h2><span className="rounded-full bg-brand-accent-soft px-2 py-0.5 text-xs font-bold text-brand-accent">{interests.length} з 8</span></div><InterestChips selected={interests} editable onChange={setInterests} />{interests.length >= 8 && <p className="mt-2 text-xs text-brand-ink-muted">Можна вибрати до 8 інтересів</p>}</div>
           <div className="flex flex-col-reverse gap-2 border-t border-brand-border pt-5 sm:flex-row sm:justify-end"><button type="button" onClick={() => { setName(profile.name); setAge(String(profile.age)); setCity(profile.city ?? ''); setBio(profile.bio ?? ''); setInterests(profile.interests ?? []); setEditing(false); setError(null) }} className="h-11 rounded-xl border border-brand-border px-5 text-sm font-bold text-brand-ink-soft hover:bg-brand-surface-muted">Скасувати</button><button type="button" onClick={() => { void handleSave() }} disabled={saving || uploading} className="h-11 rounded-xl bg-brand-accent px-6 text-sm font-bold text-white hover:bg-brand-accent-hover disabled:cursor-wait disabled:opacity-60">{saving ? 'Зберігаємо...' : 'Зберегти'}</button></div>
         </section> : <div className="mt-4 grid gap-4 sm:grid-cols-2">
           <section className="rounded-2xl border border-brand-border bg-white p-5"><h2 className="text-base font-extrabold">Про себе</h2>{profile.bio ? <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-brand-ink-soft">{profile.bio}</p> : <button type="button" onClick={() => setEditing(true)} className="mt-3 text-left text-sm text-brand-ink-muted hover:text-brand-accent">Розкажіть трохи про себе <span className="font-bold text-brand-accent">Редагувати</span></button>}</section>
           <section className="rounded-2xl border border-brand-border bg-white p-5"><h2 className="mb-3 text-base font-extrabold">Інтереси</h2>{profile.interests?.length ? <InterestChips selected={profile.interests.slice(0, 8)} /> : <button type="button" onClick={() => setEditing(true)} className="text-left text-sm text-brand-ink-muted hover:text-brand-accent">Інтереси ще не додані. <span className="font-bold text-brand-accent">Додати</span></button>}</section>
+          {(profile.profile_photos?.length ?? 0) > 0 && <section className="rounded-2xl border border-brand-border bg-white p-5 sm:col-span-2"><ProfilePhotoGallery photos={profile.profile_photos ?? []} name={profile.name} /></section>}
         </div>}
 
         <button type="button" onClick={() => { void signOut() }} className="mt-4 h-11 w-full rounded-xl border border-brand-border bg-white text-sm font-bold text-brand-ink-muted transition hover:border-red-200 hover:bg-red-50 hover:text-red-600">Вийти</button>

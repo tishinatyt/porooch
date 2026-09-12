@@ -4,6 +4,8 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import type { Gender } from '@/types'
 import { InterestChips, OnboardingProgress } from '@/components/profile/ProfileComponents'
+import { ProfilePhotoGalleryEditor } from '@/components/profile/ProfilePhotoGallery'
+import { removeProfilePhoto } from '@/lib/profilePhotos'
 
 export default function CompleteProfile() {
   const navigate = useNavigate()
@@ -16,6 +18,7 @@ export default function CompleteProfile() {
   const [interests, setInterests] = useState<string[]>([])
   const [bio, setBio] = useState('')
   const [avatarUrl, setAvatarUrl] = useState<string | null>(supaUser?.user_metadata?.avatar_url ?? null)
+  const [profilePhotos, setProfilePhotos] = useState<string[]>([])
   const [uploading, setUploading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -52,7 +55,7 @@ export default function CompleteProfile() {
     const cleanBio = bio.trim()
     if (cleanBio.length > 300) { setError('Опис може містити до 300 символів'); return }
     setSaving(true); setError(null)
-    const { error: saveError } = await supabase.from('users').upsert({ id: supaUser.id, name: name.trim(), age: Number(age), gender, city: city.trim(), bio: cleanBio || null, interests, avatar_url: avatarUrl, google_verified: supaUser.app_metadata.provider === 'google' })
+    const { error: saveError } = await supabase.from('users').upsert({ id: supaUser.id, name: name.trim(), age: Number(age), gender, city: city.trim(), bio: cleanBio || null, interests, avatar_url: avatarUrl, profile_photos: profilePhotos, google_verified: supaUser.app_metadata.provider === 'google' })
     if (saveError) {
       console.error('Profile onboarding failed', saveError)
       setError('Не вдалося зберегти профіль. Спробуйте ще раз')
@@ -69,6 +72,7 @@ export default function CompleteProfile() {
       <main className="w-full max-w-lg rounded-3xl border border-brand-border bg-white p-5 shadow-card sm:p-8">
         <OnboardingProgress step={step} />
         {error && <div role="alert" className="mt-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
+        {step === 4 && supaUser && <div className="mt-6"><ProfilePhotoGalleryEditor userId={supaUser.id} photos={profilePhotos} onAdd={(path) => setProfilePhotos((photos) => [...photos, path].slice(0, 6))} onRemove={async (path) => { await removeProfilePhoto(path); setProfilePhotos((photos) => photos.filter((photo) => photo !== path)) }} disabled={saving || uploading} /></div>}
 
         {step === 2 && <section className="pt-7"><h1 className="text-2xl font-extrabold tracking-[-0.03em]">Розкажіть трохи про себе</h1><p className="mt-2 text-sm text-brand-ink-muted">Ці дані допоможуть іншим учасникам упізнати вас.</p><div className="mt-7 space-y-4">
           <label className="block text-sm font-bold text-brand-ink-soft">Як вас звати?<input value={name} maxLength={80} onChange={(event) => setName(event.target.value)} autoComplete="name" className="mt-2 h-12 w-full rounded-xl border border-brand-border px-4 font-normal text-brand-ink outline-none focus:border-brand-accent focus:ring-3 focus:ring-brand-accent/10" /></label>

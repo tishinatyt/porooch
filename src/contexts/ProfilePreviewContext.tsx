@@ -11,6 +11,7 @@ export interface ProfilePreviewData {
   bio?: string | null
   interests?: string[]
   avatar_url: string | null
+  profile_photos?: string[]
   google_verified?: boolean
 }
 
@@ -19,7 +20,7 @@ interface ProfilePreviewValue {
 }
 
 const ProfilePreviewContext = createContext<ProfilePreviewValue | null>(null)
-const PUBLIC_PROFILE_FIELDS = 'id, name, age, city, bio, interests, avatar_url, google_verified'
+const PUBLIC_PROFILE_FIELDS = 'id, name, age, city, bio, interests, avatar_url, profile_photos, google_verified'
 const isUuid = (value: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)
 
 export function ProfilePreviewProvider({ children }: { children: ReactNode }) {

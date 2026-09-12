@@ -6,6 +6,7 @@ export interface User {
   age: number
   gender: Gender
   avatar_url: string | null
+  profile_photos?: string[]
   google_verified: boolean
   city: string | null
   bio: string | null

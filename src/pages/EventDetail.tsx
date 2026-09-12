@@ -11,6 +11,7 @@ import { EventActionContent, EventInfoRow, EventRequirements, OrganizerHeader, P
 import { getDemoEvent } from '@/components/home/demoEvents'
 import type { EventDetail as EventDetailData, EventParticipant } from '@/hooks/useEvent'
 import { getEventAccessChipClass, getEventAccessLabel } from '@/lib/eventAccess'
+import DemoQrPlaceholder from '@/components/DemoQrPlaceholder'
 
 const EventMap = lazy(() => import('@/components/EventMap'))
 
@@ -59,6 +60,8 @@ export default function EventDetail() {
     is_public: true,
     event_type: demoEvent.event_type ?? 'public',
     join_mode: demoEvent.join_mode ?? 'open',
+    bank_enabled: false,
+    bank_note: null,
     organizer_id: demoEvent.organizer?.id ?? 'demo-organizer',
     cover_photo_url: demoEvent.cover_photo_url,
     address_text: demoEvent.address_text,
@@ -250,6 +253,7 @@ export default function EventDetail() {
           {isOrganizer && event.join_mode === 'approval' && pendingRequests.length > 0 && <PendingRequestList requests={pendingRequests} processingUserId={processingUserId} onApprove={(userId) => { void handleReview(userId, 'approve') }} onReject={(userId) => { void handleReview(userId, 'reject') }} />}
           {requestError && <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{requestError}</div>}
           <EventRequirements gender={GENDER_LABEL[event.gender_filter] ?? event.gender_filter} age={`${event.min_age}–${event.max_age} років`} category={CATEGORY_LABEL[event.category] ?? event.category} isPublic={event.is_public} />
+          {event.event_type === 'personal' && event.bank_enabled && <section className="rounded-2xl border border-[#ddd5f6] bg-gradient-to-br from-white to-[#f5f1ff] p-4 shadow-card sm:p-5"><div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"><div className="min-w-0"><p className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-brand-accent">Банка на захід</p>{event.bank_note && <p className="mt-2 text-sm font-bold leading-5 text-brand-ink">{event.bank_note}</p>}<p className="mt-2 max-w-md text-[11px] leading-5 text-brand-ink-muted">Демо QR — підключення реальної банки буде додано пізніше. Відкриття цього блоку не змінює вашу участь у події.</p></div><div className="flex flex-none flex-col items-center self-start rounded-xl bg-white/80 p-3 sm:self-center"><DemoQrPlaceholder /><span className="mt-1 text-[8px] font-bold uppercase tracking-wide text-brand-ink-muted">Демо QR</span></div></div></section>}
           {hasLocation && <div className="lg:hidden"><h2 className="mb-2.5 text-sm font-extrabold text-brand-ink">Місце зустрічі</h2>{renderMap()}</div>}
           {joinError && <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{joinError}</div>}
           {isOrganizer && <section className="border-t border-brand-border pt-5"><h2 className="text-sm font-extrabold text-brand-ink">Керування подією</h2><p className="mt-1 text-xs leading-5 text-brand-ink-muted">Видалення прибере подію, заявки учасників і чат.</p><button ref={deleteTriggerRef} type="button" onClick={() => { setDeleteError(null); setDeleteDialogOpen(true) }} className="mt-3 min-h-11 rounded-xl border border-red-200 bg-white px-4 text-sm font-bold text-red-600 transition hover:border-red-300 hover:bg-red-50">Видалити подію</button></section>}
