@@ -1,5 +1,5 @@
-import { useCallback, useMemo, useRef, useState } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import { getCurrentPosition } from '@/lib/geo'
@@ -105,6 +105,7 @@ function SectionCard({ number, title, description, children }: { number: string;
 
 export default function CreateEvent() {
   const navigate = useNavigate()
+  const { eventId } = useParams<{ eventId: string }>()
   const [searchParams] = useSearchParams()
   const { supaUser } = useAuth()
   const defaults = useMemo(defaultDateTime, [])
@@ -118,9 +119,44 @@ export default function CreateEvent() {
   const [submitting, setSubmitting] = useState(false)
   const [geocoding, setGeocoding] = useState(false)
   const [locating, setLocating] = useState(false)
+  const [loadingEvent, setLoadingEvent] = useState(Boolean(eventId))
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [ticketsEnabled, setTicketsEnabled] = useState(false)
   const [ticketQuantity, setTicketQuantity] = useState('50')
   const [ticketPrice, setTicketPrice] = useState('200')
+
+  useEffect(() => {
+    if (!eventId || !supaUser) return
+    const organizerId = supaUser.id
+    let cancelled = false
+    async function loadEventForEdit() {
+      setLoadingEvent(true); setLoadError(null)
+      const [eventResult, coordsResult] = await Promise.all([
+        supabase.from('events').select('event_type, is_public, join_mode, title, description, category, cover_photo_url, event_datetime, address_text, max_participants, min_age, max_age, gender_filter, bank_enabled, bank_note').eq('id', eventId).eq('organizer_id', organizerId).maybeSingle(),
+        (supabase.rpc('get_event_coords', { p_event_id: eventId }).single() as unknown) as Promise<{ data: { lat: number; lng: number } | null; error: unknown }>,
+      ])
+      if (cancelled) return
+      if (eventResult.error || !eventResult.data) {
+        if (eventResult.error) console.error('[CreateEvent] Failed to load event for editing', eventResult.error)
+        setLoadError('Не вдалося завантажити подію для редагування')
+        setLoadingEvent(false)
+        return
+      }
+      const source = eventResult.data
+      const date = new Date(source.event_datetime)
+      setForm({
+        event_type: source.event_type ?? 'personal', is_public: source.is_public, join_mode: source.join_mode ?? 'open', title: source.title,
+        description: source.description ?? '', category: source.category, cover_photo_url: source.cover_photo_url ?? '',
+        event_date: `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`, event_time: `${pad(date.getHours())}:${pad(date.getMinutes())}`,
+        venue_name: '', address: source.address_text ?? '', lat: coordsResult.data?.lat ?? null, lng: coordsResult.data?.lng ?? null,
+        max_participants: source.max_participants, min_age: source.min_age, max_age: source.max_age, gender_filter: source.gender_filter,
+        bank_enabled: source.event_type === 'personal' && Boolean(source.bank_enabled), bank_note: source.bank_note ?? '',
+      })
+      setLoadingEvent(false)
+    }
+    void loadEventForEdit()
+    return () => { cancelled = true }
+  }, [eventId, supaUser])
 
   const set = useCallback(<Key extends keyof FormState>(key: Key, value: FormState[Key]) => {
     setForm((current) => ({ ...current, [key]: value }))
@@ -170,7 +206,7 @@ export default function CreateEvent() {
     if (form.event_date && form.event_time) {
       const eventDateTime = new Date(`${form.event_date}T${form.event_time}`)
       if (Number.isNaN(eventDateTime.getTime())) nextErrors.event_date = 'Перевірте дату й час'
-      else if (eventDateTime <= new Date()) nextErrors.event_date = 'Подія має починатися в майбутньому'
+      else if (eventDateTime <= new Date()) nextErrors.event_date = eventId ? 'Оберіть майбутню дату та час' : 'Подія має починатися в майбутньому'
     }
 
     if (!Number.isInteger(form.max_participants) || form.max_participants < 1 || form.max_participants > 1000) nextErrors.max_participants = 'Вкажіть від 1 до 1000 учасників'
@@ -232,7 +268,9 @@ export default function CreateEvent() {
         status: payload.status,
       })
     }
-    const { data, error } = await supabase.from('events').insert(payload).select('id').single()
+    const { data, error } = eventId
+      ? await supabase.from('events').update(payload).eq('id', eventId).eq('organizer_id', supaUser.id).select('id').single()
+      : await supabase.from('events').insert(payload).select('id').single()
     if (import.meta.env.DEV) {
       console.info('[CreateEvent diagnostic] EVENT INSERT RESULT', { id: data?.id ?? null, succeeded: !error && Boolean(data?.id) })
       if (error) console.error('[CreateEvent diagnostic] EVENT INSERT ERROR', { code: error.code, message: error.message, details: error.details, hint: error.hint })
@@ -253,12 +291,12 @@ export default function CreateEvent() {
         joinMode: payload.join_mode,
         payload,
       })
-      setErrors({ submit: 'Не вдалося створити подію. Перевірте дані та спробуйте ще раз.' })
+      setErrors({ submit: eventId ? 'Не вдалося зберегти зміни. Перевірте дані та спробуйте ще раз.' : 'Не вдалося створити подію. Перевірте дані та спробуйте ще раз.' })
       setSubmitting(false)
       submittingRef.current = false
       return
     }
-    if (import.meta.env.DEV) {
+    if (import.meta.env.DEV && !eventId) {
       console.info('[CreateEvent diagnostic] CREATED EVENT ID', data.id)
       const membershipResult = await supabase
         .from('event_participants')
@@ -284,19 +322,22 @@ export default function CreateEvent() {
   const inputClass = (field: keyof FormErrors) => `h-11 w-full rounded-xl border bg-[#fcfcfe] px-3.5 text-sm text-brand-ink outline-none transition placeholder:text-brand-ink-muted focus:bg-white focus:ring-2 focus:ring-brand-accent/10 ${errors[field] ? 'border-red-400 focus:border-red-400' : 'border-brand-border focus:border-brand-accent'}`
   const labelClass = 'mb-1.5 block text-xs font-bold text-brand-ink-soft'
 
+  if (loadingEvent) return <div className="min-h-screen bg-brand-bg"><TopBar title="Редагувати подію" /><div className="mx-auto max-w-[880px] space-y-4 px-4 py-7 sm:px-6">{[1, 2, 3].map((item) => <div key={item} className="h-40 animate-pulse rounded-2xl border border-brand-border bg-white" />)}</div></div>
+  if (loadError) return <div className="grid min-h-screen place-items-center bg-brand-bg px-4 text-center"><div><p className="text-sm text-red-600">{loadError}</p><button type="button" onClick={() => navigate(-1)} className="mt-4 h-11 rounded-xl bg-brand-accent px-4 text-sm font-bold text-white">Повернутися</button></div></div>
+
   return (
     <div className="min-h-screen bg-brand-bg pb-28 text-brand-ink lg:pb-10">
-      <TopBar title="Створити подію" />
+      <TopBar title={eventId ? 'Редагувати подію' : 'Створити подію'} />
       <header className="sticky top-0 z-30 flex h-14 items-center border-b border-brand-border bg-white/95 px-2.5 backdrop-blur-xl lg:hidden">
         <button type="button" onClick={() => navigate(-1)} className="grid h-11 w-11 place-items-center rounded-xl text-2xl focus-visible:outline-2 focus-visible:outline-brand-accent" aria-label="Назад">←</button>
-        <p className="ml-1 text-sm font-extrabold">Створити подію</p>
+        <p className="ml-1 text-sm font-extrabold">{eventId ? 'Редагувати подію' : 'Створити подію'}</p>
       </header>
 
       <form onSubmit={handleSubmit} noValidate>
         <div className="mx-auto max-w-[880px] px-4 py-5 sm:px-6 md:py-7">
           <div className="mb-5">
-            <h1 className="text-2xl font-extrabold tracking-[-0.035em] sm:text-[28px]">Створити подію</h1>
-            <p className="mt-1 text-xs leading-5 text-brand-ink-muted">Заповніть деталі — і ваша зустріч з’явиться в Poruch</p>
+            <h1 className="text-2xl font-extrabold tracking-[-0.035em] sm:text-[28px]">{eventId ? 'Редагувати подію' : 'Створити подію'}</h1>
+            <p className="mt-1 text-xs leading-5 text-brand-ink-muted">{eventId ? 'Оновіть деталі та збережіть зміни.' : 'Заповніть деталі — і ваша зустріч з’явиться в Poruch'}</p>
           </div>
 
           <div className="space-y-3.5">
@@ -540,12 +581,12 @@ export default function CreateEvent() {
             </section>
 
             {errors.submit && <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{errors.submit}</div>}
-            <div className="hidden justify-end lg:flex"><button type="submit" disabled={submitting} className="h-12 min-w-52 rounded-xl bg-brand-accent px-6 text-sm font-extrabold text-white transition hover:bg-brand-accent-hover disabled:cursor-wait disabled:opacity-60">{submitting ? 'Створюємо...' : 'Створити подію'}</button></div>
+            <div className="hidden justify-end lg:flex"><button type="submit" disabled={submitting} className="h-12 min-w-52 rounded-xl bg-brand-accent px-6 text-sm font-extrabold text-white transition hover:bg-brand-accent-hover disabled:cursor-wait disabled:opacity-60">{submitting ? 'Зберігаємо...' : eventId ? 'Зберегти зміни' : 'Створити подію'}</button></div>
           </div>
         </div>
 
         <div className="fixed inset-x-0 bottom-0 z-40 border-t border-brand-border bg-white/95 px-4 py-3 shadow-[0_-8px_30px_rgba(23,23,28,0.06)] backdrop-blur-xl lg:hidden">
-          <button type="submit" disabled={submitting} className="mx-auto block h-13 w-full max-w-lg rounded-xl bg-brand-accent text-sm font-extrabold text-white disabled:cursor-wait disabled:opacity-60">{submitting ? 'Створюємо...' : 'Створити подію'}</button>
+          <button type="submit" disabled={submitting} className="mx-auto block h-13 w-full max-w-lg rounded-xl bg-brand-accent text-sm font-extrabold text-white disabled:cursor-wait disabled:opacity-60">{submitting ? 'Зберігаємо...' : eventId ? 'Зберегти зміни' : 'Створити подію'}</button>
         </div>
       </form>
     </div>

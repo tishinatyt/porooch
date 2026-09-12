@@ -173,7 +173,6 @@ export default function EventDetail() {
   }
 
   function closeDeleteDialog() {
-    if (deletingRef.current) return
     setDeleteDialogOpen(false)
     window.requestAnimationFrame(() => deleteTriggerRef.current?.focus())
   }
@@ -184,23 +183,25 @@ export default function EventDetail() {
     setDeleting(true)
     setDeleteError(null)
 
-    const { data, error: deleteEventError } = await supabase
-      .from('events')
-      .delete()
-      .eq('id', event.id)
-      .eq('organizer_id', supaUser.id)
-      .select('id')
-      .maybeSingle()
+    try {
+      const { data, error: deleteEventError } = await supabase
+        .from('events')
+        .delete()
+        .eq('id', event.id)
+        .eq('organizer_id', supaUser.id)
+        .select('id')
+        .maybeSingle()
 
-    if (deleteEventError || !data) {
-      console.error('Failed to delete event', deleteEventError ?? new Error('Event deletion was not authorized or the event no longer exists'))
+      if (deleteEventError || !data) throw deleteEventError ?? new Error('Event deletion was not authorized or the event no longer exists')
+      setDeleteDialogOpen(false)
+      navigate('/', { replace: true })
+    } catch (deleteEventError) {
+      console.error('Failed to delete event', deleteEventError)
       setDeleteError('Не вдалося видалити подію. Спробуйте ще раз.')
+    } finally {
       deletingRef.current = false
       setDeleting(false)
-      return
     }
-
-    navigate('/', { replace: true })
   }
 
   if (loading && !demoEvent) {
@@ -256,7 +257,7 @@ export default function EventDetail() {
           {event.event_type === 'personal' && event.bank_enabled && <section className="rounded-2xl border border-[#ddd5f6] bg-gradient-to-br from-white to-[#f5f1ff] p-4 shadow-card sm:p-5"><div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"><div className="min-w-0"><p className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-brand-accent">Банка на захід</p>{event.bank_note && <p className="mt-2 text-sm font-bold leading-5 text-brand-ink">{event.bank_note}</p>}<p className="mt-2 max-w-md text-[11px] leading-5 text-brand-ink-muted">Демо QR — підключення реальної банки буде додано пізніше. Відкриття цього блоку не змінює вашу участь у події.</p></div><div className="flex flex-none flex-col items-center self-start rounded-xl bg-white/80 p-3 sm:self-center"><DemoQrPlaceholder /><span className="mt-1 text-[8px] font-bold uppercase tracking-wide text-brand-ink-muted">Демо QR</span></div></div></section>}
           {hasLocation && <div className="lg:hidden"><h2 className="mb-2.5 text-sm font-extrabold text-brand-ink">Місце зустрічі</h2>{renderMap()}</div>}
           {joinError && <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{joinError}</div>}
-          {isOrganizer && <section className="border-t border-brand-border pt-5"><h2 className="text-sm font-extrabold text-brand-ink">Керування подією</h2><p className="mt-1 text-xs leading-5 text-brand-ink-muted">Видалення прибере подію, заявки учасників і чат.</p><button ref={deleteTriggerRef} type="button" onClick={() => { setDeleteError(null); setDeleteDialogOpen(true) }} className="mt-3 min-h-11 rounded-xl border border-red-200 bg-white px-4 text-sm font-bold text-red-600 transition hover:border-red-300 hover:bg-red-50">Видалити подію</button></section>}
+          {isOrganizer && <section className="border-t border-brand-border pt-5"><h2 className="text-sm font-extrabold text-brand-ink">Керування подією</h2><p className="mt-1 text-xs leading-5 text-brand-ink-muted">Редагуйте деталі або перенесіть подію на майбутню дату.</p><div className="mt-3 flex flex-wrap gap-2"><button type="button" onClick={() => navigate(`/event/${event.id}/edit`)} className="min-h-11 rounded-xl bg-brand-accent px-4 text-sm font-bold text-white transition hover:bg-brand-accent-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-accent">Редагувати подію</button><button ref={deleteTriggerRef} type="button" onClick={() => { deletingRef.current = false; setDeleting(false); setDeleteError(null); setDeleteDialogOpen(true) }} className="min-h-11 rounded-xl border border-red-200 bg-white px-4 text-sm font-bold text-red-600 transition hover:border-red-300 hover:bg-red-50">Видалити подію</button></div></section>}
         </main>
 
         <aside className="sticky top-24 hidden space-y-4 lg:block">

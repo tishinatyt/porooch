@@ -103,6 +103,8 @@ This SELECT policy is required because `.select('id')` requests the inserted row
 
 Never weaken the existing SELECT, INSERT, UPDATE, or DELETE RLS policies.
 
+Organizers edit existing events through `/event/:eventId/edit`, which reuses `CreateEvent` and the owner-only `events_update` policy. A historical date may load into the form, but every save requires a future date/time and resets the event status to `upcoming`; only the saved future timestamp can make the event eligible for normal discovery again. Past organized events remain available in My Events.
+
 ## 5. Event access semantics
 
 In Create Event:

@@ -38,6 +38,7 @@ function AppLayout() {
           <Route path="/event/:id" element={<EventDetail />} />
           <Route path="/event/:id/chat" element={<EventChat />} />
           <Route path="/create" element={<CreateEvent />} />
+          <Route path="/event/:eventId/edit" element={<CreateEvent />} />
           <Route path="/my-events" element={<MyEvents />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
