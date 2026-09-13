@@ -37,16 +37,65 @@
 
 html {
   overflow-x: hidden;
+  background: #f8f6fb;
 }
 
 body {
   font-family: 'Manrope', Inter, sans-serif;
   margin: 0;
   min-width: 320px;
-  background-color: #F7F7FA;
+  background-color: transparent;
   color: #17171C;
   -webkit-font-smoothing: antialiased;
   overflow-x: hidden;
+}
+
+#root {
+  min-height: 100dvh;
+  isolation: isolate;
+}
+
+/* One stable, non-interactive atmosphere layer for every route. */
+.app-fixed-background {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 48rem 38rem at 14% 12%, rgba(168, 137, 225, 0.34), transparent 68%),
+    radial-gradient(ellipse 45rem 38rem at 92% 68%, rgba(247, 177, 142, 0.3), transparent 67%),
+    radial-gradient(ellipse 30rem 25rem at 43% 94%, rgba(167, 219, 202, 0.2), transparent 68%),
+    radial-gradient(ellipse 25rem 22rem at 78% 4%, rgba(232, 161, 197, 0.14), transparent 70%),
+    linear-gradient(145deg, #fbf9fd 0%, #f4f0f9 50%, #fbf7f3 100%);
+}
+
+.app-fixed-background::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  opacity: 0.2;
+  background-image:
+    radial-gradient(circle, rgba(72, 57, 102, 0.2) 0.55px, transparent 0.7px),
+    repeating-linear-gradient(118deg, rgba(255, 255, 255, 0.1) 0 1px, transparent 1px 5px);
+  background-size: 13px 13px, 7px 7px;
+  mask-image: linear-gradient(to bottom, black, rgba(0, 0, 0, 0.68));
+}
+
+/* Let the fixed atmosphere remain subtly visible under standard page surfaces. */
+.bg-brand-bg {
+  background-color: rgba(247, 247, 250, 0.88);
+}
+
+@media (max-width: 639px) {
+  .app-fixed-background {
+    background:
+      radial-gradient(ellipse 25rem 32rem at 2% 8%, rgba(168, 137, 225, 0.27), transparent 67%),
+      radial-gradient(ellipse 24rem 30rem at 102% 64%, rgba(247, 177, 142, 0.22), transparent 68%),
+      radial-gradient(ellipse 18rem 22rem at 35% 96%, rgba(167, 219, 202, 0.14), transparent 70%),
+      linear-gradient(145deg, #faf8fc, #f7f4fa 58%, #fbf8f5);
+  }
+
+  .app-fixed-background::after { opacity: 0.11; }
 }
 
 .home-event-card {

@@ -23,6 +23,7 @@ export type IconName =
   | 'footprints'
   | 'palette'
   | 'users'
+  | 'userCheck'
   | 'sparkles'
 
 const paths: Record<IconName, React.ReactNode> = {
@@ -48,6 +49,7 @@ const paths: Record<IconName, React.ReactNode> = {
   footprints: <><path d="M8 3c2 0 3 2 3 4s-1 4-3 4-3-2-3-4 1-4 3-2 3-4Zm8 10c2 0 3 2 3 4s-1 4-3 4-3-2-3-4 1-4 3-2 3-4Z"/></>,
   palette: <><path d="M12 3a9 9 0 1 0 0 18h1.5a2 2 0 0 0 0-4H12a2 2 0 0 1 0-4h5a4 4 0 0 0 4-4c0-3-4-6-9-6Z"/><path d="M7.5 9h.01M10 6.5h.01M15 7h.01"/></>,
   users: <><circle cx="9" cy="8" r="3"/><path d="M3 20a6 6 0 0 1 12 0M16 5a3 3 0 0 1 0 6m1 3a5 5 0 0 1 4 5"/></>,
+  userCheck: <><circle cx="9" cy="8" r="3"/><path d="M3 20a6 6 0 0 1 12 0m1-7 2 2 4-5"/></>,
   sparkles: <><path d="m12 3 1.4 4.1L17.5 8.5l-4.1 1.4L12 14l-1.4-4.1-4.1-1.4 4.1-1.4ZM19 15l.7 2.3L22 18l-2.3.7L19 21l-.7-2.3L16 18l2.3-.7ZM5 14l.6 1.9 1.9.6-1.9.6L5 19l-.6-1.9-1.9-.6 1.9-.6Z"/></>,
 }
 

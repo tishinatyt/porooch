@@ -3,7 +3,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import Onboarding from '@/pages/Onboarding'
 
 export default function ProtectedRoute({ children }: { children: ReactNode }) {
-  const { session, profile, loading } = useAuth()
+  const { session, supaUser, profile, loading } = useAuth()
 
   if (loading) {
     return (
@@ -14,7 +14,8 @@ export default function ProtectedRoute({ children }: { children: ReactNode }) {
   }
 
   const hasCompleteProfile = Boolean(profile?.name?.trim().length && profile.name.trim().length >= 2 && profile.avatar_url)
-  if (!session || !hasCompleteProfile) return <Onboarding />
+  const needsInterests = supaUser?.user_metadata?.poruch_onboarding === 'interests'
+  if (!session || !hasCompleteProfile || needsInterests) return <Onboarding />
 
   return <>{children}</>
 }

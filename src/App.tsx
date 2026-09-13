@@ -50,18 +50,21 @@ function AppLayout() {
 
 export default function App() {
   return (
-    <BrowserRouter basename={import.meta.env.BASE_URL.replace(/\/$/, '') || '/'}>
-      <AuthProvider>
-        <ProtectedRoute>
-          <UnreadMessagesProvider>
-            <MyEventsProvider>
-              <ProfilePreviewProvider>
-                <AppLayout />
-              </ProfilePreviewProvider>
-            </MyEventsProvider>
-          </UnreadMessagesProvider>
-        </ProtectedRoute>
-      </AuthProvider>
-    </BrowserRouter>
+    <>
+      <div className="app-fixed-background" aria-hidden="true" />
+      <BrowserRouter basename={import.meta.env.BASE_URL.replace(/\/$/, '') || '/'}>
+        <AuthProvider>
+          <ProtectedRoute>
+            <UnreadMessagesProvider>
+              <MyEventsProvider>
+                <ProfilePreviewProvider>
+                  <AppLayout />
+                </ProfilePreviewProvider>
+              </MyEventsProvider>
+            </UnreadMessagesProvider>
+          </ProtectedRoute>
+        </AuthProvider>
+      </BrowserRouter>
+    </>
   )
 }

@@ -185,7 +185,9 @@ Keep per-user/per-chat state. Never replace it with a global `is_read` boolean o
 
 ## 9. Authentication
 
-`AuthProvider` uses Supabase Auth, restores the persisted session with `getSession()`, follows `onAuthStateChange`, and loads the application profile from `public.users`. New users enter a required name and avatar, then the client calls `supabase.auth.signInAnonymously()`, uploads the avatar under the authenticated user's `avatars/<auth.uid()>/...` Storage path, and upserts the profile for that same ID. `ProtectedRoute` treats any Supabase session as authenticated and keeps incomplete profiles on this completion screen.
+`AuthProvider` uses Supabase Auth, restores the persisted session with `getSession()`, follows `onAuthStateChange`, and loads the application profile from `public.users`. The first-time test flow is `Landing → Name + Photo → Interests → Home`. Clicking the public landing CTA does not authenticate. The name/photo step calls `supabase.auth.signInAnonymously()`, uploads the avatar under the authenticated user's `avatars/<auth.uid()>/...` Storage path, and upserts the profile for that same ID. The interests step saves 2–6 selections to the existing `public.users.interests` field. A `poruch_onboarding` auth user-metadata marker distinguishes this new incomplete flow without forcing established users with empty interests through onboarding.
+
+Interests are profile data only in the current test version. They do not influence Home filtering, discovery, ranking, matching, recommendations, or people filtering.
 
 Anonymous Sign-Ins must be enabled manually in the Supabase Dashboard under Authentication provider settings. Anonymous users receive a normal authenticated JWT, so existing `auth.uid()` ownership checks and `authenticated` RLS policies remain authoritative. No client-only or localStorage identity is used.
 
@@ -265,6 +267,8 @@ Use `git log --oneline` for newer milestones; update this section when an archit
 
 - [ ] Supabase Anonymous Sign-Ins are enabled in the project dashboard.
 - [ ] New name/photo onboarding creates one anonymous session and owned profile.
+- [ ] Brand-new unauthenticated users see Landing before name/photo.
+- [ ] Interests require 2 selections, stop at 6, and save before Home.
 - [ ] Retrying a failed avatar/profile save reuses the same anonymous identity.
 - [ ] Refresh restores a complete anonymous session without onboarding.
 - [ ] Existing Google sessions and complete profiles still open normally.

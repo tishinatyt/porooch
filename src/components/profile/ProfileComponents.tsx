@@ -7,11 +7,12 @@ interface InterestChipsProps {
   selected: string[]
   editable?: boolean
   max?: number
+  options?: readonly string[]
   onChange?: (interests: string[]) => void
 }
 
-export function InterestChips({ selected, editable = false, max = 8, onChange }: InterestChipsProps) {
-  const options = editable ? PROFILE_INTERESTS : selected
+export function InterestChips({ selected, editable = false, max = 8, options: providedOptions, onChange }: InterestChipsProps) {
+  const options = editable ? providedOptions ?? PROFILE_INTERESTS : selected
   function toggle(interest: string) {
     if (!editable || !onChange) return
     if (selected.includes(interest)) onChange(selected.filter((item) => item !== interest))
