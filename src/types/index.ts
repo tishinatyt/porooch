@@ -3,8 +3,8 @@ export type Gender = 'male' | 'female' | 'any'
 export interface User {
   id: string
   name: string
-  age: number
-  gender: Gender
+  age: number | null
+  gender: Gender | null
   avatar_url: string | null
   profile_photos?: string[]
   google_verified: boolean

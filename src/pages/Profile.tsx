@@ -22,7 +22,7 @@ export default function Profile() {
   useEffect(() => {
     if (!profile) return
     setName(profile.name)
-    setAge(String(profile.age))
+    setAge(profile.age === null ? '' : String(profile.age))
     setCity(profile.city ?? '')
     setBio(profile.bio ?? '')
     setInterests(profile.interests ?? [])
@@ -33,9 +33,9 @@ export default function Profile() {
     const cleanName = name.trim()
     const cleanCity = city.trim()
     const cleanBio = bio.trim()
-    const ageNumber = Number(age)
-    if (!cleanName) { setError('Вкажіть ім’я'); return }
-    if (!Number.isInteger(ageNumber) || ageNumber < 16 || ageNumber > 100) { setError('Вік має бути від 16 до 100 років'); return }
+    const ageNumber = age.trim() ? Number(age) : null
+    if (cleanName.length < 2) { setError('Вкажіть ім’я'); return }
+    if (ageNumber !== null && (!Number.isInteger(ageNumber) || ageNumber < 16 || ageNumber > 100)) { setError('Вік має бути від 16 до 100 років'); return }
     if (cleanBio.length > 300) { setError('Опис може містити до 300 символів'); return }
     setSaving(true); setError(null)
     const { error: updateError } = await supabase.from('users').update({ name: cleanName, age: ageNumber, city: cleanCity || null, bio: cleanBio || null, interests }).eq('id', supaUser.id)
@@ -105,7 +105,7 @@ export default function Profile() {
             </div>
             <div className="mt-4 min-w-0 flex-1 sm:ml-6 sm:mt-0">
               <h1 className="text-2xl font-extrabold tracking-[-0.03em]">{profile.name}</h1>
-              <p className="mt-1 text-sm text-brand-ink-muted">{[profile.city, `${profile.age} років`].filter(Boolean).join(' · ')}</p>
+              <p className="mt-1 text-sm text-brand-ink-muted">{[profile.city, profile.age ? `${profile.age} років` : null].filter(Boolean).join(' · ')}</p>
               {!editing && <button type="button" onClick={() => setEditing(true)} className="mt-4 h-10 rounded-xl bg-brand-accent px-4 text-sm font-bold text-white hover:bg-brand-accent-hover">Редагувати профіль</button>}
               {editing && <button type="button" onClick={() => fileRef.current?.click()} disabled={uploading} className="mt-3 h-10 rounded-xl border border-brand-accent/20 bg-white px-4 text-sm font-bold text-brand-accent transition hover:bg-brand-accent-soft disabled:cursor-wait disabled:opacity-60">{uploading ? 'Завантажуємо...' : 'Змінити фото'}</button>}
             </div>
@@ -124,7 +124,7 @@ export default function Profile() {
           <label className="block text-xs font-bold text-brand-ink-soft">Про себе<textarea value={bio} maxLength={300} rows={4} onChange={(event) => setBio(event.target.value)} placeholder="Кілька слів про вас" className="mt-1.5 w-full resize-none rounded-xl border border-brand-border bg-brand-bg px-3.5 py-3 text-sm font-normal leading-6 text-brand-ink outline-none focus:border-brand-accent focus:bg-white focus:ring-3 focus:ring-brand-accent/10" /><span className="mt-1 block text-right text-xs font-normal text-brand-ink-muted">{bio.length}/300</span></label>
           <ProfilePhotoGalleryEditor userId={supaUser!.id} photos={profile.profile_photos ?? []} onAdd={addGalleryPhoto} onRemove={deleteGalleryPhoto} disabled={saving || uploading} />
           <div className="border-t border-brand-border pt-5"><div className="mb-3 flex justify-between gap-3"><h2 className="text-sm font-extrabold text-brand-ink">Інтереси</h2><span className="rounded-full bg-brand-accent-soft px-2 py-0.5 text-xs font-bold text-brand-accent">{interests.length} з 8</span></div><InterestChips selected={interests} editable onChange={setInterests} />{interests.length >= 8 && <p className="mt-2 text-xs text-brand-ink-muted">Можна вибрати до 8 інтересів</p>}</div>
-          <div className="flex flex-col-reverse gap-2 border-t border-brand-border pt-5 sm:flex-row sm:justify-end"><button type="button" onClick={() => { setName(profile.name); setAge(String(profile.age)); setCity(profile.city ?? ''); setBio(profile.bio ?? ''); setInterests(profile.interests ?? []); setEditing(false); setError(null) }} className="h-11 rounded-xl border border-brand-border px-5 text-sm font-bold text-brand-ink-soft hover:bg-brand-surface-muted">Скасувати</button><button type="button" onClick={() => { void handleSave() }} disabled={saving || uploading} className="h-11 rounded-xl bg-brand-accent px-6 text-sm font-bold text-white hover:bg-brand-accent-hover disabled:cursor-wait disabled:opacity-60">{saving ? 'Зберігаємо...' : 'Зберегти'}</button></div>
+          <div className="flex flex-col-reverse gap-2 border-t border-brand-border pt-5 sm:flex-row sm:justify-end"><button type="button" onClick={() => { setName(profile.name); setAge(profile.age === null ? '' : String(profile.age)); setCity(profile.city ?? ''); setBio(profile.bio ?? ''); setInterests(profile.interests ?? []); setEditing(false); setError(null) }} className="h-11 rounded-xl border border-brand-border px-5 text-sm font-bold text-brand-ink-soft hover:bg-brand-surface-muted">Скасувати</button><button type="button" onClick={() => { void handleSave() }} disabled={saving || uploading} className="h-11 rounded-xl bg-brand-accent px-6 text-sm font-bold text-white hover:bg-brand-accent-hover disabled:cursor-wait disabled:opacity-60">{saving ? 'Зберігаємо...' : 'Зберегти'}</button></div>
         </section> : <div className="mt-4 grid gap-4 sm:grid-cols-2">
           <section className="rounded-2xl border border-brand-border bg-white p-5"><h2 className="text-base font-extrabold">Про себе</h2>{profile.bio ? <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-brand-ink-soft">{profile.bio}</p> : <button type="button" onClick={() => setEditing(true)} className="mt-3 text-left text-sm text-brand-ink-muted hover:text-brand-accent">Розкажіть трохи про себе <span className="font-bold text-brand-accent">Редагувати</span></button>}</section>
           <section className="rounded-2xl border border-brand-border bg-white p-5"><h2 className="mb-3 text-base font-extrabold">Інтереси</h2>{profile.interests?.length ? <InterestChips selected={profile.interests.slice(0, 8)} /> : <button type="button" onClick={() => setEditing(true)} className="text-left text-sm text-brand-ink-muted hover:text-brand-accent">Інтереси ще не додані. <span className="font-bold text-brand-accent">Додати</span></button>}</section>

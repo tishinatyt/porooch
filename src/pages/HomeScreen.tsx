@@ -88,6 +88,7 @@ function asPersonalEvent(event: PublicEventData): PersonalEventData {
     isDemo: event.isDemo,
     participationStatus: event.participationStatus,
     pending_request_count: event.pending_request_count,
+    bank_enabled: event.bank_enabled,
   }
 }
 
@@ -156,12 +157,12 @@ export default function HomeScreen() {
         events: nearbyRows.map((row) => ({ id: row.id, title: row.title })),
       })
     }
-    const typeById = new Map<string, { event_type: 'personal' | 'public'; join_mode: 'open' | 'approval'; is_public: boolean }>()
+    const typeById = new Map<string, { event_type: 'personal' | 'public'; join_mode: 'open' | 'approval'; is_public: boolean; bank_enabled: boolean }>()
 
     if (ids.length > 0) {
       const { data: typeRows, error: typeError } = await supabase
         .from('events')
-        .select('id, event_type, join_mode, is_public')
+        .select('id, event_type, join_mode, is_public, bank_enabled')
         .in('id', ids)
       if (requestId !== discoveryRequestId.current) return
       if (typeError) {
@@ -181,6 +182,7 @@ export default function HomeScreen() {
           event_type: (row.event_type ?? 'public') as 'personal' | 'public',
           join_mode: (row.join_mode ?? 'open') as 'open' | 'approval',
           is_public: row.is_public ?? true,
+          bank_enabled: row.bank_enabled ?? false,
         })
       }
       if (import.meta.env.DEV) {
@@ -219,6 +221,7 @@ export default function HomeScreen() {
         event_type: metadata?.event_type ?? 'public',
         join_mode: metadata?.join_mode ?? 'open',
         is_public: metadata?.is_public ?? (e.is_public as boolean | undefined) ?? true,
+        bank_enabled: metadata?.bank_enabled ?? false,
         participationStatus: participantMembershipById.get(e.id as string),
       } as PublicEventData
     })
@@ -285,7 +288,7 @@ export default function HomeScreen() {
   // ── Derived / filtered lists ───────────────────────────────────────────────
 
   const eligibleDiscovery = membershipsReady ? allDiscoveryEvents
-    .filter((event) => isEligible(event, profile?.age, profile?.gender))
+    .filter((event) => isEligible(event, profile?.age ?? undefined, profile?.gender ?? undefined))
     .filter((event) => event.distance_km === null || event.distance_km <= radiusKm)
     .filter((event) => matchesSearch(event, searchQuery)) : []
 
@@ -322,7 +325,7 @@ export default function HomeScreen() {
 
   useEffect(() => {
     if (!import.meta.env.DEV || loadingDiscovery) return
-    const afterEligibility = allDiscoveryEvents.filter((event) => isEligible(event, profile?.age, profile?.gender))
+    const afterEligibility = allDiscoveryEvents.filter((event) => isEligible(event, profile?.age ?? undefined, profile?.gender ?? undefined))
     const afterRadius = afterEligibility.filter((event) => event.distance_km === null || event.distance_km <= radiusKm)
     const afterSearch = afterRadius.filter((event) => matchesSearch(event, searchQuery))
     const summarize = (events: PublicEventData[]) => events.map(({ id, title }) => ({ id, title }))

@@ -185,17 +185,18 @@ Keep per-user/per-chat state. Never replace it with a global `is_read` boolean o
 
 ## 9. Authentication
 
-`AuthProvider` uses Supabase Auth, restores the session with `getSession()`, follows `onAuthStateChange`, and loads the application profile from `public.users`. Google OAuth uses a redirect derived from `new URL(import.meta.env.BASE_URL, window.location.origin)`. `ProtectedRoute` shows onboarding without a session and profile completion without a `public.users` row.
+`AuthProvider` uses Supabase Auth, restores the persisted session with `getSession()`, follows `onAuthStateChange`, and loads the application profile from `public.users`. New users enter a required name and avatar, then the client calls `supabase.auth.signInAnonymously()`, uploads the avatar under the authenticated user's `avatars/<auth.uid()>/...` Storage path, and upserts the profile for that same ID. `ProtectedRoute` treats any Supabase session as authenticated and keeps incomplete profiles on this completion screen.
 
-Supabase Auth production Site URL is:
+Anonymous Sign-Ins must be enabled manually in the Supabase Dashboard under Authentication provider settings. Anonymous users receive a normal authenticated JWT, so existing `auth.uid()` ownership checks and `authenticated` RLS policies remain authoritative. No client-only or localStorage identity is used.
+
+Existing Google-authenticated sessions and profiles remain supported without conversion. The legacy Google OAuth method/configuration stays in the code for compatibility, but Google is no longer presented in the first-time user UI.
+
+Anonymous sessions use the Supabase client's normal browser persistence. The current test version keeps the same simple sign-out action for every account type. Cross-device recovery is not available until a future “Зберегти акаунт” flow links phone/email credentials to the same auth user; such linking must preserve the existing user ID and data.
+
+Supabase Auth production Site URL and legacy OAuth redirects remain:
 
 ```text
 https://tishinatyt.github.io/porooch/
-```
-
-Allowed redirects should include:
-
-```text
 http://localhost:5173/**
 https://tishinatyt.github.io/porooch/**
 ```
@@ -219,6 +220,7 @@ Do not reintroduce old `/meetnow/` redirect paths.
 13. `013_events_organizer_select.sql` — authenticated organizer SELECT access to their own events.
 14. `014_event_chat_unread_counts.sql` — one access-controlled grouped RPC for per-chat unread counts in Chats.
 15. `015_profile_gallery_and_event_bank.sql` — ordered max-six profile gallery paths, personal-event bank prototype fields, constraints, and owner-only avatar-object deletion.
+16. `016_anonymous_onboarding_profile_fields.sql` — makes age and gender optional so anonymous onboarding can create an honest profile from only the required name and avatar.
 
 Never rewrite an applied migration. Add the next numbered migration when schema changes are genuinely required.
 
@@ -261,8 +263,13 @@ Use `git log --oneline` for newer milestones; update this section when an archit
 
 ### Authentication
 
-- [ ] Production Google login completes.
-- [ ] OAuth returns to `/porooch/`.
+- [ ] Supabase Anonymous Sign-Ins are enabled in the project dashboard.
+- [ ] New name/photo onboarding creates one anonymous session and owned profile.
+- [ ] Retrying a failed avatar/profile save reuses the same anonymous identity.
+- [ ] Refresh restores a complete anonymous session without onboarding.
+- [ ] Existing Google sessions and complete profiles still open normally.
+- [ ] Incomplete sessions return to name/photo completion.
+- [ ] Anonymous and existing Google users can use the standard sign-out action.
 - [ ] Refreshing a direct protected route works.
 
 ### Events

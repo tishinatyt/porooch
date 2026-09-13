@@ -1,7 +1,6 @@
 import type { ReactNode } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import Onboarding from '@/pages/Onboarding'
-import CompleteProfile from '@/pages/Onboarding/CompleteProfile'
 
 export default function ProtectedRoute({ children }: { children: ReactNode }) {
   const { session, profile, loading } = useAuth()
@@ -14,8 +13,8 @@ export default function ProtectedRoute({ children }: { children: ReactNode }) {
     )
   }
 
-  if (!session) return <Onboarding />
-  if (!profile) return <CompleteProfile />
+  const hasCompleteProfile = Boolean(profile?.name?.trim().length && profile.name.trim().length >= 2 && profile.avatar_url)
+  if (!session || !hasCompleteProfile) return <Onboarding />
 
   return <>{children}</>
 }

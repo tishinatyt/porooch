@@ -67,6 +67,7 @@ export function PersonalEventCard({ event, management = false, isOrganizer = fal
         <span className={`rounded-lg border px-2 py-0.5 text-[10px] font-bold ${CATEGORY_CHIP[event.category] ?? CATEGORY_CHIP.other}`}>{CATEGORY_LABEL[event.category] ?? event.category}</span>
         <span className="rounded-lg border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-900">{event.min_age}–{event.max_age} · {GENDER_LABEL[event.gender_filter] ?? event.gender_filter}</span>
         <span className={`rounded-lg border px-2 py-0.5 text-[10px] font-bold ${getEventAccessChipClass(event)}`}>{getEventAccessLabel(event)}</span>
+        {event.bank_enabled && <span className="rounded-lg border border-indigo-200 bg-indigo-50 px-2 py-0.5 text-[10px] font-bold text-indigo-700">Банка</span>}
       </div>
 
       <div className="mt-2 flex items-center justify-between gap-2 border-t border-[#ece8f2] pt-2">

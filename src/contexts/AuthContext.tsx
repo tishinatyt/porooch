@@ -9,8 +9,9 @@ interface AuthContextValue {
   profile: User | null
   loading: boolean
   signInWithGoogle: () => Promise<void>
+  signInAnonymously: () => Promise<SupabaseUser>
   signOut: () => Promise<void>
-  refreshProfile: () => Promise<void>
+  refreshProfile: (userId?: string) => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
@@ -30,8 +31,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setProfile(data ?? null)
   }
 
-  async function refreshProfile() {
-    if (supaUser) await fetchProfile(supaUser.id)
+  async function refreshProfile(userId?: string) {
+    const profileUserId = userId ?? supaUser?.id
+    if (profileUserId) await fetchProfile(profileUserId)
   }
 
   useEffect(() => {
@@ -59,12 +61,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     })
   }
 
+  async function signInAnonymously() {
+    const { data, error } = await supabase.auth.signInAnonymously()
+    if (error) throw error
+    if (!data.user) throw new Error('Anonymous sign-in did not return a user')
+    return data.user
+  }
+
   async function signOut() {
     await supabase.auth.signOut()
   }
 
   return (
-    <AuthContext.Provider value={{ session, supaUser, profile, loading, signInWithGoogle, signOut, refreshProfile }}>
+    <AuthContext.Provider value={{ session, supaUser, profile, loading, signInWithGoogle, signInAnonymously, signOut, refreshProfile }}>
       {children}
     </AuthContext.Provider>
   )

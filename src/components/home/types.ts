@@ -34,6 +34,7 @@ export interface PersonalEventData {
   description?: string
   isDemo?: true
   pending_request_count?: number
+  bank_enabled?: boolean
 }
 
 export interface PublicEventData {
@@ -61,4 +62,5 @@ export interface PublicEventData {
   isDemo?: true
   participationStatus?: 'pending' | 'joined' | 'rejected'
   pending_request_count?: number
+  bank_enabled?: boolean
 }
