@@ -23,9 +23,11 @@ jobs:
           cache: npm
       - run: npm ci
       - name: Apply audited source fixes
-        run: node scripts/apply-audit-fixes.mjs
+        run: |
+          node scripts/apply-audit-fixes.mjs
+          node scripts/fix-audit-build.mjs
       - name: Remove one-shot tooling
-        run: rm -f scripts/apply-audit-fixes.mjs .github/workflows/audit-autofix.yml
+        run: rm -f scripts/apply-audit-fixes.mjs scripts/fix-audit-build.mjs .github/workflows/audit-autofix.yml
       - name: Validate build
         run: npm run build
         env:
