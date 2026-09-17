@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { BrowserRouter, Navigate, Routes, Route, useLocation } from 'react-router-dom'
 import { AuthProvider } from '@/contexts/AuthContext'
 import ProtectedRoute from '@/components/ProtectedRoute'
@@ -14,9 +15,20 @@ import { UnreadMessagesProvider } from '@/contexts/UnreadMessagesContext'
 import { ProfilePreviewProvider } from '@/contexts/ProfilePreviewContext'
 import { MyEventsProvider } from '@/contexts/MyEventsContext'
 import PublicProfile from '@/pages/PublicProfile'
+import { trackPageView } from '@/lib/analytics'
 
 // Routes with their own full-screen bottom CTA — BottomNav would cover them
 const HIDE_NAV_PATTERNS = [/^\/event\//]
+
+function RouteAnalytics() {
+  const location = useLocation()
+
+  useEffect(() => {
+    trackPageView(`${window.location.pathname}${window.location.search}`)
+  }, [location.pathname, location.search])
+
+  return null
+}
 
 function AppLayout() {
   const { pathname } = useLocation()
@@ -53,6 +65,7 @@ export default function App() {
     <>
       <div className="app-fixed-background" aria-hidden="true" />
       <BrowserRouter basename={import.meta.env.BASE_URL.replace(/\/$/, '') || '/'}>
+        <RouteAnalytics />
         <AuthProvider>
           <ProtectedRoute>
             <UnreadMessagesProvider>
