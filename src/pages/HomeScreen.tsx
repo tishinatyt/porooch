@@ -1,8 +1,8 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { lazy, Suspense, useState, useEffect, useCallback, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
-import { getCurrentPosition } from '@/lib/geo'
+import { DEFAULT_LAT, DEFAULT_LNG, getCurrentPosition, type Coords } from '@/lib/geo'
 import { getOblastCenterCoordinates } from '@/lib/cities'
 import TopBar from '@/components/TopBar'
 import { PersonalEventCard, PublicEventCard } from '@/components/home/HomeEventCards'
@@ -12,14 +12,11 @@ import HomeBackgroundDecorations from '@/components/home/HomeBackgroundDecoratio
 import type { PersonalEventData, PublicEventData } from '@/components/home/types'
 import { DEMO_EVENTS_ENABLED, DEMO_PERSONAL_EVENTS, DEMO_PUBLIC_EVENTS, PUBLIC_CATEGORIES } from '@/components/home/demoEvents'
 import { useMyEventsContext } from '@/contexts/MyEventsContext'
+import { eventCategoryLabel } from '@/components/home/eventLabels'
+
+const DiscoveryMap = lazy(() => import('@/components/home/DiscoveryMap'))
 
 // ── Constants ────────────────────────────────────────────────────────────────
-
-const CATEGORY_LABEL: Record<string, string> = {
-  cinema: 'Кіно', theatre: 'Театр', bar: 'Бар', sport: 'Спорт',
-  music: 'Музика', food: 'Їжа', games: 'Ігри', walk: 'Прогулянка',
-  art: 'Мистецтво', communication: 'Спілкування', other: 'Інше',
-}
 
 const TABS = [
   { key: 'all',     label: 'Усі' },
@@ -46,7 +43,7 @@ const RADIUS_OPTIONS = [
 function matchesSearch(event: Pick<PublicEventData, 'title' | 'category' | 'address_text' | 'organizer'>, query: string) {
   const normalized = query.trim().toLocaleLowerCase('uk-UA')
   if (!normalized) return true
-  const category = CATEGORY_LABEL[event.category] ?? event.category
+  const category = eventCategoryLabel(event.category)
   return [event.title, category, event.address_text, event.organizer?.name ?? '']
     .some((value) => value.toLocaleLowerCase('uk-UA').includes(normalized))
 }
@@ -103,6 +100,8 @@ export default function HomeScreen() {
   const [selectedCategory, setSelectedCategory] = useState('all')
   const [publicPage, setPublicPage] = useState(1)
   const [radiusKm, setRadiusKm] = useState(5)
+  const [viewMode, setViewMode] = useState<'feed' | 'map'>('feed')
+  const [discoveryCenter, setDiscoveryCenter] = useState<Coords>({ lat: DEFAULT_LAT, lng: DEFAULT_LNG })
 
   const [allDiscoveryEvents, setAllDiscoveryEvents] = useState<PublicEventData[]>([])
   const [membershipsReady, setMembershipsReady] = useState(false)
@@ -127,6 +126,7 @@ export default function HomeScreen() {
     ])
 
     if (requestId !== discoveryRequestId.current) return
+    setDiscoveryCenter(geo)
 
     if (nearbyResult.error || participationResult.error) {
       if (nearbyResult.error) {
@@ -219,6 +219,8 @@ export default function HomeScreen() {
         max_participants: e.max_participants,
         participant_count: e.participant_count ?? 0,
         distance_km: e.distance_km ?? null,
+        location_lat: typeof e.location_lat === 'number' ? e.location_lat : null,
+        location_lng: typeof e.location_lng === 'number' ? e.location_lng : null,
         organizer: (e.organizer ?? null) as PublicEventData['organizer'],
         event_type: metadata?.event_type ?? 'public',
         join_mode: metadata?.join_mode ?? 'open',
@@ -312,6 +314,10 @@ export default function HomeScreen() {
     .filter((event) => event.event_type === 'public')
     .filter((e) => selectedCategory === 'all' || e.category === selectedCategory)
 
+  const mapEvents = eligibleDiscovery.filter((event) =>
+    event.event_type === 'personal' || selectedCategory === 'all' || event.category === selectedCategory,
+  )
+
   const categoriesWithRealEvents = new Set(realPublic.map((event) => event.category))
   const demoFallbacks = (DEMO_EVENTS_ENABLED ? DEMO_PUBLIC_EVENTS : []).filter((event) =>
     (selectedCategory === 'all' ? PUBLIC_CATEGORIES.includes(event.category as typeof PUBLIC_CATEGORIES[number]) : event.category === selectedCategory)
@@ -355,8 +361,14 @@ export default function HomeScreen() {
         radiusOptions={RADIUS_OPTIONS}
       />
 
-      <div className="relative z-10 mx-auto w-full max-w-[1440px] px-4 py-3 sm:px-6 sm:py-4 lg:min-h-0 lg:max-w-none lg:flex-1 lg:overflow-hidden lg:px-4 lg:py-6 xl:px-4">
-        <div className="grid min-w-0 grid-cols-1 items-start gap-6 sm:gap-7 lg:h-full lg:min-h-0 lg:grid-cols-[minmax(280px,0.4fr)_minmax(0,0.6fr)] lg:items-stretch lg:gap-2 xl:grid-cols-[minmax(340px,0.4fr)_minmax(0,0.6fr)] xl:gap-2.5">
+      <div className="relative z-10 mx-auto flex w-full max-w-[1440px] flex-col px-4 py-3 sm:px-6 sm:py-4 lg:min-h-0 lg:max-w-none lg:flex-1 lg:overflow-hidden lg:px-4 lg:py-4 xl:px-4">
+        <div className="mb-2 flex flex-none justify-end">
+          <div className="inline-flex rounded-xl border border-brand-border bg-white/90 p-1 shadow-sm" role="group" aria-label="Режим перегляду подій">
+            {(['feed', 'map'] as const).map((mode) => <button key={mode} type="button" aria-pressed={viewMode === mode} onClick={() => setViewMode(mode)} className={`h-8 rounded-lg px-3 text-[11px] font-extrabold transition ${viewMode === mode ? 'bg-brand-accent text-white shadow-sm' : 'text-brand-ink-muted hover:bg-brand-accent-soft hover:text-brand-accent'}`}>{mode === 'feed' ? 'Стрічка' : 'Карта'}</button>)}
+          </div>
+        </div>
+
+        {viewMode === 'feed' ? <div className="grid min-w-0 flex-1 grid-cols-1 items-start gap-6 sm:gap-7 lg:min-h-0 lg:grid-cols-[minmax(280px,0.4fr)_minmax(0,0.6fr)] lg:items-stretch lg:gap-2 xl:grid-cols-[minmax(340px,0.4fr)_minmax(0,0.6fr)] xl:gap-2.5">
           <section className="min-w-0 rounded-[24px] border border-[#c5badc] bg-[#e4def1] p-2 pb-0 shadow-[0_10px_30px_rgba(61,45,96,0.09)] sm:p-3 sm:pb-0 lg:flex lg:min-h-0 lg:flex-col">
             {loadingDiscovery && <HomeCarousel id="personal-events-loading" label="Завантаження знайомств" className="lg:space-y-3">{[1, 2, 3].map((item) => <div role="listitem" key={item} className="h-56 w-[88%] flex-none snap-start animate-pulse rounded-2xl border border-brand-border bg-white min-[420px]:w-[86%] sm:w-[46%] md:w-[44%] lg:w-auto" />)}</HomeCarousel>}
             {!loadingDiscovery && personalEvents.length === 0 && (
@@ -384,7 +396,16 @@ export default function HomeScreen() {
               <div className="mt-1 min-w-0 xl:mt-0 xl:flex-1 [&>div]:pb-0 [&_button]:min-h-7 [&_button]:rounded-[10px] [&_button]:px-2.5 [&_button]:text-[10px]"><CategoryChips items={TABS} selected={selectedCategory} onSelect={(key) => { setSelectedCategory(key); setPublicPage(1) }} /></div>
             </div>
           </section>
-        </div>
+        </div> : <section className="flex min-h-[520px] min-w-0 flex-1 flex-col rounded-[24px] border border-brand-border bg-white/75 p-2 shadow-[0_10px_30px_rgba(61,45,96,0.09)] sm:p-3 lg:min-h-0">
+          <div className="mb-2 flex flex-none flex-col gap-2 px-1 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-2">
+              <h1 className="text-sm font-extrabold tracking-[-0.02em] text-brand-ink">Події на карті</h1>
+              {!loadingDiscovery && <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-brand-accent-soft px-1.5 text-[10px] font-bold tabular-nums text-brand-accent">{mapEvents.length}</span>}
+            </div>
+            <div className="min-w-0 sm:max-w-[520px] sm:flex-1 [&>div]:pb-0 [&_button]:min-h-8 [&_button]:rounded-[10px] [&_button]:px-2.5 [&_button]:text-[10px]"><CategoryChips items={TABS} selected={selectedCategory} onSelect={(key) => { setSelectedCategory(key); setPublicPage(1) }} /></div>
+          </div>
+          {loadingDiscovery && allDiscoveryEvents.length === 0 ? <div className="min-h-[430px] flex-1 animate-pulse rounded-2xl bg-brand-surface-muted lg:min-h-0" /> : discoveryError ? <div className="grid min-h-[430px] flex-1 place-items-center rounded-2xl border border-dashed border-brand-border-strong bg-white px-4 text-center text-sm font-bold text-brand-ink">Не вдалося завантажити події.</div> : <Suspense fallback={<div className="min-h-[430px] flex-1 animate-pulse rounded-2xl bg-brand-surface-muted lg:min-h-0" />}><DiscoveryMap events={mapEvents} center={discoveryCenter} /></Suspense>}
+        </section>}
       </div>
     </div>
   )

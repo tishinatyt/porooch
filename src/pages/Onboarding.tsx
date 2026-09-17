@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import BrandLogo from '@/components/BrandLogo'
 import LandingPage from '@/components/onboarding/LandingPage'
 import { InterestChips } from '@/components/profile/ProfileComponents'
+import { CitySelect } from '@/components/profile/CitySelect'
 import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
 
@@ -23,6 +24,7 @@ export default function Onboarding() {
     return supaUser.user_metadata?.poruch_onboarding === 'interests' ? 'interests' : 'profile'
   })
   const [name, setName] = useState(profile?.name ?? supaUser?.user_metadata?.full_name?.trim() ?? '')
+  const [city, setCity] = useState(profile?.city ?? '')
   const [photo, setPhoto] = useState<File | null>(null)
   const [previewUrl, setPreviewUrl] = useState<string | null>(profile?.avatar_url ?? null)
   const [uploadedAvatar, setUploadedAvatar] = useState<{ userId: string; url: string } | null>(null)
@@ -62,6 +64,7 @@ export default function Onboarding() {
     const cleanName = name.trim()
     if (cleanName.length < 2) { setError('Вкажіть ім’я'); return }
     if (cleanName.length > 80) { setError('Ім’я може містити до 80 символів'); return }
+    if (!city) { setError('Оберіть місто'); return }
     if (!photo && !profile?.avatar_url && !uploadedAvatar) { setError('Додайте фото'); return }
 
     submittingRef.current = true
@@ -87,6 +90,7 @@ export default function Onboarding() {
       const { error: profileError } = await supabase.from('users').upsert({
         id: authUser.id,
         name: cleanName,
+        city,
         avatar_url: avatarUrl,
         google_verified: authUser.app_metadata.provider === 'google',
       })
@@ -134,6 +138,6 @@ export default function Onboarding() {
   }
 
   return (
-    <div className="flex min-h-[100dvh] items-center justify-center bg-brand-bg px-4 py-8 text-brand-ink sm:px-6"><main className="w-full max-w-md rounded-3xl border border-brand-border bg-white p-6 shadow-card sm:p-8"><BrandLogo className="mx-auto w-40" /><p className="mt-6 text-center text-xs font-bold text-brand-accent">КРОК 1 З 2</p><h1 className="mt-2 text-center text-2xl font-extrabold leading-tight tracking-[-0.035em]">Знайомства та події поруч</h1><div className="mt-8 space-y-6"><label className="block text-sm font-bold text-brand-ink-soft">Ім’я<input value={name} maxLength={80} autoComplete="name" onChange={(event) => setName(event.target.value)} className="mt-2 h-12 w-full rounded-xl border border-brand-border bg-brand-bg px-4 font-normal text-brand-ink outline-none transition focus:border-brand-accent focus:bg-white focus:ring-3 focus:ring-brand-accent/10" /></label><div><span className="block text-sm font-bold text-brand-ink-soft">Фото</span><div className="mt-3 flex flex-col items-center"><button type="button" onClick={() => fileRef.current?.click()} disabled={submitting} className="grid h-28 w-28 place-items-center overflow-hidden rounded-full border-2 border-dashed border-brand-accent/35 bg-brand-accent-soft text-brand-accent transition hover:border-brand-accent focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-brand-accent disabled:cursor-wait disabled:opacity-60" aria-label={previewUrl ? 'Замінити фото профілю' : 'Додати фото профілю'}>{previewUrl ? <img src={previewUrl} alt="Попередній перегляд фото профілю" className="h-full w-full object-cover" /> : <span className="text-3xl font-light" aria-hidden="true">+</span>}</button><button type="button" onClick={() => fileRef.current?.click()} disabled={submitting} className="mt-2 min-h-10 rounded-xl px-4 text-sm font-bold text-brand-accent transition hover:bg-brand-accent-soft disabled:cursor-wait disabled:opacity-60">{previewUrl ? 'Замінити фото' : '+ Додати фото'}</button><input ref={fileRef} type="file" accept={ACCEPTED_IMAGE_TYPES.join(',')} onChange={selectPhoto} className="hidden" aria-label="Завантажити фото профілю" /></div></div></div>{error && <div role="alert" className="mt-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}<button type="button" onClick={() => { void continueToInterests() }} disabled={submitting} className="mt-7 h-14 w-full rounded-2xl bg-brand-accent text-sm font-extrabold text-white transition hover:bg-brand-accent-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-accent disabled:cursor-wait disabled:opacity-60">{submitting ? 'СТВОРЮЄМО ПРОФІЛЬ…' : 'ПРОДОВЖИТИ'}</button></main></div>
+    <div className="flex min-h-[100dvh] items-center justify-center bg-brand-bg px-4 py-8 text-brand-ink sm:px-6"><main className="w-full max-w-md rounded-3xl border border-brand-border bg-white p-6 shadow-card sm:p-8"><BrandLogo className="mx-auto w-40" /><p className="mt-6 text-center text-xs font-bold text-brand-accent">КРОК 1 З 2</p><h1 className="mt-2 text-center text-2xl font-extrabold leading-tight tracking-[-0.035em]">Знайомства та події поруч</h1><div className="mt-8 space-y-6"><label className="block text-sm font-bold text-brand-ink-soft">Ім’я<input value={name} maxLength={80} autoComplete="name" onChange={(event) => setName(event.target.value)} className="mt-2 h-12 w-full rounded-xl border border-brand-border bg-brand-bg px-4 font-normal text-brand-ink outline-none transition focus:border-brand-accent focus:bg-white focus:ring-3 focus:ring-brand-accent/10" /></label><label className="block text-sm font-bold text-brand-ink-soft">Місто<CitySelect value={city} onChange={(value) => { setCity(value); setError(null) }} required className="mt-2 h-12 w-full rounded-xl border border-brand-border bg-brand-bg px-4 font-normal text-brand-ink outline-none transition focus:border-brand-accent focus:bg-white focus:ring-3 focus:ring-brand-accent/10" /></label><div><span className="block text-sm font-bold text-brand-ink-soft">Фото</span><div className="mt-3 flex flex-col items-center"><button type="button" onClick={() => fileRef.current?.click()} disabled={submitting} className="grid h-28 w-28 place-items-center overflow-hidden rounded-full border-2 border-dashed border-brand-accent/35 bg-brand-accent-soft text-brand-accent transition hover:border-brand-accent focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-brand-accent disabled:cursor-wait disabled:opacity-60" aria-label={previewUrl ? 'Замінити фото профілю' : 'Додати фото профілю'}>{previewUrl ? <img src={previewUrl} alt="Попередній перегляд фото профілю" className="h-full w-full object-cover" /> : <span className="text-3xl font-light" aria-hidden="true">+</span>}</button><button type="button" onClick={() => fileRef.current?.click()} disabled={submitting} className="mt-2 min-h-10 rounded-xl px-4 text-sm font-bold text-brand-accent transition hover:bg-brand-accent-soft disabled:cursor-wait disabled:opacity-60">{previewUrl ? 'Замінити фото' : '+ Додати фото'}</button><input ref={fileRef} type="file" accept={ACCEPTED_IMAGE_TYPES.join(',')} onChange={selectPhoto} className="hidden" aria-label="Завантажити фото профілю" /></div></div></div>{error && <div role="alert" className="mt-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}<button type="button" onClick={() => { void continueToInterests() }} disabled={submitting} className="mt-7 h-14 w-full rounded-2xl bg-brand-accent text-sm font-extrabold text-white transition hover:bg-brand-accent-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-accent disabled:cursor-wait disabled:opacity-60">{submitting ? 'СТВОРЮЄМО ПРОФІЛЬ…' : 'ПРОДОВЖИТИ'}</button></main></div>
   )
 }
