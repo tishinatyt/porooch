@@ -27,6 +27,8 @@ async function createQaUser(name) {
   const { data, error } = await client.auth.signInAnonymously()
   if (error || !data.user || !data.session) throw error ?? new Error('Anonymous auth returned no session')
   const userId = data.user.id
+  const tracked = { id: userId, name, profileCreated: false }
+  result.users.push(tracked)
   const avatarUrl = `${BASE_URL}images/landing/poruch-friends.jpg`
   const { error: profileError } = await client.from('users').upsert({
     id: userId,
@@ -35,10 +37,10 @@ async function createQaUser(name) {
     avatar_url: avatarUrl,
     interests: ['Кава', 'Прогулянки'],
     age: 30,
-    gender: 'any',
+    gender: 'male',
   })
   if (profileError) throw profileError
-  result.users.push({ id: userId, name })
+  tracked.profileCreated = true
   return { client, userId, session: data.session }
 }
 
@@ -83,7 +85,6 @@ let eventId
 try {
   browser = await chromium.launch({ headless: true })
 
-  // Public landing: small mobile + desktop smoke.
   const publicMobile = await browser.newContext({ viewport: { width: 360, height: 800 }, isMobile: true, hasTouch: true })
   const landing = await publicMobile.newPage()
   await landing.goto(BASE_URL, { waitUntil: 'networkidle' })
@@ -151,7 +152,6 @@ try {
   await assertNoHorizontalOverflow(organizerPage, 'desktop authenticated home')
   await screenshot(organizerPage, '04-home-desktop.png')
 
-  // Create screen should remain usable on desktop too.
   await organizerPage.goto(new URL('create', BASE_URL).toString(), { waitUntil: 'networkidle' })
   await waitText(organizerPage, 'Створити')
   await assertNoHorizontalOverflow(organizerPage, 'desktop create event')
@@ -171,7 +171,6 @@ try {
   await assertNoHorizontalOverflow(mobile, '390px authenticated home')
   await screenshot(mobile, '06-home-mobile.png')
 
-  // Feed -> map switch on mobile.
   const mapButton = mobile.getByRole('button', { name: 'Карта' })
   if (await mapButton.count()) {
     await mapButton.click()
@@ -183,13 +182,11 @@ try {
     throw new Error('Mobile map switch was not found')
   }
 
-  // Mobile create page layout (no production write from this screen).
   await mobile.goto(new URL('create', BASE_URL).toString(), { waitUntil: 'networkidle' })
   await waitText(mobile, 'Створити')
   await assertNoHorizontalOverflow(mobile, '390px create event')
   await screenshot(mobile, '08-create-mobile.png')
 
-  // Participant requests access from the real event detail page.
   await mobile.goto(new URL(`event/${eventId}`, BASE_URL).toString(), { waitUntil: 'networkidle' })
   await waitText(mobile, `${marker}_EVENT`)
   await assertNoHorizontalOverflow(mobile, '390px event detail before join')
@@ -201,17 +198,15 @@ try {
   check('approval join request from mobile')
   await screenshot(mobile, '10-event-mobile-pending.png')
 
-  // Organizer approves from desktop.
   await organizerPage.goto(new URL(`event/${eventId}`, BASE_URL).toString(), { waitUntil: 'networkidle' })
   await waitText(organizerPage, 'Запити на участь')
   const approve = organizerPage.getByRole('button', { name: 'ПІДТВЕРДИТИ' })
   await approve.waitFor({ state: 'visible', timeout: 15000 })
   await approve.click()
-  await organizerPage.getByText('Запити на участь · 1', { exact: false }).waitFor({ state: 'detached', timeout: 15000 }).catch(() => {})
+  await organizerPage.waitForTimeout(1200)
   check('organizer approval from desktop')
   await screenshot(organizerPage, '11-event-desktop-approved.png')
 
-  // Participant gets chat access and sends a real message on mobile.
   await mobile.reload({ waitUntil: 'networkidle' })
   const chatButton = mobile.getByRole('button', { name: 'Перейти до чату' })
   await chatButton.waitFor({ state: 'visible', timeout: 15000 })
@@ -225,7 +220,6 @@ try {
   await screenshot(mobile, '12-chat-mobile.png')
   check('mobile chat send')
 
-  // Organizer sees the participant message.
   await organizerPage.goto(new URL(`event/${eventId}/chat`, BASE_URL).toString(), { waitUntil: 'networkidle' })
   await waitText(organizerPage, message)
   await assertNoHorizontalOverflow(organizerPage, 'desktop event chat')
@@ -234,7 +228,6 @@ try {
   await participantContext.close()
   await organizerContext.close()
 
-  // Remove the event with the organizer session. User rows/auth identities are cleaned by the follow-up DB cleanup.
   const { error: deleteError } = await organizer.client.from('events').delete().eq('id', eventId).eq('organizer_id', organizer.userId)
   if (deleteError) throw deleteError
   check('QA event removed')
