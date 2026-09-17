@@ -29,10 +29,20 @@ jobs:
         run: |
           npm install --no-save --package-lock=false playwright@1.55.0
           npx playwright install --with-deps chromium
-      - name: Use visible create-event selectors
+      - name: Harden smoke selectors
         run: |
-          sed -i "s/waitText(organizerPage, 'Створити')/waitText(organizerPage, 'Яку подію ви створюєте?')/" qa/production-smoke.mjs
-          sed -i "s/waitText(mobile, 'Створити')/waitText(mobile, 'Яку подію ви створюєте?')/" qa/production-smoke.mjs
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('qa/production-smoke.mjs')
+          s = p.read_text()
+          s = s.replace("waitText(organizerPage, 'Створити')", "waitText(organizerPage, 'Яку подію ви створюєте?')")
+          s = s.replace("waitText(mobile, 'Створити')", "waitText(mobile, 'Яку подію ви створюєте?')")
+          old = """async function waitText(page, text, timeout = 15000) {\n  await page.getByText(text, { exact: false }).first().waitFor({ state: 'visible', timeout })\n}\n"""
+          new = """async function waitText(page, text, timeout = 15000) {\n  const matches = page.getByText(text, { exact: false })\n  const deadline = Date.now() + timeout\n  while (Date.now() < deadline) {\n    const count = await matches.count()\n    for (let index = 0; index < count; index += 1) {\n      if (await matches.nth(index).isVisible().catch(() => false)) return\n    }\n    await page.waitForTimeout(200)\n  }\n  throw new Error(`No visible text match: ${text}`)\n}\n"""
+          if old not in s:
+              raise SystemExit('waitText helper pattern not found')
+          p.write_text(s.replace(old, new))
+          PY
       - name: Run production smoke
         run: node qa/production-smoke.mjs
       - name: Upload QA screenshots and result
