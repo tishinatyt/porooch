@@ -297,7 +297,15 @@ export default function CreateEvent() {
         joinMode: payload.join_mode,
         payload,
       })
-      setErrors({ submit: eventId ? 'Не вдалося зберегти зміни. Перевірте дані та спробуйте ще раз.' : 'Не вдалося створити подію. Перевірте дані та спробуйте ще раз.' })
+      const serverMessage = error?.message ?? ''
+      const submitMessage = serverMessage.includes('capacity_below_joined')
+        ? 'Кількість місць не може бути меншою за кількість уже підтверджених учасників.'
+        : serverMessage.includes('pending_requests_exist')
+          ? 'Спочатку підтвердьте або відхиліть усі заявки на участь.'
+          : eventId
+            ? 'Не вдалося зберегти зміни. Перевірте дані та спробуйте ще раз.'
+            : 'Не вдалося створити подію. Перевірте дані та спробуйте ще раз.'
+      setErrors({ submit: submitMessage })
       setSubmitting(false)
       submittingRef.current = false
       return
@@ -450,11 +458,11 @@ export default function CreateEvent() {
             <SectionCard number="6" title="Хто побачить подію?">
               <div className="grid gap-2.5 sm:grid-cols-2">
                 {([
-                  { value: true, title: 'У стрічці', text: 'Подія з’явиться у стрічці відповідних користувачів поруч.' },
-                  { value: false, title: 'Лише за запрошенням', text: 'Подія не показуватиметься у загальній стрічці.' },
+                  { value: true, title: 'У стрічці', text: 'Подія з’явиться у стрічці відповідних користувачів поруч.', disabled: false },
+                  { value: false, title: 'Лише за запрошенням', text: 'Приватні запрошення ще не підключені.', disabled: true },
                 ]).map((option) => {
                   const selected = form.is_public === option.value
-                  return <button key={String(option.value)} type="button" onClick={() => set('is_public', option.value)} aria-pressed={selected} className={`rounded-2xl border p-3.5 text-left transition ${selected ? 'border-brand-accent bg-brand-accent-soft' : 'border-brand-border bg-[#fcfcfe]'}`}><span className="flex items-center gap-2"><span className={`grid h-4 w-4 place-items-center rounded-full border ${selected ? 'border-brand-accent' : 'border-brand-border-strong'}`}>{selected && <span className="h-2 w-2 rounded-full bg-brand-accent"/>}</span><strong className="text-xs text-brand-ink">{option.title}</strong></span><span className="mt-2 block pl-6 text-[11px] leading-[18px] text-brand-ink-muted">{option.text}</span></button>
+                  return <button key={String(option.value)} type="button" disabled={option.disabled} onClick={() => set('is_public', option.value)} aria-pressed={selected} className={`rounded-2xl border p-3.5 text-left transition disabled:cursor-not-allowed disabled:opacity-55 ${selected ? 'border-brand-accent bg-brand-accent-soft' : 'border-brand-border bg-[#fcfcfe]'}`}><span className="flex items-center gap-2"><span className={`grid h-4 w-4 place-items-center rounded-full border ${selected ? 'border-brand-accent' : 'border-brand-border-strong'}`}>{selected && <span className="h-2 w-2 rounded-full bg-brand-accent"/>}</span><strong className="text-xs text-brand-ink">{option.title}</strong></span><span className="mt-2 block pl-6 text-[11px] leading-[18px] text-brand-ink-muted">{option.text}</span></button>
                 })}
               </div>
             </SectionCard>

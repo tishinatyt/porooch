@@ -128,10 +128,11 @@ export default function DiscoveryMap({ events, center }: DiscoveryMapProps) {
         leaflet.marker(position).addTo(markerLayer).bindPopup(popup, { closeButton: false, maxWidth: 260 })
       }
 
-      const boundsKey = visibleEvents
+      const markerKey = visibleEvents
         .map((event) => `${event.id}:${event.location_lat}:${event.location_lng}`)
         .sort()
         .join('|')
+      const boundsKey = `${center.lat}:${center.lng}|${markerKey}`
       if (lastBoundsKeyRef.current !== boundsKey) {
         if (bounds.length === 1) map.setView(bounds[0], 14)
         else if (bounds.length > 1) map.fitBounds(bounds, { padding: [32, 32], maxZoom: 14 })

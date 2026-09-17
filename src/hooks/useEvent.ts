@@ -204,7 +204,9 @@ export function useEvent(eventId: string) {
     })
     if (rpcError) {
       console.error('Failed to review event request', rpcError)
-      return rpcError.message.includes('event_full') ? 'Подія вже заповнена' : decision === 'approve'
+      if (rpcError.message.includes('event_full')) return 'Подія вже заповнена'
+      if (rpcError.message.includes('event_unavailable')) return 'Подія вже недоступна для підтвердження нових учасників'
+      return decision === 'approve'
         ? 'Не вдалося підтвердити учасника. Спробуйте ще раз'
         : 'Не вдалося відхилити запит. Спробуйте ще раз'
     }
