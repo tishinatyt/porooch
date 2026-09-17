@@ -48,7 +48,7 @@ export default function DiscoveryMap({ events, center }: DiscoveryMapProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<LeafletMap | null>(null)
   const markersRef = useRef<LayerGroup | null>(null)
-  const hasFitBoundsRef = useRef(false)
+  const lastBoundsKeyRef = useRef<string | null>(null)
   const [mapReady, setMapReady] = useState(false)
 
   useEffect(() => {
@@ -90,9 +90,9 @@ export default function DiscoveryMap({ events, center }: DiscoveryMapProps) {
       mapRef.current?.remove()
       mapRef.current = null
       markersRef.current = null
-      hasFitBoundsRef.current = false
+      lastBoundsKeyRef.current = null
     }
-  }, [center.lat, center.lng])
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -128,15 +128,20 @@ export default function DiscoveryMap({ events, center }: DiscoveryMapProps) {
         leaflet.marker(position).addTo(markerLayer).bindPopup(popup, { closeButton: false, maxWidth: 260 })
       }
 
-      if (!hasFitBoundsRef.current && bounds.length > 0) {
+      const boundsKey = visibleEvents
+        .map((event) => `${event.id}:${event.location_lat}:${event.location_lng}`)
+        .sort()
+        .join('|')
+      if (lastBoundsKeyRef.current !== boundsKey) {
         if (bounds.length === 1) map.setView(bounds[0], 14)
-        else map.fitBounds(bounds, { padding: [32, 32], maxZoom: 14 })
-        hasFitBoundsRef.current = true
+        else if (bounds.length > 1) map.fitBounds(bounds, { padding: [32, 32], maxZoom: 14 })
+        else map.setView([center.lat, center.lng], 12)
+        lastBoundsKeyRef.current = boundsKey
       }
     })
 
     return () => { cancelled = true }
-  }, [events, mapReady, navigate])
+  }, [center.lat, center.lng, events, mapReady, navigate])
 
   const markerCount = events.filter(hasValidCoordinates).length
 

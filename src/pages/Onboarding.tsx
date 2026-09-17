@@ -92,7 +92,6 @@ export default function Onboarding() {
         name: cleanName,
         city,
         avatar_url: avatarUrl,
-        google_verified: authUser.app_metadata.provider === 'google',
       })
       if (profileError) throw profileError
       await refreshProfile(authUser.id)

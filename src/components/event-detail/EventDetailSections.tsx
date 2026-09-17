@@ -33,21 +33,21 @@ export function EventInfoRow({ icon, eyebrow, primary, secondary }: { icon: Icon
   )
 }
 
-export function ParticipantList({ participants, capacity }: { participants: EventParticipant[]; capacity: number }) {
+export function ParticipantList({ participants, totalCount, capacity }: { participants: EventParticipant[]; totalCount: number; capacity: number }) {
   const users = participants.map((participant) => ({ id: participant.user_id, name: participant.user?.name, avatar_url: participant.user?.avatar_url ?? null }))
   return (
     <section className="rounded-xl bg-[#faf9fd] p-3.5">
       <div className="mb-3 flex items-center justify-between gap-3">
         <h2 className="text-sm font-extrabold text-brand-ink">Учасники</h2>
-        <span className="text-xs font-bold text-brand-accent">{participants.length}/{capacity}</span>
+        <span className="text-xs font-bold text-brand-accent">{totalCount}/{capacity}</span>
       </div>
-      {participants.length > 0 ? (
+      {totalCount > 0 ? (
         <div className="flex items-center justify-between gap-3">
-          <ParticipantAvatars users={users} totalCount={participants.length} max={6} />
-          <span className="text-xs text-brand-ink-muted">{participants.length} {participants.length === 1 ? 'учасник' : 'учасників'}</span>
+          {users.length > 0 ? <ParticipantAvatars users={users} totalCount={totalCount} max={6} /> : <span className="text-xs text-brand-ink-muted">Список учасників доступний після приєднання</span>}
+          <span className="text-xs text-brand-ink-muted">{totalCount} {totalCount === 1 ? 'учасник' : 'учасників'}</span>
         </div>
       ) : <p className="text-sm text-brand-ink-muted">Поки немає учасників</p>}
-      <div className="mt-3 h-1 overflow-hidden rounded-full bg-brand-surface-muted"><div className="h-full rounded-full bg-brand-accent transition-all" style={{ width: `${Math.min((participants.length / Math.max(capacity, 1)) * 100, 100)}%` }} /></div>
+      <div className="mt-3 h-1 overflow-hidden rounded-full bg-brand-surface-muted"><div className="h-full rounded-full bg-brand-accent transition-all" style={{ width: `${Math.min((totalCount / Math.max(capacity, 1)) * 100, 100)}%` }} /></div>
     </section>
   )
 }
@@ -113,6 +113,7 @@ interface EventActionContentProps {
   rejected: boolean
   joinMode: 'open' | 'approval'
   isFull: boolean
+  joinUnavailableLabel: string | null
   joining: boolean
   leaving: boolean
   onJoin: () => void
@@ -120,7 +121,7 @@ interface EventActionContentProps {
   onLeave: () => void
 }
 
-export function EventActionContent({ isOrganizer, joined, pending, rejected, joinMode, isFull, joining, leaving, onJoin, onChat, onLeave }: EventActionContentProps) {
+export function EventActionContent({ isOrganizer, joined, pending, rejected, joinMode, isFull, joinUnavailableLabel, joining, leaving, onJoin, onChat, onLeave }: EventActionContentProps) {
   let status: ReactNode = null
   let action: ReactNode
 
@@ -136,6 +137,8 @@ export function EventActionContent({ isOrganizer, joined, pending, rejected, joi
   } else if (rejected) {
     status = <p className="mb-3 text-center text-xs font-semibold text-brand-ink-muted">Запит відхилено</p>
     action = <button type="button" disabled className="h-14 w-full cursor-not-allowed rounded-2xl bg-brand-surface-muted px-5 text-sm font-extrabold text-brand-ink-muted">Запит відхилено</button>
+  } else if (joinUnavailableLabel) {
+    action = <button type="button" disabled className="h-14 w-full cursor-not-allowed rounded-2xl bg-brand-surface-muted px-5 text-sm font-extrabold text-brand-ink-muted">{joinUnavailableLabel}</button>
   } else if (isFull) {
     action = <button type="button" disabled className="h-14 w-full cursor-not-allowed rounded-2xl bg-brand-surface-muted px-5 text-sm font-extrabold text-brand-ink-muted">Місць немає</button>
   } else {
