@@ -1,0 +1,40 @@
+name: QA mobile production smoke
+
+on:
+  push:
+    branches: [qa/mobile-production-smoke-20260917]
+    paths:
+      - qa/production-smoke.mjs
+      - .github/workflows/qa-mobile-production-smoke.yml
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      BASE_URL: https://tishinatyt.github.io/porooch/
+      SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+      SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Install Playwright without changing package manifests
+        run: |
+          npm install --no-save --package-lock=false playwright@1.55.0
+          npx playwright install --with-deps chromium
+      - name: Run production smoke
+        run: node qa/production-smoke.mjs
+      - name: Upload QA screenshots and result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mobile-production-smoke
+          path: qa-artifacts
+          if-no-files-found: error
