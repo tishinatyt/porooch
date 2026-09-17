@@ -5,6 +5,7 @@ import TopBar from '@/components/TopBar'
 import { InterestChips } from '@/components/profile/ProfileComponents'
 import { ProfilePhotoGallery, ProfilePhotoGalleryEditor } from '@/components/profile/ProfilePhotoGallery'
 import { removeProfilePhoto } from '@/lib/profilePhotos'
+import { CitySelect } from '@/components/profile/CitySelect'
 
 export default function Profile() {
   const { profile, supaUser, signOut, refreshProfile } = useAuth()
@@ -119,7 +120,7 @@ export default function Profile() {
           <div className="grid gap-4 sm:grid-cols-2">
             <label className="text-xs font-bold text-brand-ink-soft">Ім’я<input value={name} maxLength={80} onChange={(event) => setName(event.target.value)} className="mt-1.5 h-11 w-full rounded-xl border border-brand-border bg-brand-bg px-3.5 text-sm font-normal text-brand-ink outline-none focus:border-brand-accent focus:bg-white focus:ring-3 focus:ring-brand-accent/10" /></label>
             <label className="text-xs font-bold text-brand-ink-soft">Вік<input type="number" min={16} max={100} value={age} onChange={(event) => setAge(event.target.value)} className="mt-1.5 h-11 w-full rounded-xl border border-brand-border bg-brand-bg px-3.5 text-sm font-normal text-brand-ink outline-none focus:border-brand-accent focus:bg-white focus:ring-3 focus:ring-brand-accent/10" /></label>
-            <label className="text-xs font-bold text-brand-ink-soft sm:col-span-2">Місто<input value={city} maxLength={80} onChange={(event) => setCity(event.target.value)} placeholder="Наприклад, Чернігів" className="mt-1.5 h-11 w-full rounded-xl border border-brand-border bg-brand-bg px-3.5 text-sm font-normal text-brand-ink outline-none focus:border-brand-accent focus:bg-white focus:ring-3 focus:ring-brand-accent/10" /></label>
+            <label className="text-xs font-bold text-brand-ink-soft sm:col-span-2">Місто<CitySelect value={city} onChange={setCity} className="mt-1.5 h-11 w-full rounded-xl border border-brand-border bg-brand-bg px-3.5 text-sm font-normal text-brand-ink outline-none focus:border-brand-accent focus:bg-white focus:ring-3 focus:ring-brand-accent/10" /></label>
           </div>
           <label className="block text-xs font-bold text-brand-ink-soft">Про себе<textarea value={bio} maxLength={300} rows={4} onChange={(event) => setBio(event.target.value)} placeholder="Кілька слів про вас" className="mt-1.5 w-full resize-none rounded-xl border border-brand-border bg-brand-bg px-3.5 py-3 text-sm font-normal leading-6 text-brand-ink outline-none focus:border-brand-accent focus:bg-white focus:ring-3 focus:ring-brand-accent/10" /><span className="mt-1 block text-right text-xs font-normal text-brand-ink-muted">{bio.length}/300</span></label>
           <ProfilePhotoGalleryEditor userId={supaUser!.id} photos={profile.profile_photos ?? []} onAdd={addGalleryPhoto} onRemove={deleteGalleryPhoto} disabled={saving || uploading} />

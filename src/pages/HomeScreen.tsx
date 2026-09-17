@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import { getCurrentPosition } from '@/lib/geo'
+import { getOblastCenterCoordinates } from '@/lib/cities'
 import TopBar from '@/components/TopBar'
 import { PersonalEventCard, PublicEventCard } from '@/components/home/HomeEventCards'
 import { CategoryChips } from '@/components/home/HomeControls'
@@ -37,7 +38,7 @@ const RADIUS_OPTIONS = [
   { value: 3,  label: '3 км' },
   { value: 5,  label: '5 км' },
   { value: 10, label: '10 км' },
-  { value: 50, label: 'Вся Чернігівщина' },
+  { value: 50, label: 'До 50 км' },
 ]
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -118,7 +119,8 @@ export default function HomeScreen() {
     setMembershipsReady(false)
     setDiscoveryError(false)
 
-    const geo = await getCurrentPosition()
+    const cityFallback = getOblastCenterCoordinates(profile?.city) ?? undefined
+    const geo = await getCurrentPosition(cityFallback)
     const [nearbyResult, participationResult] = await Promise.all([
       supabase.rpc('events_nearby', { user_lat: geo.lat, user_lng: geo.lng, radius_km: 100 }),
       supabase.from('event_participants').select('event_id, status, role').eq('user_id', supaUser.id).in('status', ['joined', 'pending', 'rejected']),
@@ -228,7 +230,7 @@ export default function HomeScreen() {
     events.sort(sortDiscovery)
     setAllDiscoveryEvents(events)
     setLoadingDiscovery(false)
-  }, [supaUser])
+  }, [profile?.city, supaUser])
 
   useEffect(() => { void fetchDiscoveryEvents() }, [fetchDiscoveryEvents])
 

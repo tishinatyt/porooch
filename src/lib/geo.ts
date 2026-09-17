@@ -7,15 +7,15 @@ export interface Coords {
   lng: number
 }
 
-export function getCurrentPosition(): Promise<Coords> {
+export function getCurrentPosition(fallback: Coords = { lat: DEFAULT_LAT, lng: DEFAULT_LNG }): Promise<Coords> {
   return new Promise((resolve) => {
     if (!navigator.geolocation) {
-      resolve({ lat: DEFAULT_LAT, lng: DEFAULT_LNG })
+      resolve(fallback)
       return
     }
     navigator.geolocation.getCurrentPosition(
       (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-      () => resolve({ lat: DEFAULT_LAT, lng: DEFAULT_LNG }),
+      () => resolve(fallback),
       { timeout: 8000 }
     )
   })

@@ -21,7 +21,7 @@ export default function TopBar({ title, searchQuery = '', onSearchChange, radius
         <div className="col-span-2 flex min-h-6 items-center justify-between lg:w-[190px] lg:flex-shrink-0">
           <div className="flex items-center gap-1.5 text-xs font-semibold text-brand-ink-soft">
             <Icon name="pin" className="h-4 w-4 text-brand-accent" />
-            <span>Чернігів, Україна</span>
+            <span>{profile?.city ? `${profile.city}, Україна` : 'Україна'}</span>
             <span className="text-brand-ink-muted">⌄</span>
           </div>
           <BrandLogo className="w-24 lg:hidden" />
