@@ -81,12 +81,14 @@ export default function EventChat() {
     setParticipantCount(normalizedUsers.length)
     if (!allowed) { setChatId(null); setMessages([]); setLoading(false); return }
     const { data: chat } = await supabase.from('event_chats').select('id').eq('event_id', id).maybeSingle()
-    if (!chat) { setLoading(false); return }
+    if (!chat) { setSendError('Чат події ще не готовий. Спробуйте оновити сторінку.'); setLoading(false); return }
     setChatId(chat.id)
     const { data: rows } = await supabase.from('event_chat_messages').select('id, event_chat_id, sender_id, content, created_at, sender:users!event_chat_messages_sender_id_fkey(id, name, avatar_url)').eq('event_chat_id', chat.id).order('created_at', { ascending: true }).order('id', { ascending: true })
     const loadedMessages = (rows ?? []).map((row) => normalizeMessage(row as unknown as Record<string, unknown>))
     setMessages((current) => mergeMessages(current.filter((message) => message.event_chat_id === chat.id), loadedMessages))
-    await markChatRead(chat.id, loadedMessages.at(-1)?.created_at ?? new Date().toISOString())
+    if (showLoading || nearBottomRef.current) {
+      await markChatRead(chat.id, loadedMessages.at(-1)?.created_at ?? new Date().toISOString())
+    }
     initialScrollRef.current = true
     setLoading(false)
   }, [id, markChatRead, supaUser])
@@ -152,7 +154,7 @@ export default function EventChat() {
         <button type="button" onClick={() => navigate(`/event/${id}`)} className="h-9 rounded-xl px-2 text-xs font-bold text-brand-accent hover:bg-brand-accent-soft">Деталі</button>
       </header>
       <div className="mx-auto flex min-h-0 w-full max-w-[960px] flex-1 flex-col lg:px-6 lg:pb-6">
-        <div onScroll={(scrollEvent) => { const element = scrollEvent.currentTarget; nearBottomRef.current = element.scrollHeight - element.scrollTop - element.clientHeight < 120; if (nearBottomRef.current) setHasNewMessages(false) }} className="relative min-h-0 flex-1 overflow-y-auto px-3 py-4 sm:px-6 lg:rounded-t-2xl lg:border-x lg:border-t lg:border-brand-border lg:bg-white/50">
+        <div onScroll={(scrollEvent) => { const element = scrollEvent.currentTarget; const wasNearBottom = nearBottomRef.current; const isNearBottom = element.scrollHeight - element.scrollTop - element.clientHeight < 120; nearBottomRef.current = isNearBottom; if (isNearBottom) { setHasNewMessages(false); const newest = messages.at(-1); if (!wasNearBottom && chatId && newest) void markChatRead(chatId, newest.created_at) } }} className="relative min-h-0 flex-1 overflow-y-auto px-3 py-4 sm:px-6 lg:rounded-t-2xl lg:border-x lg:border-t lg:border-brand-border lg:bg-white/50">
           {event && <EventContextCard title={eventTitle} date={formatEventDate(event.eventDatetime)} address={event.address} participantCount={participantCount} onDetails={() => navigate(`/event/${id}`)} />}
           {messages.length === 0 ? <div className="grid min-h-56 place-items-center text-center"><div><div className="mx-auto mb-3 grid h-12 w-12 place-items-center rounded-full bg-brand-accent-soft text-xl">💬</div><h2 className="font-extrabold">Почніть розмову</h2><p className="mt-1 max-w-sm text-sm leading-6 text-brand-ink-muted">Домовтесь про деталі зустрічі з іншими учасниками.</p></div></div> : messages.map((message, index) => {
             const day = formatMessageDay(message.created_at)
@@ -163,7 +165,7 @@ export default function EventChat() {
           <div ref={bottomRef} />
           {hasNewMessages && <button type="button" onClick={scrollToNewest} className="sticky bottom-3 mx-auto block rounded-full bg-brand-accent px-4 py-2 text-xs font-bold text-white shadow-lg">Нові повідомлення</button>}
         </div>
-        <div className="sticky bottom-0 z-20 flex-shrink-0 lg:static"><MessageComposer value={text} sending={sending} disabled={!hasAccess} error={sendError} maxLength={MESSAGE_LIMIT} onChange={setText} onSend={() => { void handleSend() }} /></div>
+        <div className="sticky bottom-0 z-20 flex-shrink-0 lg:static"><MessageComposer value={text} sending={sending} disabled={!hasAccess || !chatId} error={sendError} maxLength={MESSAGE_LIMIT} onChange={setText} onSend={() => { void handleSend() }} /></div>
       </div>
     </div>
   )

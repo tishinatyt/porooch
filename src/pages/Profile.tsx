@@ -36,10 +36,11 @@ export default function Profile() {
     const cleanBio = bio.trim()
     const ageNumber = age.trim() ? Number(age) : null
     if (cleanName.length < 2) { setError('Вкажіть ім’я'); return }
+    if (!cleanCity) { setError('Оберіть місто'); return }
     if (ageNumber !== null && (!Number.isInteger(ageNumber) || ageNumber < 16 || ageNumber > 100)) { setError('Вік має бути від 16 до 100 років'); return }
     if (cleanBio.length > 300) { setError('Опис може містити до 300 символів'); return }
     setSaving(true); setError(null)
-    const { error: updateError } = await supabase.from('users').update({ name: cleanName, age: ageNumber, city: cleanCity || null, bio: cleanBio || null, interests }).eq('id', supaUser.id)
+    const { error: updateError } = await supabase.from('users').update({ name: cleanName, age: ageNumber, city: cleanCity, bio: cleanBio || null, interests }).eq('id', supaUser.id)
     if (updateError) {
       console.error('Profile update failed', updateError)
       setError('Не вдалося зберегти профіль. Спробуйте ще раз')

@@ -2,7 +2,7 @@ import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useEvent } from '@/hooks/useEvent'
 import { useAuth } from '@/contexts/AuthContext'
-import { getCurrentPosition } from '@/lib/geo'
+import { getDevicePosition } from '@/lib/geo'
 import { supabase } from '@/lib/supabase'
 import { Icon } from '@/components/icons'
 import TopBar from '@/components/TopBar'
@@ -51,7 +51,7 @@ export default function EventDetail() {
   const navigate = useNavigate()
   const { supaUser } = useAuth()
   const demoEvent = getDemoEvent(id)
-  const { event: liveEvent, participants: liveParticipants, loading, error, joinEvent, reviewRequest, leaveEvent } = useEvent(demoEvent ? '' : id!)
+  const { event: liveEvent, participants: liveParticipants, participantCount: liveParticipantCount, loading, error, joinEvent, reviewRequest, leaveEvent } = useEvent(demoEvent ? '' : id!)
   const event: EventDetailData | null = demoEvent ? {
     id: demoEvent.id,
     title: demoEvent.title,
@@ -88,6 +88,7 @@ export default function EventDetail() {
     status: 'joined',
     user: { ...person, age: 24 + index, gender: 'any', city: 'Чернігів', bio: null, interests: [], google_verified: false, created_at: demoEvent.created_at ?? '' },
   })) : liveParticipants
+  const participantCount = demoEvent ? demoEvent.participant_count : liveParticipantCount
   const [distanceKm, setDistanceKm] = useState<number | null>(null)
   const [bookmarked, setBookmarked] = useState(false)
   const [joining, setJoining] = useState(false)
@@ -106,12 +107,15 @@ export default function EventDetail() {
   const deleteTriggerRef = useRef<HTMLButtonElement>(null)
 
   useEffect(() => {
+    let cancelled = false
+    setDistanceKm(null)
     if (event?.location_lat == null || event.location_lng == null) return
-    getCurrentPosition().then((position) => {
-      if (event.location_lat == null || event.location_lng == null) return
+    void getDevicePosition().then((position) => {
+      if (cancelled || !position || event.location_lat == null || event.location_lng == null) return
       const distance = haversineKm(position.lat, position.lng, event.location_lat, event.location_lng)
       setDistanceKm(Math.round(distance * 10) / 10)
     })
+    return () => { cancelled = true }
   }, [event?.location_lat, event?.location_lng])
 
   useEffect(() => {
@@ -135,7 +139,7 @@ export default function EventDetail() {
     joiningRef.current = true
     setJoining(true)
     setJoinError(null)
-    const { error: joinEventError, status } = await joinEvent(supaUser.id)
+    const { error: joinEventError, status } = await joinEvent()
     joiningRef.current = false
     if (joinEventError) {
       setJoinError(joinEventError)
@@ -215,14 +219,19 @@ export default function EventDetail() {
   const activeParticipants = participants.filter((participant) => participant.status === 'joined')
   const pendingRequests = participants.filter((participant) => participant.role === 'participant' && participant.status === 'pending')
   const isOrganizer = !demoEvent && supaUser?.id === event.organizer_id
-  const isFull = activeParticipants.length >= event.max_participants
+  const isFull = participantCount >= event.max_participants
+  const eventStarted = new Date(event.event_datetime).getTime() <= Date.now()
+  const joinUnavailableLabel = event.status === 'cancelled' ? 'Подію скасовано'
+    : event.status === 'completed' ? 'Подія завершена'
+    : eventStarted ? 'Подія вже почалася'
+    : null
   const formattedDate = formatEventDate(event.event_datetime)
   const organizerName = event.organizer?.name ?? 'Організатор'
   const locationSecondary = distanceKm !== null ? `${distanceKm.toLocaleString('uk-UA')} км від вас` : null
   const hasLocation = (event.location_lat != null && event.location_lng != null) || Boolean(event.address_text)
   const actions = demoEvent
     ? <button type="button" onClick={() => setJoinError('Це демонстраційна подія')} className="h-14 w-full rounded-2xl bg-brand-accent px-5 text-sm font-extrabold text-white transition hover:bg-brand-accent-hover">{demoEvent.join_mode === 'approval' ? 'Надіслати запит' : 'Приєднатися'}</button>
-    : <EventActionContent isOrganizer={isOrganizer} joined={joined} pending={pending} rejected={rejected} joinMode={event.join_mode} isFull={isFull} joining={joining} leaving={leaving} onJoin={handleJoin} onChat={() => navigate(`/event/${event.id}/chat`)} onLeave={handleLeave} />
+    : <EventActionContent isOrganizer={isOrganizer} joined={joined} pending={pending} rejected={rejected} joinMode={event.join_mode} isFull={isFull} joinUnavailableLabel={joinUnavailableLabel} joining={joining} leaving={leaving} onJoin={handleJoin} onChat={() => navigate(`/event/${event.id}/chat`)} onLeave={handleLeave} />
 
   const renderMap = () => event.location_lat != null && event.location_lng != null ? (
     <Suspense fallback={<div className="h-52 animate-pulse rounded-2xl border border-brand-border bg-white" />}><EventMap lat={event.location_lat!} lng={event.location_lng!} title={event.address_text || event.title} /></Suspense>
@@ -250,7 +259,7 @@ export default function EventDetail() {
           </section>
           <div className="border-t border-brand-border" />
           <div className="grid gap-2 sm:grid-cols-2"><EventInfoRow icon="calendar" eyebrow="Дата і час" primary={formattedDate.day} secondary={formattedDate.time} />{event.address_text && <EventInfoRow icon="pin" eyebrow="Місце" primary={event.address_text} secondary={locationSecondary} />}</div>
-          <ParticipantList participants={activeParticipants} capacity={event.max_participants} />
+          <ParticipantList participants={activeParticipants} totalCount={participantCount} capacity={event.max_participants} />
           {isOrganizer && event.join_mode === 'approval' && pendingRequests.length > 0 && <PendingRequestList requests={pendingRequests} processingUserId={processingUserId} onApprove={(userId) => { void handleReview(userId, 'approve') }} onReject={(userId) => { void handleReview(userId, 'reject') }} />}
           {requestError && <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{requestError}</div>}
           <EventRequirements gender={GENDER_LABEL[event.gender_filter] ?? event.gender_filter} age={`${event.min_age}–${event.max_age} років`} category={CATEGORY_LABEL[event.category] ?? event.category} isPublic={event.is_public} />

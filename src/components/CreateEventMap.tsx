@@ -4,6 +4,7 @@ import type { Map as LeafletMap, Marker } from 'leaflet'
 interface Props {
   lat: number | null
   lng: number | null
+  center?: { lat: number; lng: number }
   onPick: (lat: number, lng: number) => void
 }
 
@@ -18,7 +19,7 @@ function injectLeafletCss() {
   document.head.appendChild(link)
 }
 
-export default function CreateEventMap({ lat, lng, onPick }: Props) {
+export default function CreateEventMap({ lat, lng, center, onPick }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<LeafletMap | null>(null)
   const markerRef = useRef<Marker | null>(null)
@@ -41,7 +42,7 @@ export default function CreateEventMap({ lat, lng, onPick }: Props) {
       })
 
       const map = leaflet.map(containerRef.current, {
-        center: [lat ?? 51.4982, lng ?? 31.2893], zoom: 14,
+        center: [lat ?? center?.lat ?? 51.4982, lng ?? center?.lng ?? 31.2893], zoom: 14,
         zoomControl: true, scrollWheelZoom: false, attributionControl: false,
       })
       leaflet.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map)

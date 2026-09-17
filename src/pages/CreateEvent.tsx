@@ -2,7 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
-import { getCurrentPosition } from '@/lib/geo'
+import { getDevicePosition } from '@/lib/geo'
+import { getOblastCenterCoordinates } from '@/lib/cities'
 import { Icon } from '@/components/icons'
 import EventMedia from '@/components/EventMedia'
 import TopBar from '@/components/TopBar'
@@ -70,7 +71,6 @@ interface EventInsertPayload {
   gender_filter: GenderFilter
   bank_enabled: boolean
   bank_note: string | null
-  status: 'upcoming'
 }
 
 function pad(value: number) {
@@ -107,7 +107,7 @@ export default function CreateEvent() {
   const navigate = useNavigate()
   const { eventId } = useParams<{ eventId: string }>()
   const [searchParams] = useSearchParams()
-  const { supaUser } = useAuth()
+  const { supaUser, profile } = useAuth()
   const defaults = useMemo(defaultDateTime, [])
   const submittingRef = useRef(false)
   const [form, setForm] = useState<FormState>({
@@ -191,10 +191,18 @@ export default function CreateEvent() {
 
   async function useCurrentLocation() {
     setLocating(true)
-    const position = await getCurrentPosition()
-    setForm((current) => ({ ...current, lat: position.lat, lng: position.lng }))
-    await reverseGeocode(position.lat, position.lng)
-    setLocating(false)
+    setErrors((current) => ({ ...current, lat: undefined }))
+    try {
+      const position = await getDevicePosition()
+      if (!position) {
+        setErrors((current) => ({ ...current, lat: 'Не вдалося визначити ваше місцезнаходження. Дозвольте геолокацію або виберіть точку на карті.' }))
+        return
+      }
+      setForm((current) => ({ ...current, lat: position.lat, lng: position.lng }))
+      await reverseGeocode(position.lat, position.lng)
+    } finally {
+      setLocating(false)
+    }
   }
 
   function validate() {
@@ -254,7 +262,6 @@ export default function CreateEvent() {
       gender_filter: form.gender_filter,
       bank_enabled: form.event_type === 'personal' && form.bank_enabled,
       bank_note: form.event_type === 'personal' && form.bank_enabled ? form.bank_note.trim() || null : null,
-      status: 'upcoming',
     }
 
     if (import.meta.env.DEV) {
@@ -265,12 +272,11 @@ export default function CreateEvent() {
         join_mode: payload.join_mode,
         event_datetime: payload.event_datetime,
         location: payload.location,
-        status: payload.status,
       })
     }
     const { data, error } = eventId
       ? await supabase.from('events').update(payload).eq('id', eventId).eq('organizer_id', supaUser.id).select('id').single()
-      : await supabase.from('events').insert(payload).select('id').single()
+      : await supabase.from('events').insert({ ...payload, status: 'upcoming' }).select('id').single()
     if (import.meta.env.DEV) {
       console.info('[CreateEvent diagnostic] EVENT INSERT RESULT', { id: data?.id ?? null, succeeded: !error && Boolean(data?.id) })
       if (error) console.error('[CreateEvent diagnostic] EVENT INSERT ERROR', { code: error.code, message: error.message, details: error.details, hint: error.hint })
@@ -291,7 +297,15 @@ export default function CreateEvent() {
         joinMode: payload.join_mode,
         payload,
       })
-      setErrors({ submit: eventId ? 'Не вдалося зберегти зміни. Перевірте дані та спробуйте ще раз.' : 'Не вдалося створити подію. Перевірте дані та спробуйте ще раз.' })
+      const serverMessage = error?.message ?? ''
+      const submitMessage = serverMessage.includes('capacity_below_joined')
+        ? 'Кількість місць не може бути меншою за кількість уже підтверджених учасників.'
+        : serverMessage.includes('pending_requests_exist')
+          ? 'Спочатку підтвердьте або відхиліть усі заявки на участь.'
+          : eventId
+            ? 'Не вдалося зберегти зміни. Перевірте дані та спробуйте ще раз.'
+            : 'Не вдалося створити подію. Перевірте дані та спробуйте ще раз.'
+      setErrors({ submit: submitMessage })
       setSubmitting(false)
       submittingRef.current = false
       return
@@ -409,7 +423,7 @@ export default function CreateEvent() {
                   </div>
                 </div>
                 <button type="button" onClick={useCurrentLocation} disabled={locating} className="inline-flex h-10 items-center gap-2 rounded-xl border border-brand-border bg-white px-3.5 text-[11px] font-bold text-brand-accent transition hover:border-brand-accent disabled:opacity-60"><Icon name="pin" className="h-4 w-4"/>{locating ? 'Визначаємо…' : 'Використати моє місцезнаходження'}</button>
-                <CreateEventMap lat={form.lat} lng={form.lng} onPick={handleMapPick} />
+                <CreateEventMap lat={form.lat} lng={form.lng} center={getOblastCenterCoordinates(profile?.city) ?? undefined} onPick={handleMapPick} />
                 <div>{form.lat !== null && form.lng !== null ? <p className="text-[11px] font-semibold text-brand-accent">✓ Точку вибрано</p> : <p className="text-[11px] text-brand-ink-muted">Натисніть на карту, щоб вибрати точне місце.</p>}{errors.lat && <p className="mt-1 text-xs text-red-600">{errors.lat}</p>}</div>
               </div>
             </SectionCard>
@@ -444,11 +458,11 @@ export default function CreateEvent() {
             <SectionCard number="6" title="Хто побачить подію?">
               <div className="grid gap-2.5 sm:grid-cols-2">
                 {([
-                  { value: true, title: 'У стрічці', text: 'Подія з’явиться у стрічці відповідних користувачів поруч.' },
-                  { value: false, title: 'Лише за запрошенням', text: 'Подія не показуватиметься у загальній стрічці.' },
+                  { value: true, title: 'У стрічці', text: 'Подія з’явиться у стрічці відповідних користувачів поруч.', disabled: false },
+                  { value: false, title: 'Лише за запрошенням', text: 'Приватні запрошення ще не підключені.', disabled: true },
                 ]).map((option) => {
                   const selected = form.is_public === option.value
-                  return <button key={String(option.value)} type="button" onClick={() => set('is_public', option.value)} aria-pressed={selected} className={`rounded-2xl border p-3.5 text-left transition ${selected ? 'border-brand-accent bg-brand-accent-soft' : 'border-brand-border bg-[#fcfcfe]'}`}><span className="flex items-center gap-2"><span className={`grid h-4 w-4 place-items-center rounded-full border ${selected ? 'border-brand-accent' : 'border-brand-border-strong'}`}>{selected && <span className="h-2 w-2 rounded-full bg-brand-accent"/>}</span><strong className="text-xs text-brand-ink">{option.title}</strong></span><span className="mt-2 block pl-6 text-[11px] leading-[18px] text-brand-ink-muted">{option.text}</span></button>
+                  return <button key={String(option.value)} type="button" disabled={option.disabled} onClick={() => set('is_public', option.value)} aria-pressed={selected} className={`rounded-2xl border p-3.5 text-left transition disabled:cursor-not-allowed disabled:opacity-55 ${selected ? 'border-brand-accent bg-brand-accent-soft' : 'border-brand-border bg-[#fcfcfe]'}`}><span className="flex items-center gap-2"><span className={`grid h-4 w-4 place-items-center rounded-full border ${selected ? 'border-brand-accent' : 'border-brand-border-strong'}`}>{selected && <span className="h-2 w-2 rounded-full bg-brand-accent"/>}</span><strong className="text-xs text-brand-ink">{option.title}</strong></span><span className="mt-2 block pl-6 text-[11px] leading-[18px] text-brand-ink-muted">{option.text}</span></button>
                 })}
               </div>
             </SectionCard>

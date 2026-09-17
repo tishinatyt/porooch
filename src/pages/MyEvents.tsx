@@ -12,7 +12,7 @@ type MyEventsTab = 'organizing' | 'joined' | 'pending'
 
 const CATEGORY_LABEL: Record<string, string> = {
   cinema: 'Кіно', theatre: 'Театр', bar: 'Бар', sport: 'Спорт', music: 'Музика',
-  food: 'Їжа', games: 'Ігри', walk: 'Прогулянка', art: 'Мистецтво', other: 'Інше',
+  food: 'Їжа', games: 'Ігри', walk: 'Прогулянка', art: 'Мистецтво', communication: 'Спілкування', other: 'Інше',
 }
 
 const TABS: { key: MyEventsTab; label: string }[] = [

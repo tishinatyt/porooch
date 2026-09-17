@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 import type { Session, User as SupabaseUser } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
 import type { User } from '@/types'
@@ -21,44 +21,62 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [supaUser, setSupaUser] = useState<SupabaseUser | null>(null)
   const [profile, setProfile] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
+  const profileRequestRef = useRef(0)
+  const activeUserIdRef = useRef<string | null>(null)
 
   async function fetchProfile(userId: string) {
-    const { data } = await supabase
+    const requestId = ++profileRequestRef.current
+    const { data, error } = await supabase
       .from('users')
       .select('*')
       .eq('id', userId)
-      .single()
+      .maybeSingle()
+    if (requestId !== profileRequestRef.current || activeUserIdRef.current !== userId) return
+    if (error) console.error('[Auth] Failed to load profile:', error)
     setProfile(data ?? null)
   }
 
   async function refreshProfile(userId?: string) {
-    const profileUserId = userId ?? supaUser?.id
+    const profileUserId = userId ?? activeUserIdRef.current ?? supaUser?.id
     if (profileUserId) await fetchProfile(profileUserId)
   }
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session)
-      setSupaUser(session?.user ?? null)
-      if (session?.user) fetchProfile(session.user.id).finally(() => setLoading(false))
-      else setLoading(false)
+    let mounted = true
+    void supabase.auth.getSession().then(async ({ data: { session: initialSession } }) => {
+      if (!mounted) return
+      setSession(initialSession)
+      setSupaUser(initialSession?.user ?? null)
+      activeUserIdRef.current = initialSession?.user.id ?? null
+      if (initialSession?.user) await fetchProfile(initialSession.user.id)
+      if (mounted) setLoading(false)
+    }).catch((error) => {
+      console.error('[Auth] Failed to restore session:', error)
+      if (mounted) setLoading(false)
     })
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session)
-      setSupaUser(session?.user ?? null)
-      if (session?.user) fetchProfile(session.user.id)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      profileRequestRef.current += 1
+      setSession(nextSession)
+      setSupaUser(nextSession?.user ?? null)
+      activeUserIdRef.current = nextSession?.user.id ?? null
+      if (nextSession?.user) void fetchProfile(nextSession.user.id)
       else setProfile(null)
     })
 
-    return () => subscription.unsubscribe()
+    return () => {
+      mounted = false
+      profileRequestRef.current += 1
+      subscription.unsubscribe()
+    }
   }, [])
 
   async function signInWithGoogle() {
-    await supabase.auth.signInWithOAuth({
+    const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: { redirectTo: new URL(import.meta.env.BASE_URL, window.location.origin).toString() }
     })
+    if (error) throw error
   }
 
   async function signInAnonymously() {
@@ -69,7 +87,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function signOut() {
-    await supabase.auth.signOut()
+    const { error } = await supabase.auth.signOut()
+    if (error) throw error
   }
 
   return (

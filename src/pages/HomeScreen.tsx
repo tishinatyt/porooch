@@ -25,6 +25,10 @@ const TABS = [
   { key: 'bar',     label: 'Бар' },
   { key: 'sport',   label: 'Спорт' },
   { key: 'music',   label: 'Музика' },
+  { key: 'food',    label: 'Їжа' },
+  { key: 'games',   label: 'Ігри' },
+  { key: 'walk',    label: 'Прогулянка' },
+  { key: 'art',     label: 'Мистецтво' },
   { key: 'other',   label: 'Інше' },
 ]
 
@@ -315,7 +319,7 @@ export default function HomeScreen() {
     .filter((e) => selectedCategory === 'all' || e.category === selectedCategory)
 
   const mapEvents = eligibleDiscovery.filter((event) =>
-    event.event_type === 'personal' || selectedCategory === 'all' || event.category === selectedCategory,
+    selectedCategory === 'all' || event.category === selectedCategory,
   )
 
   const categoriesWithRealEvents = new Set(realPublic.map((event) => event.category))

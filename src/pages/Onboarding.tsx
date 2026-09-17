@@ -18,7 +18,7 @@ type OnboardingStep = 'landing' | 'profile' | 'interests'
 
 export default function Onboarding() {
   const navigate = useNavigate()
-  const { supaUser, profile, signInAnonymously, refreshProfile } = useAuth()
+  const { supaUser, profile, signInWithGoogle, signInAnonymously, refreshProfile } = useAuth()
   const [step, setStep] = useState<OnboardingStep>(() => {
     if (!supaUser) return 'landing'
     return supaUser.user_metadata?.poruch_onboarding === 'interests' ? 'interests' : 'profile'
@@ -26,7 +26,7 @@ export default function Onboarding() {
   const [name, setName] = useState(profile?.name ?? supaUser?.user_metadata?.full_name?.trim() ?? '')
   const [city, setCity] = useState(profile?.city ?? '')
   const [photo, setPhoto] = useState<File | null>(null)
-  const [previewUrl, setPreviewUrl] = useState<string | null>(profile?.avatar_url ?? null)
+  const [previewUrl, setPreviewUrl] = useState<string | null>(profile?.avatar_url ?? supaUser?.user_metadata?.avatar_url ?? null)
   const [uploadedAvatar, setUploadedAvatar] = useState<{ userId: string; url: string } | null>(null)
   const [onboardingUserId, setOnboardingUserId] = useState<string | null>(supaUser?.id ?? null)
   const [interests, setInterests] = useState<string[]>(profile?.interests ?? [])
@@ -65,7 +65,7 @@ export default function Onboarding() {
     if (cleanName.length < 2) { setError('Вкажіть ім’я'); return }
     if (cleanName.length > 80) { setError('Ім’я може містити до 80 символів'); return }
     if (!city) { setError('Оберіть місто'); return }
-    if (!photo && !profile?.avatar_url && !uploadedAvatar) { setError('Додайте фото'); return }
+    if (!photo && !profile?.avatar_url && !supaUser?.user_metadata?.avatar_url && !uploadedAvatar) { setError('Додайте фото'); return }
 
     submittingRef.current = true
     setSubmitting(true)
@@ -76,7 +76,7 @@ export default function Onboarding() {
       const { error: markerError } = await supabase.auth.updateUser({ data: { poruch_onboarding: 'interests' } })
       if (markerError) throw markerError
 
-      let avatarUrl = uploadedAvatar?.userId === authUser.id ? uploadedAvatar.url : profile?.avatar_url ?? null
+      let avatarUrl = uploadedAvatar?.userId === authUser.id ? uploadedAvatar.url : profile?.avatar_url ?? authUser.user_metadata?.avatar_url ?? null
       if (photo && uploadedAvatar?.userId !== authUser.id) {
         const extension = photo.name.split('.').pop()?.toLowerCase() || 'jpg'
         const path = `${authUser.id}/${crypto.randomUUID()}.${extension}`
@@ -92,7 +92,6 @@ export default function Onboarding() {
         name: cleanName,
         city,
         avatar_url: avatarUrl,
-        google_verified: authUser.app_metadata.provider === 'google',
       })
       if (profileError) throw profileError
       await refreshProfile(authUser.id)
@@ -129,7 +128,7 @@ export default function Onboarding() {
     }
   }
 
-  if (step === 'landing') return <LandingPage onStart={() => setStep('profile')} />
+  if (step === 'landing') return <LandingPage onStart={() => { setError(null); setStep('profile') }} onGoogleSignIn={() => { setError(null); void signInWithGoogle().catch((signInError) => { console.error('Google sign-in failed', signInError); setError('Не вдалося увійти через Google. Спробуйте ще раз') }) }} error={error} />
 
   if (step === 'interests') {
     return (

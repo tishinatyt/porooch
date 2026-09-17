@@ -7,16 +7,20 @@ export interface Coords {
   lng: number
 }
 
-export function getCurrentPosition(fallback: Coords = { lat: DEFAULT_LAT, lng: DEFAULT_LNG }): Promise<Coords> {
+export function getDevicePosition(): Promise<Coords | null> {
   return new Promise((resolve) => {
     if (!navigator.geolocation) {
-      resolve(fallback)
+      resolve(null)
       return
     }
     navigator.geolocation.getCurrentPosition(
       (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-      () => resolve(fallback),
-      { timeout: 8000 }
+      () => resolve(null),
+      { timeout: 8000, maximumAge: 60_000 }
     )
   })
+}
+
+export async function getCurrentPosition(fallback: Coords = { lat: DEFAULT_LAT, lng: DEFAULT_LNG }): Promise<Coords> {
+  return await getDevicePosition() ?? fallback
 }
