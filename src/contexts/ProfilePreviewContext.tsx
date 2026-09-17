@@ -42,7 +42,9 @@ export function ProfilePreviewProvider({ children }: { children: ReactNode }) {
     const requestId = ++requestIdRef.current
     triggerRef.current = trigger ?? document.activeElement as HTMLElement | null
     setProfile(preview)
+    setLoading(false)
     if (!isUuid(preview.id)) return
+
     setLoading(true)
     void supabase.from('users').select(PUBLIC_PROFILE_FIELDS).eq('id', preview.id).maybeSingle().then(({ data, error }) => {
       if (requestIdRef.current !== requestId) return
