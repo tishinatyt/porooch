@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import type { User } from '@/types'
 import { joinEventParticipation } from '@/lib/eventParticipation'
@@ -59,9 +59,18 @@ export function useEvent(eventId: string) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [participantCount, setParticipantCount] = useState(0)
+  const activeEventIdRef = useRef(eventId)
+  const mountedRef = useRef(true)
+  activeEventIdRef.current = eventId
+
+  useEffect(() => {
+    mountedRef.current = true
+    return () => { mountedRef.current = false }
+  }, [])
 
   const reloadParticipants = useCallback(async () => {
     if (!eventId) return
+    const targetEventId = eventId
     const [participantsResult, countResult] = await Promise.all([
       supabase
         .from('event_participants')
@@ -71,9 +80,11 @@ export function useEvent(eventId: string) {
             id, name, age, gender, avatar_url, google_verified, city, bio, interests, created_at
           )
         `)
-        .eq('event_id', eventId),
-      supabase.rpc('event_participant_count', { p_event_id: eventId }),
+        .eq('event_id', targetEventId),
+      supabase.rpc('event_participant_count', { p_event_id: targetEventId }),
     ])
+
+    if (!mountedRef.current || activeEventIdRef.current !== targetEventId) return
 
     if (participantsResult.error) console.error('Failed to refresh event participants', participantsResult.error)
     else setParticipants(normalizeParticipants((participantsResult.data ?? []) as unknown as Record<string, unknown>[]))
@@ -83,8 +94,15 @@ export function useEvent(eventId: string) {
   }, [eventId])
 
   useEffect(() => {
-    if (!eventId) return
-    load()
+    if (!eventId) {
+      setEvent(null)
+      setParticipants([])
+      setParticipantCount(0)
+      setError(null)
+      setLoading(false)
+      return
+    }
+    void load()
   }, [eventId])
 
   useEffect(() => {
@@ -102,6 +120,7 @@ export function useEvent(eventId: string) {
   }, [eventId, reloadParticipants])
 
   async function load() {
+    const targetEventId = eventId
     setLoading(true)
     setError(null)
 
@@ -117,7 +136,7 @@ export function useEvent(eventId: string) {
             id, name, age, gender, avatar_url, google_verified, city, bio, interests, created_at
           )
         `)
-        .eq('id', eventId)
+        .eq('id', targetEventId)
         .single(),
       supabase
         .from('event_participants')
@@ -127,14 +146,19 @@ export function useEvent(eventId: string) {
               id, name, age, gender, avatar_url, google_verified, city, bio, interests, created_at
           )
         `)
-        .eq('event_id', eventId),
+        .eq('event_id', targetEventId),
       // Graceful: may fail if get_event_coords function not yet deployed
-      (supabase.rpc('get_event_coords', { p_event_id: eventId }).single() as unknown) as Promise<{ data: { lat: number; lng: number } | null; error: unknown }>,
-      supabase.rpc('event_participant_count', { p_event_id: eventId }),
+      (supabase.rpc('get_event_coords', { p_event_id: targetEventId }).single() as unknown) as Promise<{ data: { lat: number; lng: number } | null; error: unknown }>,
+      supabase.rpc('event_participant_count', { p_event_id: targetEventId }),
     ])
+
+    if (!mountedRef.current || activeEventIdRef.current !== targetEventId) return
 
     if (eventResult.error || !eventResult.data) {
       if (eventResult.error) console.error('Failed to load event', eventResult.error)
+      setEvent(null)
+      setParticipants([])
+      setParticipantCount(0)
       setError('Не вдалося завантажити подію. Спробуйте ще раз')
       setLoading(false)
       return
@@ -170,11 +194,17 @@ export function useEvent(eventId: string) {
       location_lng: coordsResult.data?.lng ?? null,
     })
 
-    if (participantsResult.data) {
-      setParticipants(normalizeParticipants(participantsResult.data as unknown as Record<string, unknown>[]))
+    if (participantsResult.error) console.error('Failed to load event participants', participantsResult.error)
+    setParticipants(participantsResult.data
+      ? normalizeParticipants(participantsResult.data as unknown as Record<string, unknown>[])
+      : [])
+
+    if (participantCountResult.error) {
+      console.error('Failed to load participant count', participantCountResult.error)
+      setParticipantCount(0)
+    } else {
+      setParticipantCount(Number(participantCountResult.data ?? 0))
     }
-    if (participantCountResult.error) console.error('Failed to load participant count', participantCountResult.error)
-    else setParticipantCount(Number(participantCountResult.data ?? 0))
 
     setLoading(false)
   }
