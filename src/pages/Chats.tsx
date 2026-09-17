@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
@@ -45,14 +45,25 @@ export default function Chats() {
   const [chats, setChats] = useState<ChatItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const requestIdRef = useRef(0)
 
   const fetchChats = useCallback(async (showLoading = false) => {
-    if (!supaUser) return
+    if (!supaUser) {
+      requestIdRef.current += 1
+      setChats([])
+      setError(null)
+      setLoading(false)
+      return
+    }
+
+    const requestId = ++requestIdRef.current
     if (showLoading) setLoading(true)
     const [chatsResult, unreadResult] = await Promise.all([
       supabase.rpc('get_accessible_event_chats'),
       supabase.rpc('get_accessible_event_chat_unread_counts'),
     ])
+    if (requestId !== requestIdRef.current) return
+
     const { data, error: chatsError } = chatsResult
     if (chatsError) {
       console.error('Failed to load chats', chatsError)
@@ -67,7 +78,10 @@ export default function Chats() {
     setLoading(false)
   }, [supaUser])
 
-  useEffect(() => { void fetchChats(true) }, [fetchChats])
+  useEffect(() => {
+    void fetchChats(true)
+    return () => { requestIdRef.current += 1 }
+  }, [fetchChats])
 
   useEffect(() => {
     if (!supaUser) return
@@ -75,6 +89,7 @@ export default function Chats() {
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'event_chat_messages' }, () => { void fetchChats() })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'event_chat_read_state', filter: `user_id=eq.${supaUser.id}` }, () => { void fetchChats() })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'event_participants', filter: `user_id=eq.${supaUser.id}` }, () => { void fetchChats() })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'events' }, () => { void fetchChats() })
       .subscribe()
     return () => { void supabase.removeChannel(channel) }
   }, [fetchChats, supaUser])
