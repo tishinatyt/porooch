@@ -1,0 +1,51 @@
+name: One-shot audit pass 2
+
+on:
+  push:
+    branches: [audit/full-project-logic]
+    paths: [.github/workflows/audit-pass2.yml]
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: audit/full-project-logic
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Apply audit pass 2
+        run: node scripts/apply-audit-pass2.mjs
+      - name: Validate build
+        run: npm run build
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          VITE_GA_MEASUREMENT_ID: ${{ secrets.VITE_GA_MEASUREMENT_ID }}
+      - name: Validate diff
+        run: git diff --check
+      - name: Dependency audit summary
+        run: |
+          npm audit --json > /tmp/npm-audit.json || true
+          node - <<'NODE'
+          const fs = require('fs')
+          const audit = JSON.parse(fs.readFileSync('/tmp/npm-audit.json', 'utf8'))
+          const important = Object.fromEntries(Object.entries(audit.vulnerabilities || {}).filter(([, v]) => ['high', 'critical'].includes(v.severity)).map(([name, v]) => [name, { severity: v.severity, isDirect: v.isDirect, range: v.range, fixAvailable: v.fixAvailable, via: (v.via || []).map(x => typeof x === 'string' ? x : { name: x.name, severity: x.severity, title: x.title, range: x.range }) }]))
+          console.log(JSON.stringify({ counts: audit.metadata?.vulnerabilities || {}, important }, null, 2))
+          NODE
+      - name: Remove one-shot tooling
+        run: rm -f scripts/apply-audit-pass2.mjs .github/workflows/audit-pass2.yml
+      - name: Commit fixes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Fix second-pass logic issues [audit-pass2]"
+          git push origin audit/full-project-logic
