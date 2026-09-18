@@ -47,16 +47,18 @@ function MyEventCard({ event, tab }: { event: PersonalEventData; tab: MyEventsTa
 
   return (
     <article className={`flex min-w-0 flex-col rounded-2xl border p-4 shadow-card transition hover:border-[#dcd3ff] sm:p-[18px] ${isPending ? 'border-[#e5defe] bg-[#fbfaff]' : 'border-[#e9e3ff] bg-[#f8f6ff]'}`}>
-      <div className="flex items-center gap-2.5">
+      <div className="flex items-start gap-2.5">
         <div className="grid h-10 w-10 flex-shrink-0 place-items-center overflow-hidden rounded-full bg-white text-xs font-extrabold text-brand-accent">
           {event.organizer?.avatar_url ? <img src={event.organizer.avatar_url} alt={organizerName} className="h-full w-full object-cover" /> : organizerName.charAt(0).toUpperCase()}
         </div>
         <div className="min-w-0 flex-1">
           <p className="truncate text-xs font-bold text-brand-ink">{isOrganizer ? 'Ваша подія' : organizerName}</p>
           <p className="mt-0.5 text-[10px] text-brand-ink-muted">{isOrganizer ? 'Керуйте подією та заявками в деталях' : 'Організатор події'}</p>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            <span className={`rounded-full px-2.5 py-1 text-[10px] font-bold ${isPending ? 'bg-white text-brand-ink-soft' : 'bg-white text-brand-accent'}`}>{roleLabel}</span>
+            {isOrganizer && Boolean(event.pending_request_count) && <button type="button" onClick={() => navigate(`/event/${event.eventId}`)} className="rounded-full border border-amber-200 bg-amber-100 px-2.5 py-1 text-[10px] font-extrabold text-amber-900" aria-label={`${event.pending_request_count} запитів на участь`}>Запити · {event.pending_request_count}</button>}
+          </div>
         </div>
-        <span className={`flex-shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold ${isPending ? 'bg-white text-brand-ink-soft' : 'bg-white text-brand-accent'}`}>{roleLabel}</span>
-        {isOrganizer && Boolean(event.pending_request_count) && <button type="button" onClick={() => navigate(`/event/${event.eventId}`)} className="flex-shrink-0 rounded-full border border-amber-200 bg-amber-100 px-2.5 py-1 text-[10px] font-extrabold text-amber-900" aria-label={`${event.pending_request_count} запитів на участь`}>Запити · {event.pending_request_count}</button>}
       </div>
 
       <button type="button" onClick={() => navigate(`/event/${event.eventId}`)} className="mt-3 block w-full text-left">
