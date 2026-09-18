@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import type { OrganizerInfo, ParticipantInfo, PersonalEventData } from '@/components/home/types'
@@ -14,20 +14,34 @@ export function useMyEvents() {
   const [loading, setLoading] = useState(true)
   const [pendingRequestCount, setPendingRequestCount] = useState(0)
   const [pendingRequestCountByEvent, setPendingRequestCountByEvent] = useState<Record<string, number>>({})
+  const requestIdRef = useRef(0)
+  const userId = supaUser?.id ?? null
 
-  const reload = useCallback(async () => {
-    if (!supaUser) return
-    setLoading(true)
+  const reload = useCallback(async (showLoading = true) => {
+    const requestId = ++requestIdRef.current
+    if (!userId) {
+      setEvents([])
+      setPendingRequestCount(0)
+      setPendingRequestCountByEvent({})
+      setLoading(false)
+      return
+    }
+    if (showLoading) setLoading(true)
 
     // Includes organized/joined events and pending approval requests.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: memberships, error: membershipError } = await (supabase as any)
       .from('event_participants')
       .select('event_id, role, status')
-      .eq('user_id', supaUser.id)
+      .eq('user_id', userId)
       .in('status', ['joined', 'pending'])
 
-    if (membershipError) console.error('[useMyEvents] memberships error:', membershipError)
+    if (requestId !== requestIdRef.current) return
+    if (membershipError) {
+      console.error('[useMyEvents] memberships error:', membershipError)
+      setLoading(false)
+      return
+    }
     if (!memberships?.length) {
       setEvents([])
       setPendingRequestCount(0)
@@ -63,8 +77,13 @@ export function useMyEvents() {
         .eq('status', 'joined'),
     ])
 
-    if (eventsResult.error) console.error('[useMyEvents] events error:', eventsResult.error)
-    if (participantsResult.error) console.error('[useMyEvents] participants error:', participantsResult.error)
+    if (requestId !== requestIdRef.current) return
+    if (eventsResult.error || participantsResult.error) {
+      if (eventsResult.error) console.error('[useMyEvents] events error:', eventsResult.error)
+      if (participantsResult.error) console.error('[useMyEvents] participants error:', participantsResult.error)
+      setLoading(false)
+      return
+    }
 
     const pendingRequestsResult = organizedEventIds.length > 0
       ? await (supabase as any)
@@ -75,7 +94,12 @@ export function useMyEvents() {
         .eq('status', 'pending')
       : { data: [], error: null }
 
-    if (pendingRequestsResult.error) console.error('[useMyEvents] pending requests error:', pendingRequestsResult.error)
+    if (requestId !== requestIdRef.current) return
+    if (pendingRequestsResult.error) {
+      console.error('[useMyEvents] pending requests error:', pendingRequestsResult.error)
+      setLoading(false)
+      return
+    }
     const requestCounts: Record<string, number> = {}
     for (const request of (pendingRequestsResult.data ?? []) as { event_id: string }[]) {
       requestCounts[request.event_id] = (requestCounts[request.event_id] ?? 0) + 1
@@ -118,16 +142,19 @@ export function useMyEvents() {
     setPendingRequestCount((pendingRequestsResult.data ?? []).length)
     setPendingRequestCountByEvent(requestCounts)
     setLoading(false)
-  }, [supaUser])
+  }, [userId])
 
-  useEffect(() => { void reload() }, [reload])
+  useEffect(() => {
+    void reload(true)
+    return () => { requestIdRef.current += 1 }
+  }, [reload])
 
   useEffect(() => {
     if (!supaUser) return
     const channel = supabase
       .channel(`my-events:${supaUser.id}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'event_participants' }, () => { void reload() })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'events' }, () => { void reload() })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'event_participants' }, () => { void reload(false) })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'events' }, () => { void reload(false) })
       .subscribe()
     return () => { void supabase.removeChannel(channel) }
   }, [reload, supaUser])
