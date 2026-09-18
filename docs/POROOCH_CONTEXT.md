@@ -315,3 +315,141 @@ Use `git log --oneline` for newer milestones; update this section when an archit
 3. Inspect the relevant migration(s).
 4. Do not rely solely on old chat history.
 5. Update `POROOCH_CONTEXT.md` when architecture, schema, deployment, or important product semantics change.
+
+
+## 15. Live handoff snapshot — 2026-09-18
+
+This section is the **first thing to read in a new chat**. It records the current working state so the user does not need to re-explain the task.
+
+### User instruction / working mode
+
+- Continue the Poruch audit autonomously.
+- The user wants logic bugs, mobile issues, auth/state races, event/join/approval/chat problems, PWA problems, and database inconsistencies found and fixed proactively.
+- Work in small visible batches: 2–3 checks/fixes, report progress, then continue. Long silent runs made it look like the assistant had stalled.
+- Do not ask the user to relay work through Codex unless the change exists only locally and cannot be reached through connected GitHub/Supabase tools.
+- GitHub connector access to `tishinatyt/porooch` already works. A PAT pasted in chat is not needed for connector work; token replacement can be discussed later.
+- Keep production stable: work on a branch/PR, run CI/build, then merge only when the batch is verified.
+
+### Current production / main
+
+- Production URL: <https://tishinatyt.github.io/porooch/>
+- Current production/main baseline before PR #3: merge commit `c3ccd8737fd831c4875a86783fbc78a710462a33` (`Merge PR #2: Fix end-to-end event, auth, map, and state logic`).
+- PR #2 is merged and its GitHub Pages deployment completed successfully.
+- The previous production smoke test covered mobile 360/390 px and desktop flows including onboarding, Home, map, event creation, join/request, organizer approval, and chat. Test data was cleaned up after the run.
+
+### Current working branch / PR
+
+- Branch: `audit/post-production-mobile-logic`
+- PR: **#3 — Post-production logic and mobile hardening**
+- Base: `main`
+- PR #3 is intentionally kept as draft during the second-pass audit.
+- Last known PR state before this handoff: mergeable, 8+ commits, CI build green before the newest map-resize patch.
+- Newest map-resize patch commit created in this session: `5e635c268d9be5b66573a443bf57285c803af8e9`.
+- Before merging, fetch current PR metadata and latest workflow run again; do not assume the previous CI result covers the newest commit.
+
+### Fixes already in PR #3
+
+1. **Desktop event edit shell**
+   - `src/App.tsx`
+   - `/event/:id/edit` now keeps the desktop sidebar/shell like event detail/chat/create.
+
+2. **Failure-safe onboarding step transition**
+   - `src/pages/Onboarding.tsx`
+   - `poruch_onboarding = interests` is written only after avatar/profile persistence succeeds.
+   - Prevents an incomplete profile from being stranded on the interests step after a failed write.
+
+3. **Single-event stale request protection**
+   - `src/hooks/useEvent.ts`
+   - Guards against a slower request for a previously viewed event overwriting a newly navigated event.
+   - Clears stale event/participant/count state on errors or missing event IDs.
+
+4. **Profile form state preservation + avatar cleanup**
+   - `src/pages/Profile.tsx`
+   - Profile refreshes caused by avatar/gallery operations no longer overwrite unsaved name/city/bio/interests while editing.
+   - Avatar MIME type is validated.
+   - Uploaded avatar objects are removed if the profile DB update fails.
+
+5. **Profile preview loading fix**
+   - `src/contexts/ProfilePreviewContext.tsx`
+   - Non-UUID/demo previews no longer remain stuck in a loading state.
+
+6. **Public profile request cancellation**
+   - `src/pages/PublicProfile.tsx`
+   - Rapid profile-to-profile navigation cannot let an older response replace the newer profile.
+
+7. **Chat list stale-request + event-edit refresh**
+   - `src/pages/Chats.tsx`
+   - Request IDs prevent older async responses from overwriting newer chat-list state.
+   - State clears correctly when the authenticated user disappears/changes.
+   - The chat list also refetches when `events` change, so edited title/date/status/location data does not stay stale.
+
+8. **Event chat race hardening**
+   - `src/pages/EventChat.tsx`
+   - Guards load/access/message/send state against rapid event/chat/user navigation.
+   - Prevents messages from an old chat being merged into a new one.
+   - Event updates refetch chat context in realtime.
+   - Stale send responses cannot mutate the new chat screen.
+
+9. **Discovery map mobile resize hardening**
+   - `src/components/home/DiscoveryMap.tsx`
+   - Added `ResizeObserver` + orientation handling to call Leaflet `invalidateSize()`.
+   - Addresses partially gray/cropped map tiles after mobile viewport changes or rotation.
+   - Map region now has an explicit ARIA region role.
+   - Popup details button touch target increased.
+
+### Database work already completed before PR #3
+
+Remote Supabase project: `pqasdmiqnlyyjwmmqeyc`.
+
+Previously applied/hardened items include:
+
+- discovery RPC coordinates;
+- aggregate participant counts visible to authenticated viewers while identities remain RLS-protected;
+- anon execute revoked from participant count;
+- current RPC search-path / permission hardening;
+- safe event coordinates access;
+- atomic event join/request behavior with capacity enforcement;
+- organizer review / capacity integrity checks;
+- `google_verified` protected from client spoofing.
+
+A real inconsistent historical row was found where confirmed participants exceeded `max_participants`; capacity was raised to the existing confirmed count instead of deleting users.
+
+Local migration numbering has been reconciled through the newer migration batch; do not rewrite older applied migrations. Remote migration history may still use timestamp versions for connector-applied migrations, so do not casually run `supabase db push` without checking history reconciliation first.
+
+### Remaining second-pass audit tasks
+
+Continue from here without asking the user to restate the project:
+
+1. **Mobile navigation / safe-area**
+   - Recheck `BottomNav`, event/chat full-screen routes, keyboard overlap, iPhone home-indicator spacing, very narrow widths (320–360 px), and landscape behavior.
+   - Existing `.pb-safe` is present; look for actual layout/interaction bugs rather than changing it just for style.
+
+2. **My Events**
+   - Inspect organizer/joined/pending tab semantics, counts, stale/realtime behavior, card wrapping at 320–390 px, and whether historical/cancelled states are represented correctly.
+   - Verify participant display does not rely on identities that RLS may hide.
+
+3. **Map**
+   - Verify the new resize patch builds and CI passes.
+   - Check filtered event markers, empty-marker behavior, one-marker/multi-marker bounds, city/geolocation center changes, popup touch usability, and that filters never inject demo events into production map.
+
+4. **PWA / GitHub Pages**
+   - Verify manifest generated by `vite-plugin-pwa`, service worker registration/update, `public/404.html` SPA fallback, direct-route refresh, and standalone startup.
+   - `index.html` already has `viewport-fit=cover`.
+   - Current Vite manifest uses SVG 192/512 icons. In `public/icons`, files named `.png` are tiny duplicate text/SVG-looking assets and are ignored by Workbox; do not treat them as valid PNG icons without checking bytes/content.
+   - Avoid unnecessary cache-clearing regressions.
+
+5. **Final PR #3 checks**
+   - Fetch latest PR diff and changed filenames.
+   - Run/confirm GitHub Actions production build for the newest head SHA.
+   - Review for accidental generated `dist/` changes or unrelated files.
+   - Update this handoff section if another important fix lands.
+   - When all checks are green, mark PR #3 ready for review and report exact fixes.
+   - Do **not** merge PR #3 without the user's explicit merge instruction unless the user has already clearly said to merge that PR.
+
+### One-line new-chat command
+
+The user should only need to say:
+
+> **Продолжай PORUCH. Прочитай docs/POROOCH_CONTEXT.md из ветки audit/post-production-mobile-logic и продолжай PR #3 с раздела 15. Делай и исправляй сам, мобильную версию обязательно проверяй.**
+
+That instruction is sufficient to resume the current work.
