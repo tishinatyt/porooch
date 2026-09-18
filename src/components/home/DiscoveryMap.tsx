@@ -95,6 +95,28 @@ export default function DiscoveryMap({ events, center }: DiscoveryMapProps) {
   }, [])
 
   useEffect(() => {
+    const container = containerRef.current
+    const map = mapRef.current
+    if (!container || !map || !mapReady) return
+
+    let frame = 0
+    const invalidate = () => {
+      window.cancelAnimationFrame(frame)
+      frame = window.requestAnimationFrame(() => map.invalidateSize({ pan: false }))
+    }
+    const observer = new ResizeObserver(invalidate)
+    observer.observe(container)
+    window.addEventListener('orientationchange', invalidate)
+    invalidate()
+
+    return () => {
+      window.cancelAnimationFrame(frame)
+      observer.disconnect()
+      window.removeEventListener('orientationchange', invalidate)
+    }
+  }, [mapReady])
+
+  useEffect(() => {
     let cancelled = false
 
     void import('leaflet').then((leaflet) => {
@@ -120,7 +142,7 @@ export default function DiscoveryMap({ events, center }: DiscoveryMapProps) {
 
         const detailsButton = document.createElement('button')
         detailsButton.type = 'button'
-        detailsButton.className = 'mt-3 h-8 rounded-lg bg-brand-accent px-3 text-[11px] font-extrabold text-white'
+        detailsButton.className = 'mt-3 min-h-10 rounded-lg bg-brand-accent px-3 text-[11px] font-extrabold text-white'
         detailsButton.textContent = 'Детальніше'
         detailsButton.addEventListener('click', () => navigate(`/event/${event.id}`))
         popup.appendChild(detailsButton)
@@ -148,7 +170,7 @@ export default function DiscoveryMap({ events, center }: DiscoveryMapProps) {
 
   return (
     <div className="relative min-h-[430px] flex-1 overflow-hidden rounded-2xl border border-brand-border bg-brand-surface-muted lg:min-h-0">
-      <div ref={containerRef} className="absolute inset-0 z-0" aria-label="Карта подій поруч" />
+      <div ref={containerRef} role="region" className="absolute inset-0 z-0" aria-label="Карта подій поруч" />
       {markerCount === 0 && <div className="pointer-events-none absolute inset-x-4 top-4 z-[400] mx-auto max-w-sm rounded-xl border border-brand-border bg-white/95 px-4 py-3 text-center text-xs font-bold text-brand-ink-soft shadow-card">Для вибраних подій немає координат на карті</div>}
     </div>
   )

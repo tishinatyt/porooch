@@ -19,7 +19,7 @@ export default defineConfig(({ command }) => {
     VitePWA({
       registerType: 'autoUpdate',
       injectRegister: false,
-      includeAssets: ['favicon.svg', 'icons/*.svg'],
+      includeAssets: ['favicon.svg', 'icons/*.svg', 'icons/*.png'],
       manifest: {
         name: 'Poruch',
         short_name: 'Poruch',
@@ -33,13 +33,13 @@ export default defineConfig(({ command }) => {
         start_url: base,
         id: base,
         icons: [
-          { src: 'icons/icon-192.svg', sizes: '192x192', type: 'image/svg+xml' },
-          { src: 'icons/icon-512.svg', sizes: '512x512', type: 'image/svg+xml', purpose: 'any maskable' }
+          { src: 'icons/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
+          { src: 'icons/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any maskable' }
         ]
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
-        globIgnores: ['demo-avatars/**', 'icons/*.png'],
+        globIgnores: ['demo-avatars/**'],
         cleanupOutdatedCaches: true,
         skipWaiting: true,
         clientsClaim: true,

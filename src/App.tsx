@@ -36,7 +36,8 @@ function AppLayout() {
   const hideNav = isCreateEvent || HIDE_NAV_PATTERNS.some((re) => re.test(pathname))
   const isEventDetail = /^\/event\/[^/]+$/.test(pathname)
   const isEventChat = /^\/event\/[^/]+\/chat$/.test(pathname)
-  const showDesktopShell = !hideNav || isEventDetail || isEventChat || isCreateEvent
+  const isEventEdit = /^\/event\/[^/]+\/edit$/.test(pathname)
+  const showDesktopShell = !hideNav || isEventDetail || isEventChat || isEventEdit || isCreateEvent
 
   return (
     <>

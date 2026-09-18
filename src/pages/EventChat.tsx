@@ -46,13 +46,23 @@ export default function EventChat() {
   const bottomRef = useRef<HTMLDivElement>(null)
   const nearBottomRef = useRef(true)
   const initialScrollRef = useRef(true)
+  const activeTargetRef = useRef('')
+  const loadRequestRef = useRef(0)
+  const chatIdRef = useRef<string | null>(null)
+
+  const activeTarget = `${id ?? ''}:${supaUser?.id ?? ''}`
+  activeTargetRef.current = activeTarget
+  chatIdRef.current = chatId
 
   const checkAccess = useCallback(async () => {
     if (!id || !supaUser) return false
+    const target = `${id}:${supaUser.id}`
     const [{ data: eventRow }, { data: membership }] = await Promise.all([
       supabase.from('events').select('organizer_id').eq('id', id).maybeSingle(),
       supabase.from('event_participants').select('status').eq('event_id', id).eq('user_id', supaUser.id).eq('status', 'joined').maybeSingle(),
     ])
+    if (activeTargetRef.current !== target) return false
+
     const allowed = eventRow?.organizer_id === supaUser.id || Boolean(membership)
     setHasAccess(allowed)
     if (!allowed) { setChatId(null); setMessages([]); setSendError(null) }
@@ -61,14 +71,29 @@ export default function EventChat() {
 
   const load = useCallback(async (showLoading = true) => {
     if (!id || !supaUser) return
+    const target = `${id}:${supaUser.id}`
+    const requestId = ++loadRequestRef.current
     if (showLoading) setLoading(true)
     setSendError(null)
+
     const [eventResult, membershipResult, participantsResult] = await Promise.all([
       supabase.from('events').select('title, address_text, event_datetime, organizer_id').eq('id', id).single(),
       supabase.from('event_participants').select('status').eq('event_id', id).eq('user_id', supaUser.id).eq('status', 'joined').maybeSingle(),
       supabase.from('event_participants').select('user_id, user:users!event_participants_user_id_fkey(name, avatar_url)').eq('event_id', id).eq('status', 'joined'),
     ])
-    if (!eventResult.data) { setHasAccess(false); setLoading(false); return }
+    if (requestId !== loadRequestRef.current || activeTargetRef.current !== target) return
+
+    if (!eventResult.data) {
+      setEvent(null)
+      setParticipantUsers([])
+      setParticipantCount(0)
+      setChatId(null)
+      setMessages([])
+      setHasAccess(false)
+      setLoading(false)
+      return
+    }
+
     const eventData = eventResult.data
     setEvent({ title: eventData.title, address: eventData.address_text ?? '', eventDatetime: eventData.event_datetime, organizerId: eventData.organizer_id })
     const allowed = eventData.organizer_id === supaUser.id || Boolean(membershipResult.data)
@@ -79,38 +104,64 @@ export default function EventChat() {
     })
     setParticipantUsers(normalizedUsers)
     setParticipantCount(normalizedUsers.length)
-    if (!allowed) { setChatId(null); setMessages([]); setLoading(false); return }
+
+    if (!allowed) {
+      setChatId(null)
+      setMessages([])
+      setLoading(false)
+      return
+    }
+
     const { data: chat } = await supabase.from('event_chats').select('id').eq('event_id', id).maybeSingle()
-    if (!chat) { setSendError('Чат події ще не готовий. Спробуйте оновити сторінку.'); setLoading(false); return }
+    if (requestId !== loadRequestRef.current || activeTargetRef.current !== target) return
+    if (!chat) {
+      setChatId(null)
+      setMessages([])
+      setSendError('Чат події ще не готовий. Спробуйте оновити сторінку.')
+      setLoading(false)
+      return
+    }
+
     setChatId(chat.id)
     const { data: rows } = await supabase.from('event_chat_messages').select('id, event_chat_id, sender_id, content, created_at, sender:users!event_chat_messages_sender_id_fkey(id, name, avatar_url)').eq('event_chat_id', chat.id).order('created_at', { ascending: true }).order('id', { ascending: true })
+    if (requestId !== loadRequestRef.current || activeTargetRef.current !== target) return
+
     const loadedMessages = (rows ?? []).map((row) => normalizeMessage(row as unknown as Record<string, unknown>))
     setMessages((current) => mergeMessages(current.filter((message) => message.event_chat_id === chat.id), loadedMessages))
     if (showLoading || nearBottomRef.current) {
       await markChatRead(chat.id, loadedMessages.at(-1)?.created_at ?? new Date().toISOString())
+      if (requestId !== loadRequestRef.current || activeTargetRef.current !== target) return
     }
     initialScrollRef.current = true
     setLoading(false)
   }, [id, markChatRead, supaUser])
 
-  useEffect(() => { void load() }, [load])
+  useEffect(() => {
+    void load()
+    return () => { loadRequestRef.current += 1 }
+  }, [load])
 
   useEffect(() => {
     if (!id || !supaUser) return
-    const channel = supabase.channel(`event-chat-access:${id}:${supaUser.id}`).on('postgres_changes', { event: '*', schema: 'public', table: 'event_participants', filter: `event_id=eq.${id}` }, () => { void load(false) }).subscribe()
+    const channel = supabase.channel(`event-chat-access:${id}:${supaUser.id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'event_participants', filter: `event_id=eq.${id}` }, () => { void load(false) })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'events', filter: `id=eq.${id}` }, () => { void load(false) })
+      .subscribe()
     return () => { void supabase.removeChannel(channel) }
-  }, [checkAccess, id, load, supaUser])
+  }, [id, load, supaUser])
 
   useEffect(() => {
     if (!chatId || !supaUser) return
-    const channel = supabase.channel(`event-chat:${chatId}`).on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'event_chat_messages', filter: `event_chat_id=eq.${chatId}` }, async (payload) => {
+    const subscribedChatId = chatId
+    const channel = supabase.channel(`event-chat:${subscribedChatId}`).on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'event_chat_messages', filter: `event_chat_id=eq.${subscribedChatId}` }, async (payload) => {
       const { data } = await supabase.from('event_chat_messages').select('id, event_chat_id, sender_id, content, created_at, sender:users!event_chat_messages_sender_id_fkey(id, name, avatar_url)').eq('id', (payload.new as { id: string }).id).maybeSingle()
+      if (chatIdRef.current !== subscribedChatId) return
       if (!data) { void checkAccess(); return }
       const message = normalizeMessage(data as unknown as Record<string, unknown>)
       if (message.sender_id === supaUser.id) nearBottomRef.current = true
       else if (!nearBottomRef.current) setHasNewMessages(true)
       setMessages((current) => mergeMessages(current, [message]))
-      if (nearBottomRef.current) void markChatRead(chatId, message.created_at)
+      if (nearBottomRef.current) void markChatRead(subscribedChatId, message.created_at)
     }).subscribe()
     return () => { void supabase.removeChannel(channel) }
   }, [chatId, checkAccess, markChatRead, supaUser])
@@ -134,10 +185,13 @@ export default function EventChat() {
   async function handleSend() {
     const content = text.trim()
     if (!content || content.length > MESSAGE_LIMIT || !chatId || !supaUser || sending || !hasAccess) return
+    const target = activeTarget
+    const targetChatId = chatId
     setSending(true); setSendError(null); nearBottomRef.current = true
-    const { error } = await supabase.from('event_chat_messages').insert({ event_chat_id: chatId, sender_id: supaUser.id, content })
+    const { error } = await supabase.from('event_chat_messages').insert({ event_chat_id: targetChatId, sender_id: supaUser.id, content })
+    if (activeTargetRef.current !== target || chatIdRef.current !== targetChatId) return
     if (error) { setSendError('Не вдалося надіслати повідомлення'); await checkAccess() } else setText('')
-    setSending(false)
+    if (activeTargetRef.current === target) setSending(false)
   }
 
   if (loading || hasAccess === null) return <div className="min-h-screen bg-brand-bg"><TopBar title="Чат події" /><div className="mx-auto max-w-5xl space-y-3 px-4 py-6">{[1, 2, 3, 4].map((item) => <div key={item} className="h-16 animate-pulse rounded-2xl border border-brand-border bg-white" />)}</div></div>

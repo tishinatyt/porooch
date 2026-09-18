@@ -7,6 +7,8 @@ import { ProfilePhotoGallery, ProfilePhotoGalleryEditor } from '@/components/pro
 import { removeProfilePhoto } from '@/lib/profilePhotos'
 import { CitySelect } from '@/components/profile/CitySelect'
 
+const ACCEPTED_AVATAR_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
+
 export default function Profile() {
   const { profile, supaUser, signOut, refreshProfile } = useAuth()
   const [editing, setEditing] = useState(false)
@@ -21,13 +23,15 @@ export default function Profile() {
   const fileRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
-    if (!profile) return
+    // Gallery/avatar updates refresh the profile while the edit form is open.
+    // Do not overwrite unsaved text/interest edits during those refreshes.
+    if (!profile || editing) return
     setName(profile.name)
     setAge(profile.age === null ? '' : String(profile.age))
     setCity(profile.city ?? '')
     setBio(profile.bio ?? '')
     setInterests(profile.interests ?? [])
-  }, [profile])
+  }, [editing, profile])
 
   async function handleSave() {
     if (!supaUser || saving) return
@@ -53,7 +57,9 @@ export default function Profile() {
 
   async function handleAvatarChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0]
+    event.target.value = ''
     if (!file || !supaUser || uploading) return
+    if (!ACCEPTED_AVATAR_TYPES.includes(file.type)) { setError('Оберіть зображення JPG, PNG, WebP або GIF'); return }
     if (file.size > 5 * 1024 * 1024) { setError('Зображення має бути менше 5 МБ'); return }
     setUploading(true); setError(null)
     const extension = file.name.split('.').pop()?.toLowerCase() || 'jpg'
@@ -67,8 +73,13 @@ export default function Profile() {
     }
     const { data } = supabase.storage.from('avatars').getPublicUrl(path)
     const { error: updateError } = await supabase.from('users').update({ avatar_url: data.publicUrl }).eq('id', supaUser.id)
-    if (updateError) { console.error('Avatar profile update failed', updateError); setError('Не вдалося зберегти фото') }
-    else await refreshProfile()
+    if (updateError) {
+      console.error('Avatar profile update failed', updateError)
+      await removeProfilePhoto(path).catch(() => undefined)
+      setError('Не вдалося зберегти фото')
+    } else {
+      await refreshProfile()
+    }
     setUploading(false)
   }
 

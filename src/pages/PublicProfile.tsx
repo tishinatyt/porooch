@@ -17,13 +17,20 @@ export default function PublicProfile() {
 
   useEffect(() => {
     if (!userId || userId === supaUser?.id) return
+    let cancelled = false
     setLoading(true)
+    setError(false)
+    setProfile(null)
+
     void supabase.from('users').select('id, name, age, city, bio, interests, avatar_url, profile_photos, google_verified').eq('id', userId).maybeSingle().then(({ data, error: profileError }) => {
+      if (cancelled) return
       if (profileError) console.error('[PublicProfile] Failed to load profile:', profileError)
       setProfile(data as ProfilePreviewData | null)
       setError(Boolean(profileError) || !data)
       setLoading(false)
     })
+
+    return () => { cancelled = true }
   }, [supaUser?.id, userId])
 
   if (userId === supaUser?.id) return <Navigate to="/profile" replace />

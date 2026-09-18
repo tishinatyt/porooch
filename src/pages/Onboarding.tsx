@@ -73,8 +73,6 @@ export default function Onboarding() {
     try {
       const authUser = supaUser ?? await signInAnonymously()
       setOnboardingUserId(authUser.id)
-      const { error: markerError } = await supabase.auth.updateUser({ data: { poruch_onboarding: 'interests' } })
-      if (markerError) throw markerError
 
       let avatarUrl = uploadedAvatar?.userId === authUser.id ? uploadedAvatar.url : profile?.avatar_url ?? authUser.user_metadata?.avatar_url ?? null
       if (photo && uploadedAvatar?.userId !== authUser.id) {
@@ -94,8 +92,13 @@ export default function Onboarding() {
         avatar_url: avatarUrl,
       })
       if (profileError) throw profileError
+
+      // Mark step 1 complete only after the profile write succeeds. Otherwise a failed
+      // upload/profile save could strand the account on step 2 with no usable profile.
+      const { error: markerError } = await supabase.auth.updateUser({ data: { poruch_onboarding: 'interests' } })
+      if (markerError) throw markerError
+
       await refreshProfile(authUser.id)
-      setInterests(profile?.interests ?? [])
       setStep('interests')
     } catch (submitError) {
       console.error('Anonymous onboarding failed', submitError)
