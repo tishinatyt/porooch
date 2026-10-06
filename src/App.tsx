@@ -34,7 +34,7 @@ function RouteAnalytics() {
 
 function MemberRoutes() {
   const { pathname } = useLocation()
-  const isClub = pathname === '/club'
+  const isClub = pathname.startsWith('/club')
   const isCreateEvent = pathname === '/create'
   const hideBottomNav = isClub || isCreateEvent || FULLSCREEN_PATTERNS.some((re) => re.test(pathname))
   const showLegacyDesktopShell = !isClub
