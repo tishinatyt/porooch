@@ -121,7 +121,7 @@ export default function Onboarding() {
       const { error: markerError } = await supabase.auth.updateUser({ data: { poruch_onboarding: 'complete' } })
       if (markerError) throw markerError
       await refreshProfile(userId)
-      navigate('/', { replace: true })
+      navigate('/club', { replace: true })
     } catch (finishError) {
       console.error('Interest onboarding failed', finishError)
       setError('Не вдалося зберегти інтереси. Спробуйте ще раз')
