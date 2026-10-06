@@ -1,8 +1,9 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
+import { listSvoyaEntries, type SvoyaEntry, type SvoyaKind } from '@/lib/svoya'
 
-type SectionKey = 'feed' | 'event' | 'circle' | 'beauty' | 'business' | 'help'
+type SectionKey = SvoyaKind | 'feed'
 
 type SectionDefinition = {
   key: SectionKey
@@ -116,6 +117,44 @@ const emptyStates: Record<'beauty' | 'business' | 'help', { icon: string; title:
   },
 }
 
+function PublishedEntryCard({ entry }: { entry: SvoyaEntry }) {
+  const imageByTitle: Record<string, string> = {
+    'Кава у своєму колі': 'images/landing/poruch-coffee.jpg',
+    'Прогулянка без поспіху': 'images/landing/poruch-walk.jpg',
+    'Творчий вечір разом': 'images/landing/poruch-friends.jpg',
+    'Жінки, які створюють': 'images/landing/poruch-friends-city.jpg',
+    'Я новенька у місті': 'images/landing/poruch-walk.jpg',
+    'Книжкові подруги': 'images/landing/poruch-friends.jpg',
+  }
+  const fallback = entry.kind === 'circle' ? 'images/landing/poruch-friends-city.jpg' : 'images/landing/poruch-friends.jpg'
+  const image = imageByTitle[entry.title] || fallback
+
+  return (
+    <Link to={`/club/entry/${entry.id}`} className="rounded-[11px] border border-[#e1d5d0] bg-[#fcfbf9] p-3 transition hover:-translate-y-0.5 hover:shadow-[0_12px_30px_rgba(77,38,52,0.08)]">
+      <div className="flex gap-3">
+        <div className="relative h-[86px] w-[106px] shrink-0 overflow-hidden rounded-[8px]">
+          <img src={`${import.meta.env.BASE_URL}${image}`} alt="" className="h-full w-full object-cover" />
+          <span className={`absolute left-2 top-2 rounded px-2 py-1 text-[8px] ${entry.is_demo ? 'bg-[#f8eee8] text-[#8a615a]' : 'bg-[#8d2f51] text-white'}`}>
+            {entry.is_demo ? 'Приклад' : 'Нове'}
+          </span>
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center justify-between gap-2 text-[8px] text-[#97898e]">
+            <span>⌾ {entry.city}</span>
+            <span>{entry.is_demo ? 'Для натхнення' : entry.category}</span>
+          </div>
+          <h4 className="mt-2 text-[15px] font-extrabold leading-4 text-[#403438]">{entry.title}</h4>
+          <p className="mt-2 line-clamp-2 text-[10px] leading-4 text-[#746a6d]">{entry.description}</p>
+        </div>
+      </div>
+      <div className="mt-3 flex items-center justify-between border-t border-[#eee5e1] pt-3 text-[9px]">
+        <span className="text-[#8d6876]">{entry.kind === 'circle' ? '♧' : entry.kind === 'event' ? '▦' : '◦'} &nbsp; {entry.category || 'СВОЯ'}</span>
+        <span className="rounded-full border border-[#decad1] px-3 py-1.5 text-[#8d2f51]">Деталі</span>
+      </div>
+    </Link>
+  )
+}
+
 function ExampleCard({ item }: { item: readonly [string, string, string, string] }) {
   const [title, text, image, action] = item
 
@@ -167,6 +206,31 @@ export default function SvoyaClub() {
 
   const [query, setQuery] = useState('')
   const [activeFilter, setActiveFilter] = useState('Усі')
+  const [publishedEntries, setPublishedEntries] = useState<SvoyaEntry[]>([])
+  const [entriesLoading, setEntriesLoading] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    setEntriesLoading(true)
+    const kind = section === 'feed' ? undefined : section
+    void listSvoyaEntries(kind)
+      .then((items) => { if (!cancelled) setPublishedEntries(items) })
+      .catch((error) => {
+        console.error('[SVOYA entries]', error)
+        if (!cancelled) setPublishedEntries([])
+      })
+      .finally(() => { if (!cancelled) setEntriesLoading(false) })
+    return () => { cancelled = true }
+  }, [section])
+
+  const visiblePublishedEntries = useMemo(() => {
+    const q = query.trim().toLocaleLowerCase('uk-UA')
+    return publishedEntries.filter((entry) => {
+      const matchesFilter = activeFilter === 'Усі' || entry.category === activeFilter
+      const matchesQuery = !q || `${entry.title} ${entry.description} ${entry.city} ${entry.category}`.toLocaleLowerCase('uk-UA').includes(q)
+      return matchesFilter && matchesQuery
+    })
+  }, [publishedEntries, query, activeFilter])
 
   const examples = useMemo(() => {
     const source = section === 'event' ? eventExamples : section === 'circle' ? circleExamples : feedExamples
@@ -182,21 +246,8 @@ export default function SvoyaClub() {
   }
 
   function primaryAction() {
-    if (section === 'event') {
-      navigate('/create')
-      return
-    }
-    if (section === 'feed') {
-      navigate('/create')
-      return
-    }
-    if (section === 'circle') {
-      navigate('/create?type=circle')
-      return
-    }
-    // Publication composers for Beauty / Business / Help existed in the original SVOYA,
-    // but their exact form is intentionally not fabricated until its source/reference is recovered.
-    document.getElementById(`empty-${section}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    const kind: SvoyaKind = section === 'feed' ? 'event' : section
+    navigate(`/club/create?kind=${kind}`)
   }
 
   return (
@@ -300,6 +351,20 @@ export default function SvoyaClub() {
 
               <Notice />
 
+              {entriesLoading && <div className="py-6 text-center text-[10px] text-[#8f8387]">Завантажуємо публікації…</div>}
+
+              {visiblePublishedEntries.some((entry) => !entry.is_demo) && (
+                <>
+                  <div className="mt-6 flex items-center justify-between">
+                    <h3 className="text-[17px] font-extrabold">Нове у клубі</h3>
+                    <span className="text-[9px] text-[#9a8c91]">Публікації учасниць</span>
+                  </div>
+                  <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                    {visiblePublishedEntries.filter((entry) => !entry.is_demo).map((entry) => <PublishedEntryCard key={entry.id} entry={entry} />)}
+                  </div>
+                </>
+              )}
+
               <div className="mt-6 flex items-center justify-between">
                 <h3 className="text-[17px] font-extrabold">З чого можна почати</h3>
                 <p className="text-[9px] text-[#9a8c91]">Приклади форматів — запис ще не відкрито</p>
@@ -352,13 +417,19 @@ export default function SvoyaClub() {
                     <p className="text-[9px] text-[#9a8c91]">Приклади форматів — запис ще не відкрито</p>
                   </div>
                   <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                    {examples.map((item) => <ExampleCard key={item[0]} item={item} />)}
+                    {visiblePublishedEntries.filter((entry) => entry.is_demo).map((entry) => <PublishedEntryCard key={entry.id} entry={entry} />)}
                   </div>
                 </>
               )}
 
               {(section === 'beauty' || section === 'business' || section === 'help') && (
-                <EmptyPublication section={section} onCreate={primaryAction} />
+                visiblePublishedEntries.length > 0 ? (
+                  <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                    {visiblePublishedEntries.map((entry) => <PublishedEntryCard key={entry.id} entry={entry} />)}
+                  </div>
+                ) : (
+                  <EmptyPublication section={section} onCreate={primaryAction} />
+                )
               )}
             </section>
           </>
