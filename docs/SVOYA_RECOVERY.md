@@ -67,5 +67,32 @@ If a section is not yet verified, keep the route and shell in source code but ma
 
 1. Public landing screenshot supplied 2026-10-06.
 2. Club feed/platform screenshot supplied 2026-10-06.
+3. Events screen supplied 2026-10-06:
+   - title: "Зустрінемося?"
+   - filters: Усі / Кава та розмови / Творчість / Прогулянки / Спорт / Розвиток
+   - 3 inspiration cards.
+4. Circles screen supplied 2026-10-06:
+   - title: "Свої люди. Надовго."
+   - filters: Усі / Книги / Підприємництво / Моє місто / Творчість / Спорт
+   - 3 inspiration cards.
+5. Beauty screen supplied 2026-10-06:
+   - title: "Час подбати про себе."
+   - community-offer empty state + safety note.
+6. Business screen supplied 2026-10-06:
+   - title: "Свою справу легше разом."
+   - community-offer empty state.
+7. Help screen supplied 2026-10-06:
+   - title: "Можна попросити. Можна допомогти."
+   - community-offer empty state.
 
-These two screens are being implemented first in React source, not as generated images.
+All verified screens are implemented as React/TypeScript source. Screenshots are references only, never the application artifact.
+
+## Still not verified
+
+The exact original composer forms opened by:
+- "Створити коло"
+- Beauty "Додати пропозицію / Створити публікацію"
+- Business "Додати пропозицію / Створити публікацію"
+- Help "Додати пропозицію / Створити публікацію"
+
+These flows must not be invented. Recover from original screenshots, HAR/assets or original source before marking them complete.
