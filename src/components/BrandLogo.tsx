@@ -5,12 +5,9 @@ interface BrandLogoProps {
 
 export default function BrandLogo({ className = '', imageClassName = '' }: BrandLogoProps) {
   return (
-    <span className={`relative inline-block aspect-[3/1] overflow-hidden ${className}`}>
-      <img
-        src={`${import.meta.env.BASE_URL}poruch-logo.png`}
-        alt="Poruch"
-        className={`absolute left-1/2 top-1/2 h-auto w-[124%] max-w-none -translate-x-1/2 -translate-y-1/2 object-contain mix-blend-multiply ${imageClassName}`}
-      />
+    <span className={`inline-flex flex-col leading-none text-[#512838] ${className}`} aria-label="СВОЯ — жіночий клуб">
+      <span className={`font-[Georgia] text-[1.75rem] font-normal tracking-[0.08em] ${imageClassName}`}>СВОЯ</span>
+      <span className="mt-1 text-[0.42rem] uppercase tracking-[0.18em] text-[#866673]">жіночий клуб</span>
     </span>
   )
 }
