@@ -1,24 +1,24 @@
 import { useEffect } from 'react'
-import { BrowserRouter, Navigate, Routes, Route, useLocation } from 'react-router-dom'
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { AuthProvider } from '@/contexts/AuthContext'
 import ProtectedRoute from '@/components/ProtectedRoute'
 import BottomNav from '@/components/BottomNav'
-import HomeScreen from '@/pages/HomeScreen'
+import AppSidebar from '@/components/AppSidebar'
 import Profile from '@/pages/Profile'
 import EventDetail from '@/pages/EventDetail'
 import EventChat from '@/pages/EventChat'
 import Chats from '@/pages/Chats'
 import CreateEvent from '@/pages/CreateEvent'
-import AppSidebar from '@/components/AppSidebar'
 import MyEvents from '@/pages/MyEvents'
+import PublicProfile from '@/pages/PublicProfile'
+import SvoyaLanding from '@/pages/SvoyaLanding'
+import SvoyaClub from '@/pages/SvoyaClub'
 import { UnreadMessagesProvider } from '@/contexts/UnreadMessagesContext'
 import { ProfilePreviewProvider } from '@/contexts/ProfilePreviewContext'
 import { MyEventsProvider } from '@/contexts/MyEventsContext'
-import PublicProfile from '@/pages/PublicProfile'
 import { trackPageView } from '@/lib/analytics'
 
-// Routes with their own full-screen bottom CTA — BottomNav would cover them
-const HIDE_NAV_PATTERNS = [/^\/event\//]
+const FULLSCREEN_PATTERNS = [/^\/event\//]
 
 function RouteAnalytics() {
   const location = useLocation()
@@ -30,21 +30,19 @@ function RouteAnalytics() {
   return null
 }
 
-function AppLayout() {
+function MemberRoutes() {
   const { pathname } = useLocation()
+  const isClub = pathname === '/club'
   const isCreateEvent = pathname === '/create'
-  const hideNav = isCreateEvent || HIDE_NAV_PATTERNS.some((re) => re.test(pathname))
-  const isEventDetail = /^\/event\/[^/]+$/.test(pathname)
-  const isEventChat = /^\/event\/[^/]+\/chat$/.test(pathname)
-  const isEventEdit = /^\/event\/[^/]+\/edit$/.test(pathname)
-  const showDesktopShell = !hideNav || isEventDetail || isEventChat || isEventEdit || isCreateEvent
+  const hideBottomNav = isClub || isCreateEvent || FULLSCREEN_PATTERNS.some((re) => re.test(pathname))
+  const showLegacyDesktopShell = !isClub
 
   return (
     <>
-      {showDesktopShell && <AppSidebar />}
-      <main className={showDesktopShell ? 'lg:pl-56 xl:pl-60' : ''}>
+      {showLegacyDesktopShell && <AppSidebar />}
+      <main className={showLegacyDesktopShell ? 'lg:pl-56 xl:pl-60' : ''}>
         <Routes>
-          <Route path="/" element={<HomeScreen />} />
+          <Route path="/club" element={<SvoyaClub />} />
           <Route path="/profile" element={<Profile />} />
           <Route path="/profile/:userId" element={<PublicProfile />} />
           <Route path="/chats" element={<Chats />} />
@@ -53,32 +51,44 @@ function AppLayout() {
           <Route path="/create" element={<CreateEvent />} />
           <Route path="/event/:eventId/edit" element={<CreateEvent />} />
           <Route path="/my-events" element={<MyEvents />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
+          <Route path="*" element={<Navigate to="/club" replace />} />
         </Routes>
       </main>
-      {!hideNav && <BottomNav />}
+      {!hideBottomNav && <BottomNav />}
     </>
+  )
+}
+
+function ProtectedMemberApp() {
+  return (
+    <ProtectedRoute>
+      <UnreadMessagesProvider>
+        <MyEventsProvider>
+          <ProfilePreviewProvider>
+            <MemberRoutes />
+          </ProfilePreviewProvider>
+        </MyEventsProvider>
+      </UnreadMessagesProvider>
+    </ProtectedRoute>
+  )
+}
+
+function AppRoutes() {
+  return (
+    <Routes>
+      <Route path="/" element={<SvoyaLanding />} />
+      <Route path="/*" element={<ProtectedMemberApp />} />
+    </Routes>
   )
 }
 
 export default function App() {
   return (
-    <>
-      <div className="app-fixed-background" aria-hidden="true" />
-      <BrowserRouter basename={import.meta.env.BASE_URL.replace(/\/$/, '') || '/'}>
-        <RouteAnalytics />
-        <AuthProvider>
-          <ProtectedRoute>
-            <UnreadMessagesProvider>
-              <MyEventsProvider>
-                <ProfilePreviewProvider>
-                  <AppLayout />
-                </ProfilePreviewProvider>
-              </MyEventsProvider>
-            </UnreadMessagesProvider>
-          </ProtectedRoute>
-        </AuthProvider>
-      </BrowserRouter>
-    </>
+    <BrowserRouter basename={import.meta.env.BASE_URL.replace(/\/$/, '') || '/'}>
+      <RouteAnalytics />
+      <AuthProvider>
+        <AppRoutes />
+      </AuthProvider>
+    </BrowserRouter>
   )
 }
