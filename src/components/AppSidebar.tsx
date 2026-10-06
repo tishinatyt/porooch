@@ -1,71 +1,78 @@
-import { NavLink } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
-import { Icon, type IconName } from '@/components/icons'
-import BrandLogo from '@/components/BrandLogo'
 import { useUnreadMessages } from '@/contexts/UnreadMessagesContext'
 import { useMyEventsContext } from '@/contexts/MyEventsContext'
 
-const primaryItems: { to: string; label: string; icon: IconName; primary?: boolean; unread?: boolean }[] = [
-  { to: '/', label: 'Головна', icon: 'home' },
-  { to: '/create', label: 'Додати', icon: 'plus', primary: true },
-  { to: '/chats', label: 'Повідомлення', icon: 'message', unread: true },
-]
-
-const profileItem = { to: '/profile', label: 'Профіль', icon: 'user' as IconName }
+const items = [
+  { to: '/club?section=feed', key: 'feed', label: 'Стрічка', icon: '⌂' },
+  { to: '/club?section=event', key: 'event', label: 'Події', icon: '▦' },
+  { to: '/club?section=circle', key: 'circle', label: 'Свої кола', icon: '♧' },
+  { to: '/club?section=beauty', key: 'beauty', label: 'Б’юті', icon: '✣' },
+  { to: '/club?section=business', key: 'business', label: 'Бізнес', icon: '▣' },
+  { to: '/club?section=help', key: 'help', label: 'Допомога', icon: '♡' },
+] as const
 
 export default function AppSidebar() {
   const { profile } = useAuth()
   const { unreadCount } = useUnreadMessages()
-  const { events: myEvents, loading: myEventsLoading, pendingRequestCount } = useMyEventsContext()
+  const { events, pendingRequestCount } = useMyEventsContext()
+  const location = useLocation()
+  const section = new URLSearchParams(location.search).get('section') || 'feed'
 
   return (
-    <aside className="fixed inset-y-0 left-0 z-40 hidden w-56 flex-col border-r border-brand-border bg-white px-3 py-5 lg:flex xl:w-60">
-      <NavLink to="/" className="mb-6 flex items-center px-3" aria-label="Poruch — головна">
-        <BrandLogo className="w-32" />
-      </NavLink>
+    <aside className="fixed inset-y-0 left-0 z-40 hidden w-56 flex-col bg-[#4d2634] px-4 py-5 text-[#f8edf0] lg:flex xl:w-60">
+      <Link to="/" className="mb-7 px-2" aria-label="СВОЯ — головна">
+        <div className="font-[Georgia] text-[31px] tracking-[0.08em]">СВОЯ</div>
+        <div className="mt-1 text-[9px] uppercase tracking-[0.14em] text-[#ccb7bf]">жіночий клуб</div>
+      </Link>
 
-      <nav className="space-y-1" aria-label="Головна навігація">
-        {primaryItems.map((item) => (
-          <NavLink
-            key={item.label}
-            to={item.to}
-            end={item.to === '/'}
-            className={({ isActive }) => `flex min-h-11 items-center gap-3 rounded-xl px-3 py-2 text-[13px] font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-accent ${
-              item.primary
-                ? 'my-2 bg-brand-accent text-white shadow-[0_4px_12px_rgba(104,70,255,0.18)] hover:bg-brand-accent-hover'
-                : isActive ? 'bg-brand-accent-soft text-brand-accent' : 'text-brand-ink-soft hover:bg-brand-bg hover:text-brand-ink'
-            }`}
-          >
-            <Icon name={item.icon} className="h-5 w-5" />
-            <span>{item.label}</span>
-            {item.unread && unreadCount > 0 && (
-              <span
-                className="ml-auto inline-flex min-h-5 min-w-5 items-center justify-center rounded-full bg-brand-accent px-1.5 text-[10px] font-extrabold leading-none text-white"
-                aria-label={`${unreadCount} непрочитані повідомлення`}
-              >
-                {unreadCount > 99 ? '99+' : unreadCount}
-              </span>
-            )}
-          </NavLink>
-        ))}
-        <NavLink to="/my-events" className={({ isActive }) => `flex min-h-11 items-center gap-3 rounded-xl px-3 py-2 text-[13px] font-semibold transition-colors ${isActive ? 'bg-brand-accent-soft text-brand-accent' : 'text-brand-ink-soft hover:bg-brand-bg hover:text-brand-ink'}`}><Icon name="calendar" className="h-4.5 w-4.5"/><span>Мої події</span>{!myEventsLoading && <span className="ml-auto flex items-center gap-1">{myEvents.length > 0 && <span className="inline-flex min-h-5 min-w-5 items-center justify-center rounded-full bg-brand-accent px-1.5 text-[10px] font-extrabold leading-none text-white" aria-label={`${myEvents.length} подій у розділі Мої події`}>{myEvents.length > 99 ? '99+' : myEvents.length}</span>}{pendingRequestCount > 0 && <span className="inline-flex min-h-5 min-w-5 items-center justify-center rounded-full border border-amber-300 bg-amber-100 px-1.5 text-[10px] font-extrabold leading-none text-amber-900 shadow-sm" aria-label={`${pendingRequestCount} запитів на участь очікують розгляду`}>{pendingRequestCount > 99 ? '99+' : pendingRequestCount}</span>}</span>}</NavLink>
-        <NavLink to={profileItem.to} className={({ isActive }) => `flex min-h-11 items-center gap-3 rounded-xl px-3 py-2 text-[13px] font-semibold transition-colors ${isActive ? 'bg-brand-accent-soft text-brand-accent' : 'text-brand-ink-soft hover:bg-brand-bg hover:text-brand-ink'}`}><Icon name={profileItem.icon} className="h-4.5 w-4.5"/>{profileItem.label}</NavLink>
+      <p className="mb-3 px-2 text-[10px] uppercase tracking-[0.14em] text-[#c7b2ba]">Твоє місце</p>
+
+      <nav className="space-y-1" aria-label="Навігація клубу">
+        {items.map((item) => {
+          const active = location.pathname === '/club' && section === item.key
+          return (
+            <Link
+              key={item.key}
+              to={item.to}
+              className={`flex min-h-10 items-center gap-3 rounded-lg px-3 text-[12px] transition ${active ? 'bg-[#f8ecef] font-semibold text-[#4d2634]' : 'text-[#f0e4e8] hover:bg-white/7'}`}
+            >
+              <span className="w-4 text-center text-[15px]">{item.icon}</span>
+              <span>{item.label}</span>
+            </Link>
+          )
+        })}
+
+        <Link to="/my-events" className={`flex min-h-10 items-center gap-3 rounded-lg px-3 text-[12px] transition ${location.pathname === '/my-events' ? 'bg-[#f8ecef] font-semibold text-[#4d2634]' : 'text-[#f0e4e8] hover:bg-white/7'}`}>
+          <span className="w-4 text-center">◫</span><span>Мої зустрічі</span>
+          {events.length > 0 && <span className="ml-auto rounded-full bg-white/15 px-2 py-0.5 text-[9px]">{events.length}</span>}
+        </Link>
+
+        <Link to="/chats" className={`flex min-h-10 items-center gap-3 rounded-lg px-3 text-[12px] transition ${location.pathname === '/chats' ? 'bg-[#f8ecef] font-semibold text-[#4d2634]' : 'text-[#f0e4e8] hover:bg-white/7'}`}>
+          <span className="w-4 text-center">◌</span><span>Повідомлення</span>
+          {unreadCount > 0 && <span className="ml-auto rounded-full bg-[#f8ecef] px-2 py-0.5 text-[9px] font-bold text-[#8d2f51]">{unreadCount > 99 ? '99+' : unreadCount}</span>}
+        </Link>
       </nav>
 
-      <div className="mt-auto flex items-center gap-2.5 border-t border-brand-border px-2 pt-4">
-        <div className="h-9 w-9 flex-shrink-0 overflow-hidden rounded-full bg-brand-accent-soft">
-          {profile?.avatar_url ? (
-            <img src={profile.avatar_url} alt="" className="h-full w-full object-cover" />
-          ) : (
-            <div className="grid h-full w-full place-items-center text-sm font-bold text-brand-accent">
-              {profile?.name?.charAt(0).toUpperCase() ?? 'L'}
-            </div>
-          )}
-        </div>
-        <div className="min-w-0">
-          <p className="truncate text-sm font-bold text-brand-ink">{profile?.name ?? 'Користувач'}</p>
-          <p className="truncate text-xs text-brand-ink-muted">{profile?.city || 'Україна'}</p>
-        </div>
+      <div className="mt-7 border-y border-white/20 py-5">
+        <div className="text-[18px]">❀</div>
+        <h3 className="mt-2 font-[Georgia] text-[22px] leading-6">Можна<br />прийти самій.</h3>
+        <p className="mt-3 text-[10px] leading-4 text-[#cfbcc3]">Своє коло починається з одного знайомства.</p>
+        <Link to="/create?type=personal" className="mt-4 inline-block text-[10px] font-semibold underline underline-offset-4">Запропонувати зустріч</Link>
+      </div>
+
+      <div className="mt-auto">
+        {pendingRequestCount > 0 && <div className="mb-3 rounded-lg bg-white/10 px-3 py-2 text-[9px] text-[#eadde1]">Очікують рішення: {pendingRequestCount}</div>}
+        <div className="mb-4 text-[10px] text-[#d6c6cb]">♙ &nbsp; Правила спільноти</div>
+        <Link to="/profile" className="flex items-center gap-3 border-t border-white/20 pt-4">
+          <div className="grid h-8 w-8 place-items-center overflow-hidden rounded-full bg-[#7b4b5c] text-[11px] font-semibold">
+            {profile?.avatar_url ? <img src={profile.avatar_url} alt="" className="h-full w-full object-cover" /> : (profile?.name?.charAt(0) ?? 'О')}
+          </div>
+          <div className="min-w-0">
+            <div className="truncate text-[11px] font-semibold">{profile?.name ?? 'Олена'}</div>
+            <div className="text-[9px] text-[#cdbbc1]">Мої зустрічі та профіль</div>
+          </div>
+        </Link>
       </div>
     </aside>
   )
