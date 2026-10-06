@@ -1,28 +1,28 @@
 @import "tailwindcss";
 
 @theme {
-  --color-brand-bg: #F7F7FA;
-  --color-brand-accent: #6846FF;
-  --color-brand-accent-hover: #5738E8;
-  --color-brand-accent-soft: #F0EDFF;
-  --color-brand-surface-muted: #F2F2F6;
-  --color-brand-petrol: #6846FF;
-  --color-brand-petrol-light: #5738E8;
-  --color-brand-amber: #6846FF;
-  --color-brand-amber-light: #8A70FF;
-  --color-brand-ink: #17171C;
-  --color-brand-ink-soft: #4E4E58;
-  --color-brand-ink-muted: #777781;
-  --color-brand-border: #E8E8EE;
-  --color-brand-border-strong: #D8D8E1;
-  --color-home-bg: #ECE9F4;
-  --color-home-tape-lavender: #E2DCF0;
-  --color-home-tape-peach: #F3E5DE;
+  --color-brand-bg: #F6F3F0;
+  --color-brand-accent: #8D2F51;
+  --color-brand-accent-hover: #742642;
+  --color-brand-accent-soft: #F1E2E7;
+  --color-brand-surface-muted: #EEEAE5;
+  --color-brand-petrol: #8D2F51;
+  --color-brand-petrol-light: #A95A75;
+  --color-brand-amber: #8D2F51;
+  --color-brand-amber-light: #B96582;
+  --color-brand-ink: #342A2E;
+  --color-brand-ink-soft: #65565C;
+  --color-brand-ink-muted: #8B7E83;
+  --color-brand-border: #E0D6D2;
+  --color-brand-border-strong: #CCBCB8;
+  --color-home-bg: #F6F3F0;
+  --color-home-tape-lavender: #EEDFE4;
+  --color-home-tape-peach: #EFE2D9;
   --shadow-card: 0 2px 10px rgba(23, 23, 28, 0.035);
   --shadow-card-hover: 0 8px 24px rgba(23, 23, 28, 0.07);
 
   /* Typography */
-  --font-display: 'Manrope', Inter, sans-serif;
+  --font-display: 'Cormorant Garamond', Georgia, serif;
   --font-body: 'Manrope', Inter, sans-serif;
 }
 
@@ -37,7 +37,7 @@
 
 html {
   overflow-x: hidden;
-  background: #f8f6fb;
+  background: #f6f3f0;
 }
 
 body {
@@ -45,7 +45,7 @@ body {
   margin: 0;
   min-width: 320px;
   background-color: transparent;
-  color: #17171C;
+  color: #342A2E;
   -webkit-font-smoothing: antialiased;
   overflow-x: hidden;
 }
@@ -310,4 +310,15 @@ select {
   .desktop-feed-scrollbar::-webkit-scrollbar-thumb:hover {
     background: #b9b9c5;
   }
+}
+
+
+/* SVOYA recovery — verified visual language from the original landing/platform screenshots. */
+@keyframes svoyaTicker {
+  from { transform: translateX(0); }
+  to { transform: translateX(-22%); }
+}
+
+.svoya-serif {
+  font-family: 'Cormorant Garamond', Georgia, serif;
 }
