@@ -2,13 +2,13 @@ import { Link, useLocation } from 'react-router-dom'
 import { useUnreadMessages } from '@/contexts/UnreadMessagesContext'
 import { useMyEventsContext } from '@/contexts/MyEventsContext'
 
-const tabs = [
+const tabs: { to: string; label: string; icon: string; key: string; primary?: boolean }[] = [
   { to: '/club?section=feed', label: 'Стрічка', icon: '⌂', key: 'feed' },
   { to: '/club?section=event', label: 'Події', icon: '▦', key: 'event' },
   { to: '/create', label: 'Створити', icon: '+', key: 'create', primary: true },
   { to: '/chats', label: 'Чати', icon: '◌', key: 'chat' },
   { to: '/profile', label: 'Профіль', icon: '○', key: 'profile' },
-] as const
+]
 
 export default function BottomNav() {
   const { unreadCount } = useUnreadMessages()
