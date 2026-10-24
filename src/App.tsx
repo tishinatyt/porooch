@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { BrowserRouter, Navigate, Routes, Route, useLocation } from 'react-router-dom'
+import { DiscoveryCityProvider } from '@/contexts/DiscoveryCityContext'
 import { AuthProvider } from '@/contexts/AuthContext'
 import ProtectedRoute from '@/components/ProtectedRoute'
 import BottomNav from '@/components/BottomNav'
@@ -67,6 +68,7 @@ export default function App() {
       <BrowserRouter basename={import.meta.env.BASE_URL.replace(/\/$/, '') || '/'}>
         <RouteAnalytics />
         <AuthProvider>
+          <DiscoveryCityProvider>
           <ProtectedRoute>
             <UnreadMessagesProvider>
               <MyEventsProvider>
@@ -76,6 +78,7 @@ export default function App() {
               </MyEventsProvider>
             </UnreadMessagesProvider>
           </ProtectedRoute>
+          </DiscoveryCityProvider>
         </AuthProvider>
       </BrowserRouter>
     </>

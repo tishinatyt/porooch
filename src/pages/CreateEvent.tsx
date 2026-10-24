@@ -3,7 +3,7 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import { getDevicePosition } from '@/lib/geo'
-import { getOblastCenterCoordinates } from '@/lib/cities'
+import { useDiscoveryCity } from '@/contexts/DiscoveryCityContext'
 import { Icon } from '@/components/icons'
 import EventMedia from '@/components/EventMedia'
 import TopBar from '@/components/TopBar'
@@ -107,7 +107,8 @@ export default function CreateEvent() {
   const navigate = useNavigate()
   const { eventId } = useParams<{ eventId: string }>()
   const [searchParams] = useSearchParams()
-  const { supaUser, profile } = useAuth()
+  const { supaUser } = useAuth()
+  const { city } = useDiscoveryCity()
   const defaults = useMemo(defaultDateTime, [])
   const submittingRef = useRef(false)
   const [form, setForm] = useState<FormState>({
@@ -423,7 +424,7 @@ export default function CreateEvent() {
                   </div>
                 </div>
                 <button type="button" onClick={useCurrentLocation} disabled={locating} className="inline-flex h-10 items-center gap-2 rounded-xl border border-brand-border bg-white px-3.5 text-[11px] font-bold text-brand-accent transition hover:border-brand-accent disabled:opacity-60"><Icon name="pin" className="h-4 w-4"/>{locating ? 'Визначаємо…' : 'Використати моє місцезнаходження'}</button>
-                <CreateEventMap lat={form.lat} lng={form.lng} center={getOblastCenterCoordinates(profile?.city) ?? undefined} onPick={handleMapPick} />
+                <CreateEventMap lat={form.lat} lng={form.lng} center={city} onPick={handleMapPick} />
                 <div>{form.lat !== null && form.lng !== null ? <p className="text-[11px] font-semibold text-brand-accent">✓ Точку вибрано</p> : <p className="text-[11px] text-brand-ink-muted">Натисніть на карту, щоб вибрати точне місце.</p>}{errors.lat && <p className="mt-1 text-xs text-red-600">{errors.lat}</p>}</div>
               </div>
             </SectionCard>

@@ -315,3 +315,7 @@ Use `git log --oneline` for newer milestones; update this section when an archit
 3. Inspect the relevant migration(s).
 4. Do not rely solely on old chat history.
 5. Update `POROOCH_CONTEXT.md` when architecture, schema, deployment, or important product semantics change.
+
+## 15. City switching and test examples (2026-10-24)
+
+The catalogue deliberately remains the original 24 oblast centres. Users switch discovery city in the platform TopBar; it persists independently of profile city, controls discovery/map centre, and defaults the creation map. Explicit city selection takes precedence over device GPS. Each city has one labelled personal and one labelled public test example with working detail pages. Examples have no real participants and perform no database writes. See `docs/CITIES_AND_TEST_EVENTS.md`. Authentication, RLS and SVOYA are unchanged. Run `npm test` and `npm run build`; CI uses Node 24.

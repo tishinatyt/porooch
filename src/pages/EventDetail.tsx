@@ -74,7 +74,7 @@ export default function EventDetail() {
     created_at: demoEvent.created_at ?? '',
     location_lat: demoEvent.location_lat ?? null,
     location_lng: demoEvent.location_lng ?? null,
-    organizer: demoEvent.organizer ? { ...demoEvent.organizer, age: demoEvent.organizer.age ?? 29, gender: 'any', city: 'Чернігів', bio: null, interests: [], created_at: demoEvent.created_at ?? '' } : null,
+    organizer: demoEvent.organizer ? { ...demoEvent.organizer, age: demoEvent.organizer.age ?? null, gender: 'any', city: demoEvent.address_text.split(' · умовне')[0], bio: null, interests: [], created_at: demoEvent.created_at ?? '' } : null,
   } : liveEvent
   const demoParticipants = demoEvent?.event_type === 'personal' && demoEvent.organizer
     ? [{ id: demoEvent.organizer.id, name: demoEvent.organizer.name, avatar_url: demoEvent.organizer.avatar_url }, ...(demoEvent.participants ?? []).filter((person) => person.id !== demoEvent.organizer?.id)].slice(0, demoEvent.participant_count)
@@ -86,7 +86,7 @@ export default function EventDetail() {
     role: index === 0 ? 'organizer' : 'participant',
     joined_at: demoEvent.created_at ?? '',
     status: 'joined',
-    user: { ...person, age: 24 + index, gender: 'any', city: 'Чернігів', bio: null, interests: [], google_verified: false, created_at: demoEvent.created_at ?? '' },
+    user: { ...person, age: 24 + index, gender: 'any', city: demoEvent.address_text.split(' · умовне')[0], bio: null, interests: [], google_verified: false, created_at: demoEvent.created_at ?? '' },
   })) : liveParticipants
   const participantCount = demoEvent ? demoEvent.participant_count : liveParticipantCount
   const [distanceKm, setDistanceKm] = useState<number | null>(null)
@@ -109,14 +109,14 @@ export default function EventDetail() {
   useEffect(() => {
     let cancelled = false
     setDistanceKm(null)
-    if (event?.location_lat == null || event.location_lng == null) return
+    if (demoEvent || event?.location_lat == null || event.location_lng == null) return
     void getDevicePosition().then((position) => {
       if (cancelled || !position || event.location_lat == null || event.location_lng == null) return
       const distance = haversineKm(position.lat, position.lng, event.location_lat, event.location_lng)
       setDistanceKm(Math.round(distance * 10) / 10)
     })
     return () => { cancelled = true }
-  }, [event?.location_lat, event?.location_lng])
+  }, [event?.location_lat, event?.location_lng, demoEvent?.id])
 
   useEffect(() => {
     if (!supaUser) return
@@ -230,7 +230,7 @@ export default function EventDetail() {
   const locationSecondary = distanceKm !== null ? `${distanceKm.toLocaleString('uk-UA')} км від вас` : null
   const hasLocation = (event.location_lat != null && event.location_lng != null) || Boolean(event.address_text)
   const actions = demoEvent
-    ? <button type="button" onClick={() => setJoinError('Це демонстраційна подія')} className="h-14 w-full rounded-2xl bg-brand-accent px-5 text-sm font-extrabold text-white transition hover:bg-brand-accent-hover">{demoEvent.join_mode === 'approval' ? 'Надіслати запит' : 'Приєднатися'}</button>
+    ? <div className="space-y-3"><p className="rounded-xl bg-amber-50 p-3 text-xs leading-5 text-amber-900">Тестова подія. Дата й місце умовні; реєстрація та чат не відкриваються.</p><button type="button" onClick={() => navigate(`/create?type=${demoEvent.event_type}`)} className="h-14 w-full rounded-2xl bg-brand-accent px-5 text-sm font-extrabold text-white">Створити свою подію</button></div>
     : <EventActionContent isOrganizer={isOrganizer} joined={joined} pending={pending} rejected={rejected} joinMode={event.join_mode} isFull={isFull} joinUnavailableLabel={joinUnavailableLabel} joining={joining} leaving={leaving} onJoin={handleJoin} onChat={() => navigate(`/event/${event.id}/chat`)} onLeave={handleLeave} />
 
   const renderMap = () => event.location_lat != null && event.location_lng != null ? (
@@ -250,6 +250,7 @@ export default function EventDetail() {
 
       <div className="mx-auto grid max-w-6xl grid-cols-1 items-start gap-7 px-4 py-5 sm:px-7 md:py-7 lg:grid-cols-[minmax(0,1fr)_340px] lg:px-8 xl:grid-cols-[minmax(0,1fr)_370px] xl:gap-9">
         <main className="min-w-0 space-y-5">
+          {demoEvent && <p className="rounded-xl bg-amber-100 px-4 py-2 text-sm font-bold text-amber-900">Тестова подія · {demoEvent.event_type === 'personal' ? 'Особиста' : 'Публічна'}</p>}
           <OrganizerHeader id={event.organizer_id} name={organizerName} age={event.organizer?.age} city={event.organizer?.city} bio={event.organizer?.bio} interests={event.organizer?.interests} avatarUrl={event.organizer?.avatar_url ?? null} verified={event.organizer?.google_verified ?? false} />
           <div className="h-40 overflow-hidden rounded-2xl border border-brand-border shadow-card lg:hidden"><EventMedia category={event.category} coverUrl={event.cover_photo_url} alt={event.cover_photo_url ? event.title : ''} className="h-full w-full" /></div>
           <section>

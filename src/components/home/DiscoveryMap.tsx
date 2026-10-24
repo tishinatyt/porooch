@@ -112,6 +112,7 @@ export default function DiscoveryMap({ events, center }: DiscoveryMapProps) {
 
         const popup = document.createElement('div')
         popup.className = 'min-w-48 text-brand-ink'
+        if (event.isDemo) appendText(popup, 'mb-1 text-xs font-bold text-amber-800', 'Тестова подія · умовне місце')
         appendText(popup, 'text-sm font-extrabold leading-5', event.title)
         appendText(popup, 'mt-1 text-[11px] font-bold text-brand-accent', eventCategoryLabel(event.category))
         appendText(popup, 'mt-2 text-xs text-brand-ink-soft', dateFormatter.format(new Date(event.event_datetime)))
