@@ -80,3 +80,31 @@ test('rapid city changes ignore an older in-flight response', async () => {
     assert.match(container.textContent!, /Відкрита прогулянка містом · Київ/)
   } finally { rpcResponse = async () => ({ data: [], error: null }); await act(async () => root.unmount()) }
 })
+
+test('city, both demo feeds and map change immediately while the server is still loading', async () => {
+  dom.window.localStorage.clear()
+  const pending: ((result: any) => void)[] = []
+  rpcResponse = () => new Promise(resolve => pending.push(resolve))
+  await mount()
+  try {
+    await chooseCity('Одеса')
+    assert.match(container.textContent!, /Кава та знайомство · Одеса/)
+    assert.match(container.textContent!, /Відкрита прогулянка містом · Одеса/)
+    assert.doesNotMatch(container.textContent!, /Кава та знайомство · Чернігів/)
+    assert.equal(container.querySelector('[aria-label^="Обрати місто:"]')?.getAttribute('aria-label'), 'Обрати місто: Одеса')
+    await click('Карта')
+    assert.equal(container.querySelector('[data-testid=map]')?.getAttribute('data-lat'), String(findCity('Одеса')!.lat))
+    await chooseCity('Львів')
+    assert.equal(container.querySelector('[data-testid=map]')?.getAttribute('data-lat'), String(findCity('Львів')!.lat))
+    assert.match(container.textContent!, /Відкрита прогулянка містом · Львів/)
+    assert.doesNotMatch(container.textContent!, /Кава та знайомство · Одеса/)
+    await click('Стрічка')
+    assert.match(container.textContent!, /Кава та знайомство · Львів/)
+    // A failed request must preserve the selected city and its examples.
+    await act(async () => { pending[2]({ data: null, error: { message: 'Fixture network error' } }) })
+    assert.match(container.textContent!, /Не вдалося завантажити реальні події/)
+    assert.match(container.textContent!, /Кава та знайомство · Львів/)
+    await act(async () => { pending[0]({ data: [], error: null }); pending[1]({ data: [], error: null }) })
+    assert.match(container.textContent!, /Відкрита прогулянка містом · Львів/)
+  } finally { rpcResponse = async () => ({ data: [], error: null }); await act(async () => root.unmount()) }
+})

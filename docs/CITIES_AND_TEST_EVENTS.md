@@ -11,3 +11,5 @@ Each city has exactly two deterministic frontend examples: one personal coffee m
 No production database records, schema, authentication settings or SVOYA objects are changed. The examples are displayed by the application, not seeded into the shared production database.
 
 Validation: `npm test` covers all 24 city pairs, deep links, selection inside Home, persistent choice, both feeds, map centre, demo details, no fake-profile or membership actions, and stale responses. `npm run build` checks TypeScript and the production/PWA bundle. CI repeats tests/build on Node 24.
+
+City changes render both demo feeds and the map immediately, before any discovery or membership request completes. Real results are loaded in the background with a city-specific loading status; old-city responses remain guarded. Feed scroll positions reset for the newly selected city. Regression coverage holds server responses pending while changing cities in both feed and map views.
