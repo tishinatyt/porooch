@@ -10,12 +10,14 @@ const { createRoot } = await import('react-dom/client')
 const { MemoryRouter, Routes, Route, useLocation } = await import('react-router-dom')
 const auth = { supaUser: { id: 'fixture-user' }, profile: { city: 'Чернігів', name: 'Fixture', avatar_url: null, age: 30, gender: 'any' } }
 const queries: Record<string, number>[] = []
-let rpcResponse = async (_args: Record<string, number>) => ({ data: [], error: null })
-function chain() { const q: any = { then: (resolve: any) => Promise.resolve({ data: [], error: null }).then(resolve) }; for (const key of ['select', 'eq', 'in', 'on', 'subscribe']) q[key] = () => q; return q }
+let rpcResponse: (_args: Record<string, number>) => Promise<any> = async () => ({ data: [], error: null })
+let metadata: any[] = []
+const realtime = new Map<string, (payload: any) => void>()
+function chain(data: any[] = []) { const q: any = { then: (resolve: any) => Promise.resolve({ data, error: null }).then(resolve) }; for (const key of ['select', 'eq', 'in', 'on', 'subscribe']) q[key] = () => q; return q }
 mock.module('../src/contexts/AuthContext.tsx', { namedExports: { useAuth: () => auth } })
 mock.module('../src/contexts/MyEventsContext.tsx', { namedExports: { useMyEventsContext: () => ({ pendingRequestCountByEvent: {} }) } })
 mock.module('../src/contexts/ProfilePreviewContext.tsx', { namedExports: { useProfilePreview: () => ({ openProfilePreview: () => { throw Error('Demo must not open a fake profile') } }) } })
-mock.module('../src/lib/supabase.ts', { namedExports: { supabase: { from: () => chain(), rpc: async (_name: string, args: Record<string, number>) => { queries.push(args); return rpcResponse(args) }, channel: () => chain(), removeChannel: () => {} } } })
+mock.module('../src/lib/supabase.ts', { namedExports: { supabase: { from: (table: string) => chain(table === 'events' ? metadata : []), rpc: async (_name: string, args: Record<string, number>) => { queries.push(args); return rpcResponse(args) }, channel: (name: string) => { const q = chain(); q.on = (_event: string, _filter: any, callback: (payload: any) => void) => { realtime.set(name, callback); return q }; return q }, removeChannel: () => {} } } })
 mock.module('../src/components/BrandLogo.tsx', { defaultExport: () => <span>ПОРУЧ</span> })
 mock.module('../src/components/home/DiscoveryMap.tsx', { defaultExport: ({ center, events }: any) => <div data-testid="map" data-lat={center.lat}>{events.map((event: any) => <span key={event.id}>{event.title}</span>)}</div> })
 mock.module('../src/components/EventMap.tsx', { defaultExport: () => <div>Map</div> })
@@ -107,4 +109,68 @@ test('city, both demo feeds and map change immediately while the server is still
     await act(async () => { pending[0]({ data: [], error: null }); pending[1]({ data: [], error: null }) })
     assert.match(container.textContent!, /Відкрита прогулянка містом · Львів/)
   } finally { rpcResponse = async () => ({ data: [], error: null }); await act(async () => root.unmount()) }
+})
+
+function fixtureEvent(overrides: Record<string, unknown> = {}) {
+  return { id: 'own-event', title: 'Kyiv personal fixture', category: 'bar', address_text: 'Київ',
+    event_datetime: '2099-01-01T15:00:00Z', created_at: '2026-10-26T14:00:00Z', min_age: 18, max_age: 60,
+    gender_filter: 'any', distance_km: 1.3, max_participants: 5, participant_count: 1,
+    organizer_id: auth.supaUser.id, organizer: { id: auth.supaUser.id, name: 'Fixture', avatar_url: null },
+    ...overrides }
+}
+function setFixtures(rows: any[]) {
+  metadata = rows.map(row => ({ id: row.id, event_type: 'personal', is_public: true, join_mode: 'open', bank_enabled: false }))
+  rpcResponse = async () => ({ data: rows, error: null })
+}
+async function refreshEvents() { await act(async () => { realtime.get('events-discovery-feed')!({ eventType: 'UPDATE' }) }) }
+function resetFixtures() { metadata = []; rpcResponse = async () => ({ data: [], error: null }); auth.profile.gender = 'any' }
+
+test('Kyiv organizer keeps their edited event after audience changes and reload; other audience and radius filters still apply', async () => {
+  dom.window.localStorage.setItem(CITY_STORAGE_KEY, findCity('Київ')!.id)
+  auth.profile.gender = 'male'
+  setFixtures([fixtureEvent()])
+  await mount()
+  try {
+    assert.match(container.textContent!, /Kyiv personal fixture/)
+    // Reproduce the actual saved edit: male organizer invites women.
+    setFixtures([fixtureEvent({ gender_filter: 'female' })])
+    await refreshEvents()
+    assert.match(container.textContent!, /Kyiv personal fixture/)
+    setFixtures([
+      fixtureEvent({ gender_filter: 'female', min_age: 40, max_age: 60 }),
+      fixtureEvent({ id: 'other-gender', title: 'HIDDEN_GENDER', organizer_id: 'other', organizer: null, gender_filter: 'female' }),
+      fixtureEvent({ id: 'other-age', title: 'HIDDEN_AGE', organizer_id: 'other', organizer: null, min_age: 40 }),
+      fixtureEvent({ id: 'far-own', title: 'HIDDEN_RADIUS', distance_km: 20 }),
+      fixtureEvent({ id: 'eligible-other', title: 'VISIBLE_OTHER', organizer_id: 'other', organizer: null }),
+    ])
+    await refreshEvents()
+    assert.match(container.textContent!, /Kyiv personal fixture/)
+    assert.match(container.textContent!, /VISIBLE_OTHER/)
+    assert.doesNotMatch(container.textContent!, /HIDDEN_GENDER|HIDDEN_AGE|HIDDEN_RADIUS/)
+    await click('Карта')
+    assert.match(container.querySelector('[data-testid=map]')!.textContent!, /Kyiv personal fixture/)
+    assert.doesNotMatch(container.querySelector('[data-testid=map]')!.textContent!, /HIDDEN_/)
+  } finally { await act(async () => root.unmount()) }
+  await mount()
+  try { assert.match(container.textContent!, /Kyiv personal fixture/) }
+  finally { resetFixtures(); await act(async () => root.unmount()) }
+})
+
+test('realtime refresh keeps cards until replacement data arrives, then applies updates and removals', async () => {
+  dom.window.localStorage.setItem(CITY_STORAGE_KEY, findCity('Київ')!.id)
+  setFixtures([fixtureEvent()])
+  await mount()
+  try {
+    const pending: ((result: any) => void)[] = []
+    rpcResponse = () => new Promise(resolve => pending.push(resolve))
+    await refreshEvents()
+    assert.match(container.textContent!, /Kyiv personal fixture/)
+    await act(async () => { pending[0]({ data: [fixtureEvent({ title: 'Updated fixture' })], error: null }) })
+    assert.match(container.textContent!, /Updated fixture/)
+    assert.doesNotMatch(container.textContent!, /Kyiv personal fixture/)
+    await refreshEvents()
+    assert.match(container.textContent!, /Updated fixture/)
+    await act(async () => { pending[1]({ data: [], error: null }) })
+    assert.doesNotMatch(container.textContent!, /Updated fixture/)
+  } finally { resetFixtures(); await act(async () => root.unmount()) }
 })

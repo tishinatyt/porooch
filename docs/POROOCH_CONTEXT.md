@@ -144,7 +144,9 @@ Home discovery does not remove an otherwise eligible event because of the curren
 - participant + `rejected` → `ЗАПИТ ВІДХИЛЕНО`;
 - organizer + `joined` → `КЕРУВАТИ`.
 
-Home must wait for the current user's membership query before rendering discovery cards so these states are correct on first paint. Membership state must never be used to exclude an event from Home; only the existing discovery, eligibility, radius, search, category, date, visibility, and event-status rules may do that.
+Home audience filters (age and gender) apply only to guests. The organizer is identified by the RPC `organizer_id` (with profile-ID fallback), so editing the requested audience never hides the event from its author. City/radius, search/category, date/status and public visibility filters still apply.
+
+Home must wait for the current user's membership query before rendering discovery cards so these states are correct on first paint. Subsequent realtime refreshes keep the last complete same-city snapshot visible until its replacement is ready; switching cities still hides the previous city's real events immediately. Membership state must never be used to exclude an event from Home; only the existing discovery, eligibility, radius, search, category, date, visibility, and event-status rules may do that.
 
 Home participation CTAs are navigation controls only. Every Home CTA state opens EventDetail and must perform zero `event_participants` writes. The actual free-entry join or approval request is submitted only from EventDetail through the shared participation workflow.
 
