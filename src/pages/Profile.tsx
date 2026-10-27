@@ -1,3 +1,5 @@
+import { Link } from 'react-router-dom'
+import { useAdmin } from '@/contexts/AdminContext'
 import { useEffect, useRef, useState, type ChangeEvent } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
@@ -8,6 +10,7 @@ import { removeProfilePhoto } from '@/lib/profilePhotos'
 import { CitySelect } from '@/components/profile/CitySelect'
 
 export default function Profile() {
+  const { isAdmin } = useAdmin()
   const { profile, supaUser, signOut, refreshProfile } = useAuth()
   const [editing, setEditing] = useState(false)
   const [name, setName] = useState('')
@@ -113,6 +116,8 @@ export default function Profile() {
             </div>
           </div>
         </section>
+
+        {isAdmin && <Link to="/admin" className="mt-4 flex min-h-12 items-center justify-between rounded-xl border border-brand-accent/20 bg-white px-4 text-sm font-bold text-brand-accent">Адміністрування ПОРУЧ <span>→</span></Link>}
 
         {error && <div role="alert" className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
 

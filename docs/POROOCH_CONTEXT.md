@@ -321,3 +321,18 @@ Use `git log --oneline` for newer milestones; update this section when an archit
 ## 15. City switching and test examples (2026-10-24)
 
 The catalogue deliberately remains the original 24 oblast centres. Users switch discovery city in the platform TopBar; it persists independently of profile city, controls discovery/map centre, and defaults the creation map. Explicit city selection takes precedence over device GPS. Each city has one labelled personal and one labelled public test example with working detail pages. Examples have no real participants and perform no database writes. See `docs/CITIES_AND_TEST_EVENTS.md`. Authentication, RLS and SVOYA are unchanged. Run `npm test` and `npm run build`; CI uses Node 24.
+
+
+## 16. Admin console (2026-10-27)
+
+`/admin` is a separate lazy-loaded route inside AuthProvider/AdminProvider, outside participant onboarding. Google OAuth returns to `/porooch/admin`; it does not create or merge profiles. The sidebar and Profile expose its link only after the server confirms admin access.
+
+Only the live, confirmed, non-anonymous `auth.users.email = dr12071980@gmail.com` identity can administer Poruch. Soft-deleted/banned accounts are denied. No user-editable metadata or frontend email comparison grants permissions. Public RPC wrappers run as SECURITY INVOKER; guarded implementations are SECURITY DEFINER in non-exposed `poruch_private` with empty search_path and explicit execute grants. The private audit table has RLS and no client table privileges. Existing event/profile policies and SVOYA are untouched.
+
+The console offers 25-row server pagination, literal search, a city filter for members, profile/account dates, email and confirmation state, anonymous profile counts, seven-day registrations, event counts, personal/public/invitation-only event inspection, and an audit log. All user counts are scoped to `public.users` joined with Auth, not the shared Auth population. Existing test profiles are included and labelled in the UI explanation. Auth last_sign_in_at is explicitly not Poruch last activity.
+
+Admins may cancel upcoming/active events and restore only future events most recently cancelled via this console. Actions require a reason and explicit confirmation. RPCs lock the event row, reject stale status, and atomically append audit records. Cancellation uses existing cancelled semantics, preserving chat and membership history; no account deletion, password reset, chat access, or user ban is exposed.
+
+Migration: `20261027085654_poruch_admin_console.sql`. Tests: admin route access, data loading/search/pagination, action confirmation, stale response handling, existing city regressions, plus rollback-only SQL authorization/action checks under anon/authenticated roles.
+
+Security verification: SQL role/claim tests passed with rollback. No new WARN/ERROR advisories. The audit table intentionally has RLS with no client policies (default deny), which produces the informational [RLS Enabled No Policy](https://supabase.com/docs/guides/database/database-linter?lint=0008_rls_enabled_no_policy) notice; admin access is only through guarded RPCs.
