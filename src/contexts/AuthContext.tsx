@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useRef, useState, type ReactNode 
 import type { Session, User as SupabaseUser } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
 import type { User } from '@/types'
+import { eventAuthRedirect } from '@/lib/eventLinks'
 
 interface AuthContextValue {
   session: Session | null
@@ -74,7 +75,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   async function signInWithGoogle() {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: new URL(import.meta.env.BASE_URL, window.location.origin).toString() }
+      options: { redirectTo: eventAuthRedirect(window.location.pathname, import.meta.env.BASE_URL, window.location.origin) }
     })
     if (error) throw error
   }

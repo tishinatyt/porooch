@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ChangeEvent } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
+import { eventReturnPath } from '@/lib/eventLinks'
 import BrandLogo from '@/components/BrandLogo'
 import LandingPage from '@/components/onboarding/LandingPage'
 import { InterestChips } from '@/components/profile/ProfileComponents'
@@ -18,6 +19,7 @@ type OnboardingStep = 'landing' | 'profile' | 'interests'
 
 export default function Onboarding() {
   const navigate = useNavigate()
+  const { pathname } = useLocation()
   const { supaUser, profile, signInWithGoogle, signInAnonymously, refreshProfile } = useAuth()
   const [step, setStep] = useState<OnboardingStep>(() => {
     if (!supaUser) return 'landing'
@@ -118,7 +120,7 @@ export default function Onboarding() {
       const { error: markerError } = await supabase.auth.updateUser({ data: { poruch_onboarding: 'complete' } })
       if (markerError) throw markerError
       await refreshProfile(userId)
-      navigate('/', { replace: true })
+      navigate(eventReturnPath(pathname), { replace: true })
     } catch (finishError) {
       console.error('Interest onboarding failed', finishError)
       setError('Не вдалося зберегти інтереси. Спробуйте ще раз')

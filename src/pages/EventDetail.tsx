@@ -12,6 +12,7 @@ import { getDemoEvent } from '@/components/home/demoEvents'
 import type { EventDetail as EventDetailData, EventParticipant } from '@/hooks/useEvent'
 import { getEventAccessChipClass, getEventAccessLabel } from '@/lib/eventAccess'
 import DemoQrPlaceholder from '@/components/DemoQrPlaceholder'
+import EventShare from '@/components/event-detail/EventShare'
 
 const EventMap = lazy(() => import('@/components/EventMap'))
 
@@ -257,6 +258,7 @@ export default function EventDetail() {
             <div className="mb-2 flex flex-wrap items-center gap-2"><span className="rounded-md bg-brand-accent-soft px-2 py-1 text-[10px] font-extrabold text-brand-accent">{CATEGORY_LABEL[event.category] ?? event.category}</span><span className={`rounded-md border px-2 py-1 text-[10px] font-bold ${getEventAccessChipClass(event)}`}>{getEventAccessLabel(event)}</span></div>
             <h1 className="text-[28px] font-extrabold leading-[1.12] tracking-[-0.04em] text-brand-ink md:text-[34px] lg:text-4xl">{event.title}</h1>
             {event.description && <p className="mt-3 max-w-3xl text-sm leading-6 text-brand-ink-soft md:text-[15px]">{event.description}</p>}
+            {!demoEvent && <EventShare key={event.id} eventId={event.id} title={event.title} isPublic={event.is_public} />}
           </section>
           <div className="border-t border-brand-border" />
           <div className="grid gap-2 sm:grid-cols-2"><EventInfoRow icon="calendar" eyebrow="Дата і час" primary={formattedDate.day} secondary={formattedDate.time} />{event.address_text && <EventInfoRow icon="pin" eyebrow="Місце" primary={event.address_text} secondary={locationSecondary} />}</div>
