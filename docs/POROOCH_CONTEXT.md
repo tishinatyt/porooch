@@ -336,3 +336,11 @@ Admins may cancel upcoming/active events and restore only future events most rec
 Migration: `20261027085654_poruch_admin_console.sql`. Tests: admin route access, data loading/search/pagination, action confirmation, stale response handling, existing city regressions, plus rollback-only SQL authorization/action checks under anon/authenticated roles.
 
 Security verification: SQL role/claim tests passed with rollback. No new WARN/ERROR advisories. The audit table intentionally has RLS with no client policies (default deny), which produces the informational [RLS Enabled No Policy](https://supabase.com/docs/guides/database/database-linter?lint=0008_rls_enabled_no_policy) notice; admin access is only through guarded RPCs.
+
+## 17. Event cover upload (2026-10-28)
+
+CreateEvent supports device-file covers for both personal/public events and editing. JPG, PNG and WebP up to 5 MiB are checked for type, size and browser decoding before showing a local preview. File selection does not upload; upload happens only after form validation on save. Existing URL input remains under «Або додати за посиланням». Remove clears the event's cover only when saved.
+
+`src/lib/eventCover.ts` reuses the existing public `avatars` bucket under `<auth.uid()>/event-covers/<random UUID>.<MIME-derived extension>`. Existing owner-folder INSERT policy and bucket 5 MiB/MIME restrictions apply; no schema, bucket or policy changes. Covers are publicly retrievable by URL, like existing external cover URLs; do not use this storage for confidential attachments. Upload uses `upsert: false`. Replaced objects are not deleted because another event/tab may reference them. A successful upload is retained in the form if the event save fails, so retry reuses it; abandoned failed saves can leave an unused object, which requires reference-aware cleanup separately.
+
+Form controls lock during save; image validation prevents premature submit. Upload failure stops the database write and leaves the form/file available for retry. Local preview URLs are revoked on replacement/unmount. `tests/event-cover.test.tsx` covers rejection, preview/removal, create/edit persistence, upload/save failures and retry.
