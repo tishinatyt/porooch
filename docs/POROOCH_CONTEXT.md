@@ -6,7 +6,7 @@
 
 **Current product brand:** **Poruch**.
 
-Legacy technical identifiers may still use `porooch` for compatibility because the GitHub repository and current GitHub Pages deployment remain under `/porooch/`. Do not rename those deployment paths or existing storage keys until a compatible migration is planned.
+Legacy technical identifiers may still use `porooch` for compatibility because the GitHub repository is still named `porooch`. The custom-domain migration now uses the root path; preserve existing storage keys.
 
 **Primary UI language:** Ukrainian.
 
@@ -31,23 +31,23 @@ Never conflate private visibility with approval-based joining.
 ## 2. Repository and deployment
 
 - Repository: `tishinatyt/porooch`
-- Production: <https://tishinatyt.github.io/porooch/>
+- Production: <https://poruch.fun/>
 - Developer workspace: `C:\Users\Dell\Documents\meetnow`
 - Stack: React 19, TypeScript, Vite 6, Tailwind CSS 4, Supabase, Leaflet/OpenStreetMap, and `vite-plugin-pwa`.
 - Deployment: `.github/workflows/deploy.yml` uses checkout, Node 20, `npm ci`, `npm run build`, official Pages artifact upload, and Pages deployment actions. Supabase frontend values come from GitHub Actions secrets.
 
-Vite uses `/` for development and `/porooch/` for production builds. `BrowserRouter` derives its basename from `import.meta.env.BASE_URL`; internal routes must remain basename-relative.
+Vite uses `/` for development and production builds. `VITE_APP_URL=https://poruch.fun/` supplies the production origin. `BrowserRouter` derives its basename from `import.meta.env.BASE_URL`; internal routes must remain basename-relative.
 
 The app is an installable PWA. Current production manifest values are:
 
-- `start_url: /porooch/`
-- `scope: /porooch/`
-- `id: /porooch/`
+- `start_url: /`
+- `scope: /`
+- `id: /`
 - standalone display, Ukrainian language, and Poruch branding.
 
 The generated service worker uses auto-update, outdated-cache cleanup, `skipWaiting`, `clientsClaim`, and an hourly online update check. Do not reintroduce demo avatars into the precache.
 
-GitHub Pages SPA fallback uses `public/404.html` and `index.html`. The sessionStorage key is `porooch:redirect`; restoration must stay namespaced, same-origin, restricted to `/porooch/`, and compatible with standalone PWA startup. Do not restore old `/meetnow/` routing.
+GitHub Pages SPA fallback uses `public/404.html` and `index.html`. The sessionStorage key is `porooch:redirect`; restoration must stay namespaced, same-origin, restricted to the same origin, and compatible with standalone PWA startup. Do not restore old `/meetnow/` routing.
 
 ## 3. Supabase
 
@@ -144,7 +144,9 @@ Home discovery does not remove an otherwise eligible event because of the curren
 - participant + `rejected` → `ЗАПИТ ВІДХИЛЕНО`;
 - organizer + `joined` → `КЕРУВАТИ`.
 
-Home must wait for the current user's membership query before rendering discovery cards so these states are correct on first paint. Membership state must never be used to exclude an event from Home; only the existing discovery, eligibility, radius, search, category, date, visibility, and event-status rules may do that.
+Home audience filters (age and gender) apply only to guests. The organizer is identified by the RPC `organizer_id` (with profile-ID fallback), so editing the requested audience never hides the event from its author. City/radius, search/category, date/status and public visibility filters still apply.
+
+Home must wait for the current user's membership query before rendering discovery cards so these states are correct on first paint. Subsequent realtime refreshes keep the last complete same-city snapshot visible until its replacement is ready; switching cities still hides the previous city's real events immediately. Membership state must never be used to exclude an event from Home; only the existing discovery, eligibility, radius, search, category, date, visibility, and event-status rules may do that.
 
 Home participation CTAs are navigation controls only. Every Home CTA state opens EventDetail and must perform zero `event_participants` writes. The actual free-entry join or approval request is submitted only from EventDetail through the shared participation workflow.
 
@@ -195,12 +197,12 @@ Existing Google-authenticated sessions and profiles remain supported without con
 
 Anonymous sessions use the Supabase client's normal browser persistence. The current test version keeps the same simple sign-out action for every account type. Cross-device recovery is not available until a future “Зберегти акаунт” flow links phone/email credentials to the same auth user; such linking must preserve the existing user ID and data.
 
-Supabase Auth production Site URL and legacy OAuth redirects remain:
+Supabase Auth production Site URL and redirect URLs were updated manually in the dashboard (do not push Supabase config):
 
 ```text
-https://tishinatyt.github.io/porooch/
+https://poruch.fun/
 http://localhost:5173/**
-https://tishinatyt.github.io/porooch/**
+https://poruch.fun/**
 ```
 
 Do not reintroduce old `/meetnow/` redirect paths.
@@ -302,7 +304,7 @@ Use `git log --oneline` for newer milestones; update this section when an archit
 
 ### PWA
 
-- [ ] Installed production app opens `/porooch/` without a blank window.
+- [ ] Installed production app opens `/` without a blank window.
 - [ ] Direct routes and refresh work.
 - [ ] A deployed update is detected and activated without clearing all caches every launch.
 
@@ -315,3 +317,38 @@ Use `git log --oneline` for newer milestones; update this section when an archit
 3. Inspect the relevant migration(s).
 4. Do not rely solely on old chat history.
 5. Update `POROOCH_CONTEXT.md` when architecture, schema, deployment, or important product semantics change.
+
+## 15. City switching and test examples (2026-10-24)
+
+The catalogue deliberately remains the original 24 oblast centres. Users switch discovery city in the platform TopBar; it persists independently of profile city, controls discovery/map centre, and defaults the creation map. Explicit city selection takes precedence over device GPS. Each city has one labelled personal and one labelled public test example with working detail pages. Examples have no real participants and perform no database writes. See `docs/CITIES_AND_TEST_EVENTS.md`. Authentication, RLS and SVOYA are unchanged. Run `npm test` and `npm run build`; CI uses Node 24.
+
+
+## 16. Admin console (2026-10-27)
+
+`/admin` is a separate lazy-loaded route inside AuthProvider/AdminProvider, outside participant onboarding. Google OAuth returns to `/admin`; it does not create or merge profiles. The sidebar and Profile expose its link only after the server confirms admin access.
+
+Only the live, confirmed, non-anonymous `auth.users.email = dr12071980@gmail.com` identity can administer Poruch. Soft-deleted/banned accounts are denied. No user-editable metadata or frontend email comparison grants permissions. Public RPC wrappers run as SECURITY INVOKER; guarded implementations are SECURITY DEFINER in non-exposed `poruch_private` with empty search_path and explicit execute grants. The private audit table has RLS and no client table privileges. Existing event/profile policies and SVOYA are untouched.
+
+The console offers 25-row server pagination, literal search, a city filter for members, profile/account dates, email and confirmation state, anonymous profile counts, seven-day registrations, event counts, personal/public/invitation-only event inspection, and an audit log. All user counts are scoped to `public.users` joined with Auth, not the shared Auth population. Existing test profiles are included and labelled in the UI explanation. Auth last_sign_in_at is explicitly not Poruch last activity.
+
+Admins may cancel upcoming/active events and restore only future events most recently cancelled via this console. Actions require a reason and explicit confirmation. RPCs lock the event row, reject stale status, and atomically append audit records. Cancellation uses existing cancelled semantics, preserving chat and membership history; no account deletion, password reset, chat access, or user ban is exposed.
+
+Migration: `20261027085654_poruch_admin_console.sql`. Tests: admin route access, data loading/search/pagination, action confirmation, stale response handling, existing city regressions, plus rollback-only SQL authorization/action checks under anon/authenticated roles.
+
+Security verification: SQL role/claim tests passed with rollback. No new WARN/ERROR advisories. The audit table intentionally has RLS with no client policies (default deny), which produces the informational [RLS Enabled No Policy](https://supabase.com/docs/guides/database/database-linter?lint=0008_rls_enabled_no_policy) notice; admin access is only through guarded RPCs.
+
+## 17. Event cover upload (2026-10-28)
+
+CreateEvent supports device-file covers for both personal/public events and editing. JPG, PNG and WebP up to 5 MiB are checked for type, size and browser decoding before showing a local preview. File selection does not upload; upload happens only after form validation on save. Existing URL input remains under «Або додати за посиланням». Remove clears the event's cover only when saved.
+
+`src/lib/eventCover.ts` reuses the existing public `avatars` bucket under `<auth.uid()>/event-covers/<random UUID>.<MIME-derived extension>`. Existing owner-folder INSERT policy and bucket 5 MiB/MIME restrictions apply; no schema, bucket or policy changes. Covers are publicly retrievable by URL, like existing external cover URLs; do not use this storage for confidential attachments. Upload uses `upsert: false`. Replaced objects are not deleted because another event/tab may reference them. A successful upload is retained in the form if the event save fails, so retry reuses it; abandoned failed saves can leave an unused object, which requires reference-aware cleanup separately.
+
+Form controls lock during save; image validation prevents premature submit. Upload failure stops the database write and leaves the form/file available for retry. Local preview URLs are revoked on replacement/unmount. `tests/event-cover.test.tsx` covers rejection, preview/removal, create/edit persistence, upload/save failures and retry.
+
+## 18. Event links (2026-10-28)
+
+Real event details expose «Поділитися» below the description on mobile and desktop. EventShare builds an absolute URL from the router basename and event ID; it never shares the current query/hash (which may contain auth data). The expandable panel offers clipboard copy with confirmation, a selectable manual-copy fallback, and native sharing where supported. Demo examples have no sharing control. Invitation-only links do not grant access or participation; existing authentication and RLS remain authoritative. No database, policy, storage or Auth configuration changes.
+
+Unauthenticated recipients still complete the normal onboarding. Onboarding now returns to the event detail they opened, instead of the home feed. Google OAuth similarly preserves only a validated event-detail pathname within the current deployment base, using the existing allowed production `/**` redirect configuration. Other onboarding/Google entry points retain home as their destination; the separate admin OAuth flow is unchanged. No query/hash values are carried into OAuth redirect targets. GitHub Pages 404/sessionStorage restoration remains in place.
+
+`tests/event-share.test.tsx` covers canonical URLs, clipboard denial/absence, native-share success/cancellation/failure, private-event explanation, onboarding return routing, safe OAuth redirect construction and the actual Pages restoration scripts. Automated tests mock browser sharing and onboarding persistence; they do not send real messages or authenticate a real user.

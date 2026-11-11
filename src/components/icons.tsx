@@ -25,8 +25,10 @@ export type IconName =
   | 'users'
   | 'userCheck'
   | 'sparkles'
+  | 'share'
 
 const paths: Record<IconName, React.ReactNode> = {
+  share: <><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.6 10.5 6.8-4M8.6 13.5l6.8 4"/></>,
   home: <><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5M9 21v-7h6v7"/></>,
   plus: <><path d="M12 5v14M5 12h14"/></>,
   message: <path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4Z"/>,

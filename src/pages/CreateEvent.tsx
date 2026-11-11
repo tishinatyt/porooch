@@ -2,13 +2,15 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
-import { getCurrentPosition } from '@/lib/geo'
+import { getDevicePosition } from '@/lib/geo'
+import { useDiscoveryCity } from '@/contexts/DiscoveryCityContext'
 import { Icon } from '@/components/icons'
 import EventMedia from '@/components/EventMedia'
 import TopBar from '@/components/TopBar'
 import CreateEventMap from '@/components/CreateEventMap'
 import { getEventAccessChipClass, getEventAccessLabel } from '@/lib/eventAccess'
 import DemoQrPlaceholder from '@/components/DemoQrPlaceholder'
+import { checkEventCoverImage, EVENT_COVER_ACCEPT, uploadEventCover } from '@/lib/eventCover'
 
 const CATEGORIES = [
   { value: 'other', label: 'Спілкування', emoji: '💬' },
@@ -70,7 +72,6 @@ interface EventInsertPayload {
   gender_filter: GenderFilter
   bank_enabled: boolean
   bank_note: string | null
-  status: 'upcoming'
 }
 
 function pad(value: number) {
@@ -108,8 +109,15 @@ export default function CreateEvent() {
   const { eventId } = useParams<{ eventId: string }>()
   const [searchParams] = useSearchParams()
   const { supaUser } = useAuth()
+  const { city } = useDiscoveryCity()
   const defaults = useMemo(defaultDateTime, [])
   const submittingRef = useRef(false)
+  const coverInputRef = useRef<HTMLInputElement>(null)
+  const coverSelectionRef = useRef(0)
+  const coverPreparingRef = useRef(false)
+  const [coverFile, setCoverFile] = useState<File | null>(null)
+  const [coverPreview, setCoverPreview] = useState('')
+  const [coverPreparing, setCoverPreparing] = useState(false)
   const [form, setForm] = useState<FormState>({
     event_type: searchParams.get('type') === 'public' ? 'public' : 'personal', is_public: true, join_mode: 'open', title: '', description: '', category: 'other',
     cover_photo_url: '', event_date: defaults.date, event_time: defaults.time, venue_name: '', address: '',
@@ -124,6 +132,39 @@ export default function CreateEvent() {
   const [ticketsEnabled, setTicketsEnabled] = useState(false)
   const [ticketQuantity, setTicketQuantity] = useState('50')
   const [ticketPrice, setTicketPrice] = useState('200')
+
+  useEffect(() => {
+    if (!coverFile) { setCoverPreview(''); return }
+    const url = URL.createObjectURL(coverFile)
+    setCoverPreview(url)
+    return () => URL.revokeObjectURL(url)
+  }, [coverFile])
+
+  useEffect(() => {
+    setCoverFile(null)
+    setCoverPreparing(false)
+    coverPreparingRef.current = false
+    return () => { coverSelectionRef.current += 1 }
+  }, [eventId, supaUser?.id])
+
+  async function selectCover(file?: File) {
+    if (!file || submittingRef.current) return
+    const selection = ++coverSelectionRef.current
+    coverPreparingRef.current = true
+    setCoverPreparing(true)
+    setErrors((current) => ({ ...current, cover_photo_url: undefined }))
+    try {
+      await checkEventCoverImage(file)
+      if (selection === coverSelectionRef.current) setCoverFile(file)
+    } catch (error) {
+      if (selection === coverSelectionRef.current) setErrors((current) => ({ ...current, cover_photo_url: error instanceof Error ? error.message : 'Не вдалося прочитати зображення.' }))
+    } finally {
+      if (selection === coverSelectionRef.current) {
+        coverPreparingRef.current = false
+        setCoverPreparing(false)
+      }
+    }
+  }
 
   useEffect(() => {
     if (!eventId || !supaUser) return
@@ -191,10 +232,18 @@ export default function CreateEvent() {
 
   async function useCurrentLocation() {
     setLocating(true)
-    const position = await getCurrentPosition()
-    setForm((current) => ({ ...current, lat: position.lat, lng: position.lng }))
-    await reverseGeocode(position.lat, position.lng)
-    setLocating(false)
+    setErrors((current) => ({ ...current, lat: undefined }))
+    try {
+      const position = await getDevicePosition()
+      if (!position) {
+        setErrors((current) => ({ ...current, lat: 'Не вдалося визначити ваше місцезнаходження. Дозвольте геолокацію або виберіть точку на карті.' }))
+        return
+      }
+      setForm((current) => ({ ...current, lat: position.lat, lng: position.lng }))
+      await reverseGeocode(position.lat, position.lng)
+    } finally {
+      setLocating(false)
+    }
   }
 
   function validate() {
@@ -231,90 +280,116 @@ export default function CreateEvent() {
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (!supaUser || submittingRef.current || !validate()) return
+    if (!supaUser || submittingRef.current || coverPreparingRef.current || !validate()) return
     submittingRef.current = true
     setSubmitting(true)
 
-    const addressText = [form.venue_name.trim(), form.address.trim()].filter(Boolean).join(', ')
-    const payload: EventInsertPayload = {
-      organizer_id: supaUser.id,
-      event_type: form.event_type,
-      is_public: form.is_public,
-      join_mode: form.join_mode,
-      title: form.title.trim(),
-      description: form.description.trim(),
-      category: form.category,
-      cover_photo_url: form.cover_photo_url.trim() || null,
-      event_datetime: new Date(`${form.event_date}T${form.event_time}`).toISOString(),
-      address_text: addressText,
-      location: `POINT(${form.lng} ${form.lat})`,
-      max_participants: form.max_participants,
-      min_age: form.min_age,
-      max_age: form.max_age,
-      gender_filter: form.gender_filter,
-      bank_enabled: form.event_type === 'personal' && form.bank_enabled,
-      bank_note: form.event_type === 'personal' && form.bank_enabled ? form.bank_note.trim() || null : null,
-      status: 'upcoming',
-    }
+    try {
+      let coverUrl = form.cover_photo_url.trim() || null
+      if (coverFile) {
+        try {
+          coverUrl = await uploadEventCover(supaUser.id, coverFile)
+        } catch (error) {
+          setErrors((current) => ({ ...current, cover_photo_url: error instanceof Error ? error.message : 'Не вдалося завантажити обкладинку.' }))
+          return
+        }
+        // Keep a successful upload for retries if saving the event fails. An
+        // ambiguous network response must not delete a potentially saved cover.
+        setForm((current) => ({ ...current, cover_photo_url: coverUrl! }))
+        setCoverFile(null)
+      }
+      const addressText = [form.venue_name.trim(), form.address.trim()].filter(Boolean).join(', ')
+      const payload: EventInsertPayload = {
+        organizer_id: supaUser.id,
+        event_type: form.event_type,
+        is_public: form.is_public,
+        join_mode: form.join_mode,
+        title: form.title.trim(),
+        description: form.description.trim(),
+        category: form.category,
+        cover_photo_url: coverUrl,
+        event_datetime: new Date(`${form.event_date}T${form.event_time}`).toISOString(),
+        address_text: addressText,
+        location: `POINT(${form.lng} ${form.lat})`,
+        max_participants: form.max_participants,
+        min_age: form.min_age,
+        max_age: form.max_age,
+        gender_filter: form.gender_filter,
+        bank_enabled: form.event_type === 'personal' && form.bank_enabled,
+        bank_note: form.event_type === 'personal' && form.bank_enabled ? form.bank_note.trim() || null : null,
+      }
 
-    if (import.meta.env.DEV) {
-      console.info('[CreateEvent diagnostic] CREATE EVENT START', {
-        organizer_id: payload.organizer_id,
-        event_type: payload.event_type,
-        is_public: payload.is_public,
-        join_mode: payload.join_mode,
-        event_datetime: payload.event_datetime,
-        location: payload.location,
-        status: payload.status,
-      })
-    }
-    const { data, error } = eventId
-      ? await supabase.from('events').update(payload).eq('id', eventId).eq('organizer_id', supaUser.id).select('id').single()
-      : await supabase.from('events').insert(payload).select('id').single()
-    if (import.meta.env.DEV) {
-      console.info('[CreateEvent diagnostic] EVENT INSERT RESULT', { id: data?.id ?? null, succeeded: !error && Boolean(data?.id) })
-      if (error) console.error('[CreateEvent diagnostic] EVENT INSERT ERROR', { code: error.code, message: error.message, details: error.details, hint: error.hint })
-    }
-    if (error || !data?.id) {
-      console.error('[CreateEvent] Event insert/returning failed', {
-        operation: "supabase.from('events').insert(payload).select('id').single()",
-        phase: 'single PostgREST INSERT with representation return; no participant/request setup call follows',
-        error: error ? {
-          code: error.code,
-          message: error.message,
-          details: error.details,
-          hint: error.hint,
-        } : null,
-        authenticatedUserId: supaUser.id,
-        organizerMatchesAuthenticatedUser: payload.organizer_id === supaUser.id,
-        visibilityMode: payload.is_public ? 'feed' : 'invitation-only',
-        joinMode: payload.join_mode,
-        payload,
-      })
-      setErrors({ submit: eventId ? 'Не вдалося зберегти зміни. Перевірте дані та спробуйте ще раз.' : 'Не вдалося створити подію. Перевірте дані та спробуйте ще раз.' })
-      setSubmitting(false)
-      submittingRef.current = false
-      return
-    }
-    if (import.meta.env.DEV && !eventId) {
-      console.info('[CreateEvent diagnostic] CREATED EVENT ID', data.id)
-      const membershipResult = await supabase
-        .from('event_participants')
-        .select('event_id, user_id, role, status')
-        .eq('event_id', data.id)
-        .eq('user_id', supaUser.id)
-        .maybeSingle()
-      console.info('[CreateEvent diagnostic] ORGANIZER MEMBERSHIP INSERT RESULT', membershipResult.data)
-      if (membershipResult.error) {
-        console.error('[CreateEvent diagnostic] ORGANIZER MEMBERSHIP ERROR', {
-          code: membershipResult.error.code,
-          message: membershipResult.error.message,
-          details: membershipResult.error.details,
-          hint: membershipResult.error.hint,
+      if (import.meta.env?.DEV) {
+        console.info('[CreateEvent diagnostic] CREATE EVENT START', {
+          organizer_id: payload.organizer_id,
+          event_type: payload.event_type,
+          is_public: payload.is_public,
+          join_mode: payload.join_mode,
+          event_datetime: payload.event_datetime,
+          location: payload.location,
         })
       }
+      const { data, error } = eventId
+        ? await supabase.from('events').update(payload).eq('id', eventId).eq('organizer_id', supaUser.id).select('id').single()
+        : await supabase.from('events').insert({ ...payload, status: 'upcoming' }).select('id').single()
+      if (import.meta.env?.DEV) {
+        console.info('[CreateEvent diagnostic] EVENT INSERT RESULT', { id: data?.id ?? null, succeeded: !error && Boolean(data?.id) })
+        if (error) console.error('[CreateEvent diagnostic] EVENT INSERT ERROR', { code: error.code, message: error.message, details: error.details, hint: error.hint })
+      }
+      if (error || !data?.id) {
+        console.error('[CreateEvent] Event insert/returning failed', {
+          operation: "supabase.from('events').insert(payload).select('id').single()",
+          phase: 'single PostgREST INSERT with representation return; no participant/request setup call follows',
+          error: error ? {
+            code: error.code,
+            message: error.message,
+            details: error.details,
+            hint: error.hint,
+          } : null,
+          authenticatedUserId: supaUser.id,
+          organizerMatchesAuthenticatedUser: payload.organizer_id === supaUser.id,
+          visibilityMode: payload.is_public ? 'feed' : 'invitation-only',
+          joinMode: payload.join_mode,
+          payload,
+        })
+        const serverMessage = error?.message ?? ''
+        const submitMessage = serverMessage.includes('capacity_below_joined')
+          ? 'Кількість місць не може бути меншою за кількість уже підтверджених учасників.'
+          : serverMessage.includes('pending_requests_exist')
+            ? 'Спочатку підтвердьте або відхиліть усі заявки на участь.'
+            : eventId
+              ? 'Не вдалося зберегти зміни. Перевірте дані та спробуйте ще раз.'
+              : 'Не вдалося створити подію. Перевірте дані та спробуйте ще раз.'
+        setErrors({ submit: submitMessage })
+        setSubmitting(false)
+        submittingRef.current = false
+        return
+      }
+      if (import.meta.env?.DEV && !eventId) {
+        console.info('[CreateEvent diagnostic] CREATED EVENT ID', data.id)
+        const membershipResult = await supabase
+          .from('event_participants')
+          .select('event_id, user_id, role, status')
+          .eq('event_id', data.id)
+          .eq('user_id', supaUser.id)
+          .maybeSingle()
+        console.info('[CreateEvent diagnostic] ORGANIZER MEMBERSHIP INSERT RESULT', membershipResult.data)
+        if (membershipResult.error) {
+          console.error('[CreateEvent diagnostic] ORGANIZER MEMBERSHIP ERROR', {
+            code: membershipResult.error.code,
+            message: membershipResult.error.message,
+            details: membershipResult.error.details,
+            hint: membershipResult.error.hint,
+          })
+        }
+      }
+      navigate(`/event/${data.id}`)
+    } catch {
+      setErrors((current) => ({ ...current, submit: 'Не вдалося зберегти подію. Перевірте інтернет і спробуйте ще раз.' }))
+    } finally {
+      setSubmitting(false)
+      submittingRef.current = false
     }
-    navigate(`/event/${data.id}`)
   }
 
   const selectedCategory = CATEGORIES.find((category) => category.value === form.category)
@@ -334,6 +409,7 @@ export default function CreateEvent() {
       </header>
 
       <form onSubmit={handleSubmit} noValidate>
+        <fieldset disabled={submitting} className="min-w-0">
         <div className="mx-auto max-w-[880px] px-4 py-5 sm:px-6 md:py-7">
           <div className="mb-5">
             <h1 className="text-2xl font-extrabold tracking-[-0.035em] sm:text-[28px]">{eventId ? 'Редагувати подію' : 'Створити подію'}</h1>
@@ -376,9 +452,21 @@ export default function CreateEvent() {
                   </div>
                 </div>
                 <div className="rounded-xl bg-[#faf9fd] p-3">
-                  <label className={labelClass} htmlFor="cover_photo_url">Обкладинка <span className="font-normal text-brand-ink-muted">(необов’язково)</span></label>
-                  <input id="cover_photo_url" type="url" value={form.cover_photo_url} onChange={(event) => set('cover_photo_url', event.target.value)} placeholder="Посилання на зображення https://..." className={inputClass('cover_photo_url')} />
-                  {form.cover_photo_url && <div className="mt-2.5 h-28 overflow-hidden rounded-xl border border-brand-border bg-brand-surface-muted"><EventMedia category={form.category} coverUrl={form.cover_photo_url} alt="Попередній перегляд обкладинки" className="h-full w-full" /></div>}
+                  <p className={labelClass}>Обкладинка <span className="font-normal text-brand-ink-muted">(необов’язково)</span></p>
+                  <input ref={coverInputRef} id="cover_file" type="file" accept={EVENT_COVER_ACCEPT} className="sr-only" tabIndex={-1} aria-label="Файл обкладинки" onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ''; void selectCover(file) }} />
+                  <div className="flex flex-wrap gap-2">
+                    <button type="button" disabled={coverPreparing} onClick={() => coverInputRef.current?.click()} className="min-h-11 rounded-xl bg-brand-accent px-4 text-sm font-bold text-white hover:bg-brand-accent-hover disabled:opacity-60">{coverPreparing ? 'Перевіряємо фото...' : coverFile || form.cover_photo_url ? 'Замінити фото' : 'Завантажити фото'}</button>
+                    {(coverFile || form.cover_photo_url) && <button type="button" disabled={coverPreparing} onClick={() => { setCoverFile(null); set('cover_photo_url', '') }} className="min-h-11 rounded-xl border border-brand-border bg-white px-3 text-xs font-bold text-brand-ink-soft disabled:opacity-60">Прибрати фото</button>}
+                  </div>
+                  <p className="mt-2 text-[11px] leading-5 text-brand-ink-muted">З телефону або комп’ютера · JPG, PNG, WebP · до 5 МБ</p>
+                  {coverFile && <p className="mt-1 break-all text-xs text-brand-ink-soft">{coverFile.name}</p>}
+                  {errors.cover_photo_url && <p role="alert" className="mt-1.5 text-xs text-red-600">{errors.cover_photo_url}</p>}
+                  <details className="mt-3">
+                    <summary className="cursor-pointer text-xs font-semibold text-brand-ink-muted">Або додати за посиланням</summary>
+                    <label className={`${labelClass} mt-2`} htmlFor="cover_photo_url">Посилання на зображення</label>
+                    <input id="cover_photo_url" type="url" disabled={coverPreparing} value={coverFile ? '' : form.cover_photo_url} onChange={(event) => { setCoverFile(null); set('cover_photo_url', event.target.value) }} placeholder="https://..." className={inputClass('cover_photo_url')} />
+                  </details>
+                  {(coverPreview || form.cover_photo_url) && <div className="mt-2.5 h-40 overflow-hidden rounded-xl border border-brand-border bg-brand-surface-muted"><EventMedia category={form.category} coverUrl={coverPreview || form.cover_photo_url} alt="Попередній перегляд обкладинки" className="h-full w-full" imageClassName="object-contain" /></div>}
                 </div>
               </div>
             </SectionCard>
@@ -409,7 +497,7 @@ export default function CreateEvent() {
                   </div>
                 </div>
                 <button type="button" onClick={useCurrentLocation} disabled={locating} className="inline-flex h-10 items-center gap-2 rounded-xl border border-brand-border bg-white px-3.5 text-[11px] font-bold text-brand-accent transition hover:border-brand-accent disabled:opacity-60"><Icon name="pin" className="h-4 w-4"/>{locating ? 'Визначаємо…' : 'Використати моє місцезнаходження'}</button>
-                <CreateEventMap lat={form.lat} lng={form.lng} onPick={handleMapPick} />
+                <CreateEventMap lat={form.lat} lng={form.lng} center={city} onPick={handleMapPick} />
                 <div>{form.lat !== null && form.lng !== null ? <p className="text-[11px] font-semibold text-brand-accent">✓ Точку вибрано</p> : <p className="text-[11px] text-brand-ink-muted">Натисніть на карту, щоб вибрати точне місце.</p>}{errors.lat && <p className="mt-1 text-xs text-red-600">{errors.lat}</p>}</div>
               </div>
             </SectionCard>
@@ -444,11 +532,11 @@ export default function CreateEvent() {
             <SectionCard number="6" title="Хто побачить подію?">
               <div className="grid gap-2.5 sm:grid-cols-2">
                 {([
-                  { value: true, title: 'У стрічці', text: 'Подія з’явиться у стрічці відповідних користувачів поруч.' },
-                  { value: false, title: 'Лише за запрошенням', text: 'Подія не показуватиметься у загальній стрічці.' },
+                  { value: true, title: 'У стрічці', text: 'Подія з’явиться у стрічці відповідних користувачів поруч.', disabled: false },
+                  { value: false, title: 'Лише за запрошенням', text: 'Приватні запрошення ще не підключені.', disabled: true },
                 ]).map((option) => {
                   const selected = form.is_public === option.value
-                  return <button key={String(option.value)} type="button" onClick={() => set('is_public', option.value)} aria-pressed={selected} className={`rounded-2xl border p-3.5 text-left transition ${selected ? 'border-brand-accent bg-brand-accent-soft' : 'border-brand-border bg-[#fcfcfe]'}`}><span className="flex items-center gap-2"><span className={`grid h-4 w-4 place-items-center rounded-full border ${selected ? 'border-brand-accent' : 'border-brand-border-strong'}`}>{selected && <span className="h-2 w-2 rounded-full bg-brand-accent"/>}</span><strong className="text-xs text-brand-ink">{option.title}</strong></span><span className="mt-2 block pl-6 text-[11px] leading-[18px] text-brand-ink-muted">{option.text}</span></button>
+                  return <button key={String(option.value)} type="button" disabled={option.disabled} onClick={() => set('is_public', option.value)} aria-pressed={selected} className={`rounded-2xl border p-3.5 text-left transition disabled:cursor-not-allowed disabled:opacity-55 ${selected ? 'border-brand-accent bg-brand-accent-soft' : 'border-brand-border bg-[#fcfcfe]'}`}><span className="flex items-center gap-2"><span className={`grid h-4 w-4 place-items-center rounded-full border ${selected ? 'border-brand-accent' : 'border-brand-border-strong'}`}>{selected && <span className="h-2 w-2 rounded-full bg-brand-accent"/>}</span><strong className="text-xs text-brand-ink">{option.title}</strong></span><span className="mt-2 block pl-6 text-[11px] leading-[18px] text-brand-ink-muted">{option.text}</span></button>
                 })}
               </div>
             </SectionCard>
@@ -567,7 +655,7 @@ export default function CreateEvent() {
             <section className={`rounded-2xl border p-4 ${form.event_type === 'personal' ? 'border-[#e9e3ff] bg-[#f8f6ff]' : 'border-brand-border bg-white'}`}>
               <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.12em] text-brand-ink-muted">Як це виглядатиме</p>
               <div className={`flex min-w-0 gap-3 ${form.event_type === 'public' ? 'items-stretch' : 'items-start'}`}>
-                {form.event_type === 'public' && <div className="h-24 w-24 flex-shrink-0 overflow-hidden rounded-xl"><EventMedia category={form.category} coverUrl={form.cover_photo_url} alt={form.cover_photo_url ? 'Попередній перегляд обкладинки' : ''} className="h-full w-full" /></div>}
+                {form.event_type === 'public' && <div className="h-24 w-24 flex-shrink-0 overflow-hidden rounded-xl"><EventMedia category={form.category} coverUrl={coverPreview || form.cover_photo_url} alt={coverPreview || form.cover_photo_url ? 'Попередній перегляд обкладинки' : ''} className="h-full w-full" /></div>}
                 {form.event_type === 'personal' && <div className="grid h-9 w-9 flex-shrink-0 place-items-center rounded-full bg-white text-lg">{selectedCategory?.emoji}</div>}
                 <div className="min-w-0 flex-1">
                   <span className="rounded-md bg-white px-2 py-1 text-[10px] font-bold text-brand-accent">{selectedCategory?.label}</span>
@@ -581,13 +669,14 @@ export default function CreateEvent() {
             </section>
 
             {errors.submit && <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{errors.submit}</div>}
-            <div className="hidden justify-end lg:flex"><button type="submit" disabled={submitting} className="h-12 min-w-52 rounded-xl bg-brand-accent px-6 text-sm font-extrabold text-white transition hover:bg-brand-accent-hover disabled:cursor-wait disabled:opacity-60">{submitting ? 'Зберігаємо...' : eventId ? 'Зберегти зміни' : 'Створити подію'}</button></div>
+            <div className="hidden justify-end lg:flex"><button type="submit" disabled={submitting || coverPreparing} className="h-12 min-w-52 rounded-xl bg-brand-accent px-6 text-sm font-extrabold text-white transition hover:bg-brand-accent-hover disabled:cursor-wait disabled:opacity-60">{submitting ? 'Зберігаємо...' : eventId ? 'Зберегти зміни' : 'Створити подію'}</button></div>
           </div>
         </div>
 
         <div className="fixed inset-x-0 bottom-0 z-40 border-t border-brand-border bg-white/95 px-4 py-3 shadow-[0_-8px_30px_rgba(23,23,28,0.06)] backdrop-blur-xl lg:hidden">
-          <button type="submit" disabled={submitting} className="mx-auto block h-13 w-full max-w-lg rounded-xl bg-brand-accent text-sm font-extrabold text-white disabled:cursor-wait disabled:opacity-60">{submitting ? 'Зберігаємо...' : eventId ? 'Зберегти зміни' : 'Створити подію'}</button>
+          <button type="submit" disabled={submitting || coverPreparing} className="mx-auto block h-13 w-full max-w-lg rounded-xl bg-brand-accent text-sm font-extrabold text-white disabled:cursor-wait disabled:opacity-60">{submitting ? 'Зберігаємо...' : eventId ? 'Зберегти зміни' : 'Створити подію'}</button>
         </div>
+        </fieldset>
       </form>
     </div>
   )

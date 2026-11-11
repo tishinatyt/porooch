@@ -1,3 +1,5 @@
+import { Link } from 'react-router-dom'
+import { useAdmin } from '@/contexts/AdminContext'
 import { useEffect, useRef, useState, type ChangeEvent } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
@@ -8,6 +10,7 @@ import { removeProfilePhoto } from '@/lib/profilePhotos'
 import { CitySelect } from '@/components/profile/CitySelect'
 
 export default function Profile() {
+  const { isAdmin } = useAdmin()
   const { profile, supaUser, signOut, refreshProfile } = useAuth()
   const [editing, setEditing] = useState(false)
   const [name, setName] = useState('')
@@ -36,10 +39,11 @@ export default function Profile() {
     const cleanBio = bio.trim()
     const ageNumber = age.trim() ? Number(age) : null
     if (cleanName.length < 2) { setError('Вкажіть ім’я'); return }
+    if (!cleanCity) { setError('Оберіть місто'); return }
     if (ageNumber !== null && (!Number.isInteger(ageNumber) || ageNumber < 16 || ageNumber > 100)) { setError('Вік має бути від 16 до 100 років'); return }
     if (cleanBio.length > 300) { setError('Опис може містити до 300 символів'); return }
     setSaving(true); setError(null)
-    const { error: updateError } = await supabase.from('users').update({ name: cleanName, age: ageNumber, city: cleanCity || null, bio: cleanBio || null, interests }).eq('id', supaUser.id)
+    const { error: updateError } = await supabase.from('users').update({ name: cleanName, age: ageNumber, city: cleanCity, bio: cleanBio || null, interests }).eq('id', supaUser.id)
     if (updateError) {
       console.error('Profile update failed', updateError)
       setError('Не вдалося зберегти профіль. Спробуйте ще раз')
@@ -113,6 +117,8 @@ export default function Profile() {
           </div>
         </section>
 
+        {isAdmin && <Link to="/admin" className="mt-4 flex min-h-12 items-center justify-between rounded-xl border border-brand-accent/20 bg-white px-4 text-sm font-bold text-brand-accent">Адміністрування ПОРУЧ <span>→</span></Link>}
+
         {error && <div role="alert" className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
 
         {editing ? <section className="mt-4 space-y-5 rounded-2xl border border-brand-border bg-white p-4 sm:p-6">
@@ -120,7 +126,7 @@ export default function Profile() {
           <div className="grid gap-4 sm:grid-cols-2">
             <label className="text-xs font-bold text-brand-ink-soft">Ім’я<input value={name} maxLength={80} onChange={(event) => setName(event.target.value)} className="mt-1.5 h-11 w-full rounded-xl border border-brand-border bg-brand-bg px-3.5 text-sm font-normal text-brand-ink outline-none focus:border-brand-accent focus:bg-white focus:ring-3 focus:ring-brand-accent/10" /></label>
             <label className="text-xs font-bold text-brand-ink-soft">Вік<input type="number" min={16} max={100} value={age} onChange={(event) => setAge(event.target.value)} className="mt-1.5 h-11 w-full rounded-xl border border-brand-border bg-brand-bg px-3.5 text-sm font-normal text-brand-ink outline-none focus:border-brand-accent focus:bg-white focus:ring-3 focus:ring-brand-accent/10" /></label>
-            <label className="text-xs font-bold text-brand-ink-soft sm:col-span-2">Місто<CitySelect value={city} onChange={setCity} className="mt-1.5 h-11 w-full rounded-xl border border-brand-border bg-brand-bg px-3.5 text-sm font-normal text-brand-ink outline-none focus:border-brand-accent focus:bg-white focus:ring-3 focus:ring-brand-accent/10" /></label>
+            <div className="text-xs font-bold text-brand-ink-soft sm:col-span-2"><span>Місто</span><CitySelect value={city} onChange={setCity} className="mt-1.5 h-11 w-full rounded-xl border border-brand-border bg-brand-bg px-3.5 text-sm font-normal text-brand-ink outline-none focus:border-brand-accent focus:bg-white focus:ring-3 focus:ring-brand-accent/10" /></div>
           </div>
           <label className="block text-xs font-bold text-brand-ink-soft">Про себе<textarea value={bio} maxLength={300} rows={4} onChange={(event) => setBio(event.target.value)} placeholder="Кілька слів про вас" className="mt-1.5 w-full resize-none rounded-xl border border-brand-border bg-brand-bg px-3.5 py-3 text-sm font-normal leading-6 text-brand-ink outline-none focus:border-brand-accent focus:bg-white focus:ring-3 focus:ring-brand-accent/10" /><span className="mt-1 block text-right text-xs font-normal text-brand-ink-muted">{bio.length}/300</span></label>
           <ProfilePhotoGalleryEditor userId={supaUser!.id} photos={profile.profile_photos ?? []} onAdd={addGalleryPhoto} onRemove={deleteGalleryPhoto} disabled={saving || uploading} />

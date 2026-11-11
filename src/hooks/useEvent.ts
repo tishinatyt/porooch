@@ -58,24 +58,28 @@ export function useEvent(eventId: string) {
   const [participants, setParticipants] = useState<EventParticipant[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [participantCount, setParticipantCount] = useState(0)
 
   const reloadParticipants = useCallback(async () => {
     if (!eventId) return
-    const { data, error: participantsError } = await supabase
-      .from('event_participants')
-      .select(`
-        id, event_id, user_id, role, joined_at, status,
-        user:users!event_participants_user_id_fkey(
-          id, name, age, gender, avatar_url, google_verified, city, bio, interests, created_at
-        )
-      `)
-      .eq('event_id', eventId)
+    const [participantsResult, countResult] = await Promise.all([
+      supabase
+        .from('event_participants')
+        .select(`
+          id, event_id, user_id, role, joined_at, status,
+          user:users!event_participants_user_id_fkey(
+            id, name, age, gender, avatar_url, google_verified, city, bio, interests, created_at
+          )
+        `)
+        .eq('event_id', eventId),
+      supabase.rpc('event_participant_count', { p_event_id: eventId }),
+    ])
 
-    if (participantsError) {
-      console.error('Failed to refresh event participants', participantsError)
-      return
-    }
-    setParticipants(normalizeParticipants((data ?? []) as unknown as Record<string, unknown>[]))
+    if (participantsResult.error) console.error('Failed to refresh event participants', participantsResult.error)
+    else setParticipants(normalizeParticipants((participantsResult.data ?? []) as unknown as Record<string, unknown>[]))
+
+    if (countResult.error) console.error('Failed to refresh participant count', countResult.error)
+    else setParticipantCount(Number(countResult.data ?? 0))
   }, [eventId])
 
   useEffect(() => {
@@ -101,7 +105,7 @@ export function useEvent(eventId: string) {
     setLoading(true)
     setError(null)
 
-    const [eventResult, participantsResult, coordsResult] = await Promise.all([
+    const [eventResult, participantsResult, coordsResult, participantCountResult] = await Promise.all([
       supabase
         .from('events')
         .select(`
@@ -126,6 +130,7 @@ export function useEvent(eventId: string) {
         .eq('event_id', eventId),
       // Graceful: may fail if get_event_coords function not yet deployed
       (supabase.rpc('get_event_coords', { p_event_id: eventId }).single() as unknown) as Promise<{ data: { lat: number; lng: number } | null; error: unknown }>,
+      supabase.rpc('event_participant_count', { p_event_id: eventId }),
     ])
 
     if (eventResult.error || !eventResult.data) {
@@ -168,16 +173,24 @@ export function useEvent(eventId: string) {
     if (participantsResult.data) {
       setParticipants(normalizeParticipants(participantsResult.data as unknown as Record<string, unknown>[]))
     }
+    if (participantCountResult.error) console.error('Failed to load participant count', participantCountResult.error)
+    else setParticipantCount(Number(participantCountResult.data ?? 0))
 
     setLoading(false)
   }
 
-  async function joinEvent(userId: string): Promise<{ error: string | null; status: 'pending' | 'joined' | null }> {
-    const { error: err, status: requestedStatus } = await joinEventParticipation(eventId, userId, event?.join_mode ?? 'open')
+  async function joinEvent(): Promise<{ error: string | null; status: 'pending' | 'joined' | null }> {
+    const { error: err, status: requestedStatus } = await joinEventParticipation(eventId)
 
     if (err) {
       console.error('Failed to join event', err)
-      return { error: 'Не вдалося приєднатися до події. Спробуйте ще раз', status: null }
+      const message = err.message ?? ''
+      const friendlyError = message.includes('event_full') ? 'Місць більше немає'
+        : message.includes('event_unavailable') ? 'До цієї події вже не можна приєднатися'
+        : message.includes('private_event') ? 'Ця подія доступна лише за запрошенням'
+        : message.includes('request_rejected') ? 'Ваш попередній запит було відхилено'
+        : 'Не вдалося приєднатися до події. Спробуйте ще раз'
+      return { error: friendlyError, status: null }
     }
     await reloadParticipants()
     return { error: null, status: requestedStatus }
@@ -191,7 +204,9 @@ export function useEvent(eventId: string) {
     })
     if (rpcError) {
       console.error('Failed to review event request', rpcError)
-      return rpcError.message.includes('event_full') ? 'Подія вже заповнена' : decision === 'approve'
+      if (rpcError.message.includes('event_full')) return 'Подія вже заповнена'
+      if (rpcError.message.includes('event_unavailable')) return 'Подія вже недоступна для підтвердження нових учасників'
+      return decision === 'approve'
         ? 'Не вдалося підтвердити учасника. Спробуйте ще раз'
         : 'Не вдалося відхилити запит. Спробуйте ще раз'
     }
@@ -209,5 +224,5 @@ export function useEvent(eventId: string) {
     return null
   }
 
-  return { event, participants, loading, error, joinEvent, reviewRequest, leaveEvent }
+  return { event, participants, participantCount, loading, error, joinEvent, reviewRequest, leaveEvent }
 }

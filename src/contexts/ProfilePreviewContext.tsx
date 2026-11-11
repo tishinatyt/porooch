@@ -29,19 +29,23 @@ export function ProfilePreviewProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(false)
   const closeButtonRef = useRef<HTMLButtonElement>(null)
   const triggerRef = useRef<HTMLElement | null>(null)
+  const requestIdRef = useRef(0)
 
   const close = useCallback(() => {
+    requestIdRef.current += 1
     setProfile(null)
     setLoading(false)
     requestAnimationFrame(() => triggerRef.current?.focus())
   }, [])
 
   const openProfilePreview = useCallback((preview: ProfilePreviewData, trigger?: HTMLElement | null) => {
+    const requestId = ++requestIdRef.current
     triggerRef.current = trigger ?? document.activeElement as HTMLElement | null
     setProfile(preview)
     if (!isUuid(preview.id)) return
     setLoading(true)
     void supabase.from('users').select(PUBLIC_PROFILE_FIELDS).eq('id', preview.id).maybeSingle().then(({ data, error }) => {
+      if (requestIdRef.current !== requestId) return
       if (error) console.error('[ProfilePreview] Failed to load profile:', error)
       if (data) setProfile(data as ProfilePreviewData)
       setLoading(false)

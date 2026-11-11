@@ -1,3 +1,4 @@
+import DiscoveryCityPicker from '@/components/DiscoveryCityPicker'
 import { useAuth } from '@/contexts/AuthContext'
 import { Icon } from '@/components/icons'
 import BrandLogo from '@/components/BrandLogo'
@@ -19,11 +20,7 @@ export default function TopBar({ title, searchQuery = '', onSearchChange, radius
     <header className={`${title ? 'hidden lg:block' : ''} top-bar-surface sticky top-0 z-30 border-b backdrop-blur-xl lg:flex-none`}>
       <div className="mx-auto grid max-w-[1440px] grid-cols-[minmax(0,1fr)_auto] gap-x-2 gap-y-0.5 px-4 py-1 sm:px-6 lg:flex lg:h-12 lg:items-center lg:gap-4 lg:px-7 lg:py-0 xl:px-10">
         <div className="col-span-2 flex min-h-6 items-center justify-between lg:w-[190px] lg:flex-shrink-0">
-          <div className="flex items-center gap-1.5 text-xs font-semibold text-brand-ink-soft">
-            <Icon name="pin" className="h-4 w-4 text-brand-accent" />
-            <span>{profile?.city ? `${profile.city}, Україна` : 'Україна'}</span>
-            <span className="text-brand-ink-muted">⌄</span>
-          </div>
+          <DiscoveryCityPicker />
           <BrandLogo className="w-24 lg:hidden" />
         </div>
 

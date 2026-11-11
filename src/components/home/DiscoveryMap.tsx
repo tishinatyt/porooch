@@ -48,7 +48,7 @@ export default function DiscoveryMap({ events, center }: DiscoveryMapProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<LeafletMap | null>(null)
   const markersRef = useRef<LayerGroup | null>(null)
-  const hasFitBoundsRef = useRef(false)
+  const lastBoundsKeyRef = useRef<string | null>(null)
   const [mapReady, setMapReady] = useState(false)
 
   useEffect(() => {
@@ -90,9 +90,9 @@ export default function DiscoveryMap({ events, center }: DiscoveryMapProps) {
       mapRef.current?.remove()
       mapRef.current = null
       markersRef.current = null
-      hasFitBoundsRef.current = false
+      lastBoundsKeyRef.current = null
     }
-  }, [center.lat, center.lng])
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -112,6 +112,7 @@ export default function DiscoveryMap({ events, center }: DiscoveryMapProps) {
 
         const popup = document.createElement('div')
         popup.className = 'min-w-48 text-brand-ink'
+        if (event.isDemo) appendText(popup, 'mb-1 text-xs font-bold text-amber-800', 'Тестова подія · умовне місце')
         appendText(popup, 'text-sm font-extrabold leading-5', event.title)
         appendText(popup, 'mt-1 text-[11px] font-bold text-brand-accent', eventCategoryLabel(event.category))
         appendText(popup, 'mt-2 text-xs text-brand-ink-soft', dateFormatter.format(new Date(event.event_datetime)))
@@ -128,15 +129,21 @@ export default function DiscoveryMap({ events, center }: DiscoveryMapProps) {
         leaflet.marker(position).addTo(markerLayer).bindPopup(popup, { closeButton: false, maxWidth: 260 })
       }
 
-      if (!hasFitBoundsRef.current && bounds.length > 0) {
+      const markerKey = visibleEvents
+        .map((event) => `${event.id}:${event.location_lat}:${event.location_lng}`)
+        .sort()
+        .join('|')
+      const boundsKey = `${center.lat}:${center.lng}|${markerKey}`
+      if (lastBoundsKeyRef.current !== boundsKey) {
         if (bounds.length === 1) map.setView(bounds[0], 14)
-        else map.fitBounds(bounds, { padding: [32, 32], maxZoom: 14 })
-        hasFitBoundsRef.current = true
+        else if (bounds.length > 1) map.fitBounds(bounds, { padding: [32, 32], maxZoom: 14 })
+        else map.setView([center.lat, center.lng], 12)
+        lastBoundsKeyRef.current = boundsKey
       }
     })
 
     return () => { cancelled = true }
-  }, [events, mapReady, navigate])
+  }, [center.lat, center.lng, events, mapReady, navigate])
 
   const markerCount = events.filter(hasValidCoordinates).length
 

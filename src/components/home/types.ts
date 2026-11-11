@@ -25,6 +25,7 @@ export interface PersonalEventData {
   gender_filter: string
   cover_photo_url: string | null
   max_participants: number
+  organizer_id?: string
   organizer: OrganizerInfo | null
   participants: ParticipantInfo[]
   participant_count?: number
@@ -51,6 +52,7 @@ export interface PublicEventData {
   max_participants: number
   participant_count: number
   distance_km: number | null
+  organizer_id?: string
   organizer: OrganizerInfo | null
   event_type?: 'personal' | 'public'
   join_mode?: 'open' | 'approval'

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ChangeEvent } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
+import { eventReturnPath } from '@/lib/eventLinks'
 import BrandLogo from '@/components/BrandLogo'
 import LandingPage from '@/components/onboarding/LandingPage'
 import { InterestChips } from '@/components/profile/ProfileComponents'
@@ -18,7 +19,8 @@ type OnboardingStep = 'landing' | 'profile' | 'interests'
 
 export default function Onboarding() {
   const navigate = useNavigate()
-  const { supaUser, profile, signInAnonymously, refreshProfile } = useAuth()
+  const { pathname } = useLocation()
+  const { supaUser, profile, signInWithGoogle, signInAnonymously, refreshProfile } = useAuth()
   const [step, setStep] = useState<OnboardingStep>(() => {
     if (!supaUser) return 'landing'
     return supaUser.user_metadata?.poruch_onboarding === 'interests' ? 'interests' : 'profile'
@@ -26,7 +28,7 @@ export default function Onboarding() {
   const [name, setName] = useState(profile?.name ?? supaUser?.user_metadata?.full_name?.trim() ?? '')
   const [city, setCity] = useState(profile?.city ?? '')
   const [photo, setPhoto] = useState<File | null>(null)
-  const [previewUrl, setPreviewUrl] = useState<string | null>(profile?.avatar_url ?? null)
+  const [previewUrl, setPreviewUrl] = useState<string | null>(profile?.avatar_url ?? supaUser?.user_metadata?.avatar_url ?? null)
   const [uploadedAvatar, setUploadedAvatar] = useState<{ userId: string; url: string } | null>(null)
   const [onboardingUserId, setOnboardingUserId] = useState<string | null>(supaUser?.id ?? null)
   const [interests, setInterests] = useState<string[]>(profile?.interests ?? [])
@@ -65,7 +67,7 @@ export default function Onboarding() {
     if (cleanName.length < 2) { setError('Вкажіть ім’я'); return }
     if (cleanName.length > 80) { setError('Ім’я може містити до 80 символів'); return }
     if (!city) { setError('Оберіть місто'); return }
-    if (!photo && !profile?.avatar_url && !uploadedAvatar) { setError('Додайте фото'); return }
+    if (!photo && !profile?.avatar_url && !supaUser?.user_metadata?.avatar_url && !uploadedAvatar) { setError('Додайте фото'); return }
 
     submittingRef.current = true
     setSubmitting(true)
@@ -76,7 +78,7 @@ export default function Onboarding() {
       const { error: markerError } = await supabase.auth.updateUser({ data: { poruch_onboarding: 'interests' } })
       if (markerError) throw markerError
 
-      let avatarUrl = uploadedAvatar?.userId === authUser.id ? uploadedAvatar.url : profile?.avatar_url ?? null
+      let avatarUrl = uploadedAvatar?.userId === authUser.id ? uploadedAvatar.url : profile?.avatar_url ?? authUser.user_metadata?.avatar_url ?? null
       if (photo && uploadedAvatar?.userId !== authUser.id) {
         const extension = photo.name.split('.').pop()?.toLowerCase() || 'jpg'
         const path = `${authUser.id}/${crypto.randomUUID()}.${extension}`
@@ -92,7 +94,6 @@ export default function Onboarding() {
         name: cleanName,
         city,
         avatar_url: avatarUrl,
-        google_verified: authUser.app_metadata.provider === 'google',
       })
       if (profileError) throw profileError
       await refreshProfile(authUser.id)
@@ -119,7 +120,7 @@ export default function Onboarding() {
       const { error: markerError } = await supabase.auth.updateUser({ data: { poruch_onboarding: 'complete' } })
       if (markerError) throw markerError
       await refreshProfile(userId)
-      navigate('/', { replace: true })
+      navigate(eventReturnPath(pathname), { replace: true })
     } catch (finishError) {
       console.error('Interest onboarding failed', finishError)
       setError('Не вдалося зберегти інтереси. Спробуйте ще раз')
@@ -129,7 +130,7 @@ export default function Onboarding() {
     }
   }
 
-  if (step === 'landing') return <LandingPage onStart={() => setStep('profile')} />
+  if (step === 'landing') return <LandingPage onStart={() => { setError(null); setStep('profile') }} onGoogleSignIn={() => { setError(null); void signInWithGoogle().catch((signInError) => { console.error('Google sign-in failed', signInError); setError('Не вдалося увійти через Google. Спробуйте ще раз') }) }} error={error} />
 
   if (step === 'interests') {
     return (
@@ -138,6 +139,6 @@ export default function Onboarding() {
   }
 
   return (
-    <div className="flex min-h-[100dvh] items-center justify-center bg-brand-bg px-4 py-8 text-brand-ink sm:px-6"><main className="w-full max-w-md rounded-3xl border border-brand-border bg-white p-6 shadow-card sm:p-8"><BrandLogo className="mx-auto w-40" /><p className="mt-6 text-center text-xs font-bold text-brand-accent">КРОК 1 З 2</p><h1 className="mt-2 text-center text-2xl font-extrabold leading-tight tracking-[-0.035em]">Знайомства та події поруч</h1><div className="mt-8 space-y-6"><label className="block text-sm font-bold text-brand-ink-soft">Ім’я<input value={name} maxLength={80} autoComplete="name" onChange={(event) => setName(event.target.value)} className="mt-2 h-12 w-full rounded-xl border border-brand-border bg-brand-bg px-4 font-normal text-brand-ink outline-none transition focus:border-brand-accent focus:bg-white focus:ring-3 focus:ring-brand-accent/10" /></label><label className="block text-sm font-bold text-brand-ink-soft">Місто<CitySelect value={city} onChange={(value) => { setCity(value); setError(null) }} required className="mt-2 h-12 w-full rounded-xl border border-brand-border bg-brand-bg px-4 font-normal text-brand-ink outline-none transition focus:border-brand-accent focus:bg-white focus:ring-3 focus:ring-brand-accent/10" /></label><div><span className="block text-sm font-bold text-brand-ink-soft">Фото</span><div className="mt-3 flex flex-col items-center"><button type="button" onClick={() => fileRef.current?.click()} disabled={submitting} className="grid h-28 w-28 place-items-center overflow-hidden rounded-full border-2 border-dashed border-brand-accent/35 bg-brand-accent-soft text-brand-accent transition hover:border-brand-accent focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-brand-accent disabled:cursor-wait disabled:opacity-60" aria-label={previewUrl ? 'Замінити фото профілю' : 'Додати фото профілю'}>{previewUrl ? <img src={previewUrl} alt="Попередній перегляд фото профілю" className="h-full w-full object-cover" /> : <span className="text-3xl font-light" aria-hidden="true">+</span>}</button><button type="button" onClick={() => fileRef.current?.click()} disabled={submitting} className="mt-2 min-h-10 rounded-xl px-4 text-sm font-bold text-brand-accent transition hover:bg-brand-accent-soft disabled:cursor-wait disabled:opacity-60">{previewUrl ? 'Замінити фото' : '+ Додати фото'}</button><input ref={fileRef} type="file" accept={ACCEPTED_IMAGE_TYPES.join(',')} onChange={selectPhoto} className="hidden" aria-label="Завантажити фото профілю" /></div></div></div>{error && <div role="alert" className="mt-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}<button type="button" onClick={() => { void continueToInterests() }} disabled={submitting} className="mt-7 h-14 w-full rounded-2xl bg-brand-accent text-sm font-extrabold text-white transition hover:bg-brand-accent-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-accent disabled:cursor-wait disabled:opacity-60">{submitting ? 'СТВОРЮЄМО ПРОФІЛЬ…' : 'ПРОДОВЖИТИ'}</button></main></div>
+    <div className="flex min-h-[100dvh] items-center justify-center bg-brand-bg px-4 py-8 text-brand-ink sm:px-6"><main className="w-full max-w-md rounded-3xl border border-brand-border bg-white p-6 shadow-card sm:p-8"><BrandLogo className="mx-auto w-40" /><p className="mt-6 text-center text-xs font-bold text-brand-accent">КРОК 1 З 2</p><h1 className="mt-2 text-center text-2xl font-extrabold leading-tight tracking-[-0.035em]">Знайомства та події поруч</h1><div className="mt-8 space-y-6"><label className="block text-sm font-bold text-brand-ink-soft">Ім’я<input value={name} maxLength={80} autoComplete="name" onChange={(event) => setName(event.target.value)} className="mt-2 h-12 w-full rounded-xl border border-brand-border bg-brand-bg px-4 font-normal text-brand-ink outline-none transition focus:border-brand-accent focus:bg-white focus:ring-3 focus:ring-brand-accent/10" /></label><div className="block text-sm font-bold text-brand-ink-soft"><span>Місто</span><CitySelect value={city} onChange={(value) => { setCity(value); setError(null) }} required className="mt-2 h-12 w-full rounded-xl border border-brand-border bg-brand-bg px-4 font-normal text-brand-ink outline-none transition focus:border-brand-accent focus:bg-white focus:ring-3 focus:ring-brand-accent/10" /></div><div><span className="block text-sm font-bold text-brand-ink-soft">Фото</span><div className="mt-3 flex flex-col items-center"><button type="button" onClick={() => fileRef.current?.click()} disabled={submitting} className="grid h-28 w-28 place-items-center overflow-hidden rounded-full border-2 border-dashed border-brand-accent/35 bg-brand-accent-soft text-brand-accent transition hover:border-brand-accent focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-brand-accent disabled:cursor-wait disabled:opacity-60" aria-label={previewUrl ? 'Замінити фото профілю' : 'Додати фото профілю'}>{previewUrl ? <img src={previewUrl} alt="Попередній перегляд фото профілю" className="h-full w-full object-cover" /> : <span className="text-3xl font-light" aria-hidden="true">+</span>}</button><button type="button" onClick={() => fileRef.current?.click()} disabled={submitting} className="mt-2 min-h-10 rounded-xl px-4 text-sm font-bold text-brand-accent transition hover:bg-brand-accent-soft disabled:cursor-wait disabled:opacity-60">{previewUrl ? 'Замінити фото' : '+ Додати фото'}</button><input ref={fileRef} type="file" accept={ACCEPTED_IMAGE_TYPES.join(',')} onChange={selectPhoto} className="hidden" aria-label="Завантажити фото профілю" /></div></div></div>{error && <div role="alert" className="mt-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}<button type="button" onClick={() => { void continueToInterests() }} disabled={submitting} className="mt-7 h-14 w-full rounded-2xl bg-brand-accent text-sm font-extrabold text-white transition hover:bg-brand-accent-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-accent disabled:cursor-wait disabled:opacity-60">{submitting ? 'СТВОРЮЄМО ПРОФІЛЬ…' : 'ПРОДОВЖИТИ'}</button></main></div>
   )
 }

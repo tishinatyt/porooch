@@ -13,7 +13,7 @@ export default function ProtectedRoute({ children }: { children: ReactNode }) {
     )
   }
 
-  const hasCompleteProfile = Boolean(profile?.name?.trim().length && profile.name.trim().length >= 2 && profile.avatar_url)
+  const hasCompleteProfile = Boolean(profile?.name?.trim().length && profile.name.trim().length >= 2 && profile.avatar_url && profile.city?.trim())
   const needsInterests = supaUser?.user_metadata?.poruch_onboarding === 'interests'
   if (!session || !hasCompleteProfile || needsInterests) return <Onboarding />
 

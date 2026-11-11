@@ -1,3 +1,4 @@
+import { useAdmin } from '@/contexts/AdminContext'
 import { NavLink } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
 import { Icon, type IconName } from '@/components/icons'
@@ -15,6 +16,7 @@ const profileItem = { to: '/profile', label: 'Профіль', icon: 'user' as I
 
 export default function AppSidebar() {
   const { profile } = useAuth()
+  const { isAdmin } = useAdmin()
   const { unreadCount } = useUnreadMessages()
   const { events: myEvents, loading: myEventsLoading, pendingRequestCount } = useMyEventsContext()
 
@@ -50,6 +52,7 @@ export default function AppSidebar() {
         ))}
         <NavLink to="/my-events" className={({ isActive }) => `flex min-h-11 items-center gap-3 rounded-xl px-3 py-2 text-[13px] font-semibold transition-colors ${isActive ? 'bg-brand-accent-soft text-brand-accent' : 'text-brand-ink-soft hover:bg-brand-bg hover:text-brand-ink'}`}><Icon name="calendar" className="h-4.5 w-4.5"/><span>Мої події</span>{!myEventsLoading && <span className="ml-auto flex items-center gap-1">{myEvents.length > 0 && <span className="inline-flex min-h-5 min-w-5 items-center justify-center rounded-full bg-brand-accent px-1.5 text-[10px] font-extrabold leading-none text-white" aria-label={`${myEvents.length} подій у розділі Мої події`}>{myEvents.length > 99 ? '99+' : myEvents.length}</span>}{pendingRequestCount > 0 && <span className="inline-flex min-h-5 min-w-5 items-center justify-center rounded-full border border-amber-300 bg-amber-100 px-1.5 text-[10px] font-extrabold leading-none text-amber-900 shadow-sm" aria-label={`${pendingRequestCount} запитів на участь очікують розгляду`}>{pendingRequestCount > 99 ? '99+' : pendingRequestCount}</span>}</span>}</NavLink>
         <NavLink to={profileItem.to} className={({ isActive }) => `flex min-h-11 items-center gap-3 rounded-xl px-3 py-2 text-[13px] font-semibold transition-colors ${isActive ? 'bg-brand-accent-soft text-brand-accent' : 'text-brand-ink-soft hover:bg-brand-bg hover:text-brand-ink'}`}><Icon name={profileItem.icon} className="h-4.5 w-4.5"/>{profileItem.label}</NavLink>
+        {isAdmin && <NavLink to="/admin" className="flex min-h-11 items-center gap-3 rounded-xl px-3 py-2 text-[13px] font-semibold text-brand-accent hover:bg-brand-accent-soft"><Icon name="userCheck" className="h-5 w-5" />Адміністрування</NavLink>}
       </nav>
 
       <div className="mt-auto flex items-center gap-2.5 border-t border-brand-border px-2 pt-4">

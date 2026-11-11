@@ -1,4 +1,7 @@
+import { lazy, Suspense, useEffect } from 'react'
+import { AdminProvider } from '@/contexts/AdminContext'
 import { BrowserRouter, Navigate, Routes, Route, useLocation } from 'react-router-dom'
+import { DiscoveryCityProvider } from '@/contexts/DiscoveryCityContext'
 import { AuthProvider } from '@/contexts/AuthContext'
 import ProtectedRoute from '@/components/ProtectedRoute'
 import BottomNav from '@/components/BottomNav'
@@ -14,9 +17,22 @@ import { UnreadMessagesProvider } from '@/contexts/UnreadMessagesContext'
 import { ProfilePreviewProvider } from '@/contexts/ProfilePreviewContext'
 import { MyEventsProvider } from '@/contexts/MyEventsContext'
 import PublicProfile from '@/pages/PublicProfile'
+import { trackPageView } from '@/lib/analytics'
+
+const Admin = lazy(() => import('@/pages/Admin'))
 
 // Routes with their own full-screen bottom CTA — BottomNav would cover them
 const HIDE_NAV_PATTERNS = [/^\/event\//]
+
+function RouteAnalytics() {
+  const location = useLocation()
+
+  useEffect(() => {
+    trackPageView(`${window.location.pathname}${window.location.search}`)
+  }, [location.pathname, location.search])
+
+  return null
+}
 
 function AppLayout() {
   const { pathname } = useLocation()
@@ -53,16 +69,30 @@ export default function App() {
     <>
       <div className="app-fixed-background" aria-hidden="true" />
       <BrowserRouter basename={import.meta.env.BASE_URL.replace(/\/$/, '') || '/'}>
+        <RouteAnalytics />
         <AuthProvider>
-          <ProtectedRoute>
-            <UnreadMessagesProvider>
-              <MyEventsProvider>
-                <ProfilePreviewProvider>
-                  <AppLayout />
-                </ProfilePreviewProvider>
-              </MyEventsProvider>
-            </UnreadMessagesProvider>
-          </ProtectedRoute>
+          <AdminProvider>
+            <Routes>
+              <Route path="/admin" element={
+                <Suspense fallback={<p role="status" className="p-8">Завантажуємо…</p>}>
+                  <Admin />
+                </Suspense>
+              } />
+              <Route path="*" element={
+                <DiscoveryCityProvider>
+                  <ProtectedRoute>
+                    <UnreadMessagesProvider>
+                      <MyEventsProvider>
+                        <ProfilePreviewProvider>
+                          <AppLayout />
+                        </ProfilePreviewProvider>
+                      </MyEventsProvider>
+                    </UnreadMessagesProvider>
+                  </ProtectedRoute>
+                </DiscoveryCityProvider>
+              } />
+            </Routes>
+          </AdminProvider>
         </AuthProvider>
       </BrowserRouter>
     </>

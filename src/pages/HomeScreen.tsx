@@ -1,16 +1,15 @@
-import { lazy, Suspense, useState, useEffect, useCallback, useRef } from 'react'
+import { lazy, Suspense, useMemo, useState, useEffect, useCallback, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
-import { DEFAULT_LAT, DEFAULT_LNG, getCurrentPosition, type Coords } from '@/lib/geo'
-import { getOblastCenterCoordinates } from '@/lib/cities'
+import { useDiscoveryCity } from '@/contexts/DiscoveryCityContext'
 import TopBar from '@/components/TopBar'
 import { PersonalEventCard, PublicEventCard } from '@/components/home/HomeEventCards'
 import { CategoryChips } from '@/components/home/HomeControls'
 import HomeCarousel from '@/components/home/HomeCarousel'
 import HomeBackgroundDecorations from '@/components/home/HomeBackgroundDecorations'
 import type { PersonalEventData, PublicEventData } from '@/components/home/types'
-import { DEMO_EVENTS_ENABLED, DEMO_PERSONAL_EVENTS, DEMO_PUBLIC_EVENTS, PUBLIC_CATEGORIES } from '@/components/home/demoEvents'
+import { getCityDemoEvents } from '@/components/home/demoEvents'
 import { useMyEventsContext } from '@/contexts/MyEventsContext'
 import { eventCategoryLabel } from '@/components/home/eventLabels'
 
@@ -25,6 +24,10 @@ const TABS = [
   { key: 'bar',     label: 'Бар' },
   { key: 'sport',   label: 'Спорт' },
   { key: 'music',   label: 'Музика' },
+  { key: 'food',    label: 'Їжа' },
+  { key: 'games',   label: 'Ігри' },
+  { key: 'walk',    label: 'Прогулянка' },
+  { key: 'art',     label: 'Мистецтво' },
   { key: 'other',   label: 'Інше' },
 ]
 
@@ -48,7 +51,9 @@ function matchesSearch(event: Pick<PublicEventData, 'title' | 'category' | 'addr
     .some((value) => value.toLocaleLowerCase('uk-UA').includes(normalized))
 }
 
-function isEligible(event: PublicEventData, age: number | undefined, gender: string | undefined) {
+function isEligible(event: PublicEventData, age: number | undefined, gender: string | undefined, viewerId: string | undefined) {
+  // Audience restrictions apply to guests, never to the event organizer.
+  if (viewerId && (event.organizer_id ?? event.organizer?.id) === viewerId) return true
   const ageMatches = !age || age < 1 || (age >= event.min_age && age <= event.max_age)
   const genderMatches = !gender || gender === 'any' || event.gender_filter === 'any' || event.gender_filter === gender
   return ageMatches && genderMatches
@@ -66,6 +71,7 @@ function sortDiscovery(left: PublicEventData, right: PublicEventData) {
 function asPersonalEvent(event: PublicEventData): PersonalEventData {
   return {
     eventId: event.id,
+    organizer_id: event.organizer_id,
     title: event.title,
     category: event.category,
     address_text: event.address_text,
@@ -94,6 +100,8 @@ function asPersonalEvent(event: PublicEventData): PersonalEventData {
 
 export default function HomeScreen() {
   const { supaUser, profile } = useAuth()
+  const { city } = useDiscoveryCity()
+  const cityDemos = useMemo(() => getCityDemoEvents(city), [city])
   const { pendingRequestCountByEvent } = useMyEventsContext()
 
   const [searchQuery, setSearchQuery] = useState('')
@@ -101,10 +109,12 @@ export default function HomeScreen() {
   const [publicPage, setPublicPage] = useState(1)
   const [radiusKm, setRadiusKm] = useState(5)
   const [viewMode, setViewMode] = useState<'feed' | 'map'>('feed')
-  const [discoveryCenter, setDiscoveryCenter] = useState<Coords>({ lat: DEFAULT_LAT, lng: DEFAULT_LNG })
+  // The selected city controls the UI immediately, independently of network latency.
+  const discoveryCenter = useMemo(() => ({ lat: city.lat, lng: city.lng }), [city.lat, city.lng])
 
   const [allDiscoveryEvents, setAllDiscoveryEvents] = useState<PublicEventData[]>([])
   const [membershipsReady, setMembershipsReady] = useState(false)
+  const [loadedCityId, setLoadedCityId] = useState<string | null>(null)
   const discoveryRequestId = useRef(0)
 
   const [loadingDiscovery, setLoadingDiscovery] = useState(true)
@@ -115,18 +125,17 @@ export default function HomeScreen() {
     if (!supaUser) return
     const requestId = ++discoveryRequestId.current
     setLoadingDiscovery(true)
-    setMembershipsReady(false)
+    // Keep the last complete snapshot visible during same-city realtime refreshes.
+    // loadedCityId still prevents displaying it in another city.
     setDiscoveryError(false)
 
-    const cityFallback = getOblastCenterCoordinates(profile?.city) ?? undefined
-    const geo = await getCurrentPosition(cityFallback)
+    const geo = { lat: city.lat, lng: city.lng }
     const [nearbyResult, participationResult] = await Promise.all([
       supabase.rpc('events_nearby', { user_lat: geo.lat, user_lng: geo.lng, radius_km: 100 }),
       supabase.from('event_participants').select('event_id, status, role').eq('user_id', supaUser.id).in('status', ['joined', 'pending', 'rejected']),
     ])
 
     if (requestId !== discoveryRequestId.current) return
-    setDiscoveryCenter(geo)
 
     if (nearbyResult.error || participationResult.error) {
       if (nearbyResult.error) {
@@ -153,7 +162,7 @@ export default function HomeScreen() {
 
     const nearbyRows = (nearbyResult.data ?? []) as Record<string, unknown>[]
     const ids = nearbyRows.map((row) => row.id as string)
-    if (import.meta.env.DEV) {
+    if (import.meta.env?.DEV) {
       console.info('[Home discovery diagnostic] RPC returned', {
         count: nearbyRows.length,
         events: nearbyRows.map((row) => ({ id: row.id, title: row.title })),
@@ -187,7 +196,7 @@ export default function HomeScreen() {
           bank_enabled: row.bank_enabled ?? false,
         })
       }
-      if (import.meta.env.DEV) {
+      if (import.meta.env?.DEV) {
         console.info('[Home discovery diagnostic] Metadata returned', {
           count: typeRows?.length ?? 0,
           events: (typeRows ?? []).map((row) => ({ id: row.id, event_type: row.event_type })),
@@ -207,6 +216,7 @@ export default function HomeScreen() {
       const metadata = typeById.get(e.id as string)
       return {
         id: e.id,
+        organizer_id: e.organizer_id,
         title: e.title,
         category: e.category,
         address_text: e.address_text,
@@ -231,10 +241,15 @@ export default function HomeScreen() {
     })
     events.sort(sortDiscovery)
     setAllDiscoveryEvents(events)
+    setLoadedCityId(city.id)
     setLoadingDiscovery(false)
-  }, [profile?.city, supaUser])
+  }, [city.id, city.lat, city.lng, supaUser?.id])
 
-  useEffect(() => { void fetchDiscoveryEvents() }, [fetchDiscoveryEvents])
+  useEffect(() => {
+    setPublicPage(1)
+    void fetchDiscoveryEvents()
+    return () => { discoveryRequestId.current += 1 }
+  }, [fetchDiscoveryEvents])
 
   // Re-fetch authoritative discovery data for inserts, edits/cancellation, and deletes.
 
@@ -291,21 +306,15 @@ export default function HomeScreen() {
 
   // ── Derived / filtered lists ───────────────────────────────────────────────
 
-  const eligibleDiscovery = membershipsReady ? allDiscoveryEvents
-    .filter((event) => isEligible(event, profile?.age ?? undefined, profile?.gender ?? undefined))
+  const eligibleDiscovery = membershipsReady && loadedCityId === city.id ? allDiscoveryEvents
+    .filter((event) => isEligible(event, profile?.age ?? undefined, profile?.gender ?? undefined, supaUser?.id))
     .filter((event) => event.distance_km === null || event.distance_km <= radiusKm)
     .filter((event) => matchesSearch(event, searchQuery)) : []
 
   const realPersonalEvents = eligibleDiscovery
     .filter((event) => event.event_type === 'personal')
 
-  const realPersonalIds = new Set(realPersonalEvents.map((event) => event.id))
-  const personalDemoLimit = realPersonalEvents.length >= 3 ? 0 : 4 - realPersonalEvents.length
-  const personalDemoFallbacks = (DEMO_EVENTS_ENABLED ? DEMO_PERSONAL_EVENTS : [])
-    .filter((event) => !realPersonalIds.has(event.id))
-    .filter((event) => event.distance_km === null || event.distance_km <= radiusKm)
-    .filter((event) => matchesSearch(event, searchQuery))
-    .slice(0, personalDemoLimit)
+  const personalDemoFallbacks = cityDemos.filter(event => event.event_type === 'personal' && matchesSearch(event, searchQuery))
   const personalEvents = [...realPersonalEvents, ...personalDemoFallbacks]
     .map((event) => ({ ...event, pending_request_count: pendingRequestCountByEvent[event.id] ?? 0 }))
     .map(asPersonalEvent)
@@ -314,17 +323,11 @@ export default function HomeScreen() {
     .filter((event) => event.event_type === 'public')
     .filter((e) => selectedCategory === 'all' || e.category === selectedCategory)
 
-  const mapEvents = eligibleDiscovery.filter((event) =>
-    event.event_type === 'personal' || selectedCategory === 'all' || event.category === selectedCategory,
+  const mapEvents = [...eligibleDiscovery, ...cityDemos.filter(event => matchesSearch(event, searchQuery))].filter((event) =>
+    selectedCategory === 'all' || event.category === selectedCategory,
   )
 
-  const categoriesWithRealEvents = new Set(realPublic.map((event) => event.category))
-  const demoFallbacks = (DEMO_EVENTS_ENABLED ? DEMO_PUBLIC_EVENTS : []).filter((event) =>
-    (selectedCategory === 'all' ? PUBLIC_CATEGORIES.includes(event.category as typeof PUBLIC_CATEGORIES[number]) : event.category === selectedCategory)
-    && !categoriesWithRealEvents.has(event.category)
-    && (event.distance_km === null || event.distance_km <= radiusKm)
-    && matchesSearch(event, searchQuery)
-  )
+  const demoFallbacks = cityDemos.filter(event => event.event_type === 'public' && (selectedCategory === 'all' || event.category === selectedCategory) && matchesSearch(event, searchQuery))
   const filteredPublic = [...realPublic, ...demoFallbacks]
     .map((event) => ({ ...event, pending_request_count: pendingRequestCountByEvent[event.id] ?? 0 }))
 
@@ -332,8 +335,8 @@ export default function HomeScreen() {
   const hasMorePublic = filteredPublic.length > publicPage * PAGE_SIZE
 
   useEffect(() => {
-    if (!import.meta.env.DEV || loadingDiscovery) return
-    const afterEligibility = allDiscoveryEvents.filter((event) => isEligible(event, profile?.age ?? undefined, profile?.gender ?? undefined))
+    if (!import.meta.env?.DEV || loadingDiscovery) return
+    const afterEligibility = allDiscoveryEvents.filter((event) => isEligible(event, profile?.age ?? undefined, profile?.gender ?? undefined, supaUser?.id))
     const afterRadius = afterEligibility.filter((event) => event.distance_km === null || event.distance_km <= radiusKm)
     const afterSearch = afterRadius.filter((event) => matchesSearch(event, searchQuery))
     const summarize = (events: PublicEventData[]) => events.map(({ id, title }) => ({ id, title }))
@@ -346,7 +349,7 @@ export default function HomeScreen() {
       finalPersonal: { count: realPersonalEvents.length, events: summarize(realPersonalEvents) },
       finalPublic: { count: realPublic.length, events: summarize(realPublic) },
     })
-  }, [allDiscoveryEvents, loadingDiscovery, profile?.age, profile?.gender, radiusKm, realPersonalEvents, realPublic, searchQuery])
+  }, [allDiscoveryEvents, loadingDiscovery, profile?.age, profile?.gender, radiusKm, realPersonalEvents, realPublic, searchQuery, supaUser?.id])
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
@@ -362,7 +365,10 @@ export default function HomeScreen() {
       />
 
       <div className="relative z-10 mx-auto flex w-full max-w-[1440px] flex-col px-4 py-3 sm:px-6 sm:py-4 lg:min-h-0 lg:max-w-none lg:flex-1 lg:overflow-hidden lg:px-4 lg:py-4 xl:px-4">
-        <div className="mb-2 flex flex-none justify-end">
+        {loadingDiscovery && <p role="status" className="mb-2 text-xs text-brand-ink-muted">Оновлюємо події: {city.name}…</p>}
+        {discoveryError && <p role="alert" className="mb-2 rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-900">Не вдалося завантажити реальні події. Нижче доступні тестові приклади. <button type="button" onClick={() => void fetchDiscoveryEvents()} className="font-bold underline">Повторити</button></p>}
+        <div className="mb-2 flex flex-none flex-wrap items-center justify-between gap-2">
+          <p className="text-[11px] text-brand-ink-muted">{city.name} · особисті та публічні події. Приклади позначено «Тестова подія».</p>
           <div className="inline-flex rounded-xl border border-brand-border bg-white/90 p-1 shadow-sm" role="group" aria-label="Режим перегляду подій">
             {(['feed', 'map'] as const).map((mode) => <button key={mode} type="button" aria-pressed={viewMode === mode} onClick={() => setViewMode(mode)} className={`h-8 rounded-lg px-3 text-[11px] font-extrabold transition ${viewMode === mode ? 'bg-brand-accent text-white shadow-sm' : 'text-brand-ink-muted hover:bg-brand-accent-soft hover:text-brand-accent'}`}>{mode === 'feed' ? 'Стрічка' : 'Карта'}</button>)}
           </div>
@@ -370,11 +376,11 @@ export default function HomeScreen() {
 
         {viewMode === 'feed' ? <div className="grid min-w-0 flex-1 grid-cols-1 items-start gap-6 sm:gap-7 lg:min-h-0 lg:grid-cols-[minmax(280px,0.4fr)_minmax(0,0.6fr)] lg:items-stretch lg:gap-2 xl:grid-cols-[minmax(340px,0.4fr)_minmax(0,0.6fr)] xl:gap-2.5">
           <section className="min-w-0 rounded-[24px] border border-[#c5badc] bg-[#e4def1] p-2 pb-0 shadow-[0_10px_30px_rgba(61,45,96,0.09)] sm:p-3 sm:pb-0 lg:flex lg:min-h-0 lg:flex-col">
-            {loadingDiscovery && <HomeCarousel id="personal-events-loading" label="Завантаження знайомств" className="lg:space-y-3">{[1, 2, 3].map((item) => <div role="listitem" key={item} className="h-56 w-[88%] flex-none snap-start animate-pulse rounded-2xl border border-brand-border bg-white min-[420px]:w-[86%] sm:w-[46%] md:w-[44%] lg:w-auto" />)}</HomeCarousel>}
+            {loadingDiscovery && personalEvents.length === 0 && <HomeCarousel id="personal-events-loading" label="Завантаження знайомств" className="lg:space-y-3">{[1, 2, 3].map((item) => <div role="listitem" key={item} className="h-56 w-[88%] flex-none snap-start animate-pulse rounded-2xl border border-brand-border bg-white min-[420px]:w-[86%] sm:w-[46%] md:w-[44%] lg:w-auto" />)}</HomeCarousel>}
             {!loadingDiscovery && personalEvents.length === 0 && (
               <div className="rounded-2xl border border-dashed border-brand-border-strong bg-white px-4 py-6 text-center lg:flex-1"><p className="text-sm font-bold text-brand-ink">{discoveryError ? 'Не вдалося завантажити події.' : 'Поки немає особистих подій поруч.'}</p>{!discoveryError && <Link to="/create" className="mt-3 inline-flex min-h-10 items-center rounded-xl bg-brand-accent px-4 text-xs font-bold text-white transition hover:bg-brand-accent-hover">Створити подію</Link>}</div>
             )}
-            {!loadingDiscovery && personalEvents.length > 0 && <HomeCarousel id="personal-events-carousel" label="Знайомства поруч" showScrollControls className="gap-3.5 lg:space-y-3.5">{personalEvents.map((event) => <div role="listitem" key={event.eventId} className="w-[88%] flex-none snap-start [scroll-snap-stop:always] min-[420px]:w-[86%] sm:w-[46%] md:w-[44%] lg:w-auto"><PersonalEventCard event={event} isOrganizer={event.organizer?.id === supaUser?.id} /></div>)}</HomeCarousel>}
+            {personalEvents.length > 0 && <HomeCarousel key={city.id} id="personal-events-carousel" label="Знайомства поруч" showScrollControls className="gap-3.5 lg:space-y-3.5">{personalEvents.map((event) => <div role="listitem" key={event.eventId} className="w-[88%] flex-none snap-start [scroll-snap-stop:always] min-[420px]:w-[86%] sm:w-[46%] md:w-[44%] lg:w-auto"><PersonalEventCard event={event} isOrganizer={Boolean(supaUser?.id && (event.organizer_id ?? event.organizer?.id) === supaUser.id)} /></div>)}</HomeCarousel>}
 
             <div className="-mx-2 mt-1 flex min-h-9 flex-none items-center gap-2 rounded-b-[23px] border-t border-[#cfc4e2] bg-white/30 px-3 py-2 sm:-mx-3">
               <h1 className="text-sm font-extrabold tracking-[-0.02em] text-brand-ink">Знайомства</h1>
@@ -383,9 +389,9 @@ export default function HomeScreen() {
           </section>
 
           <section className="min-w-0 rounded-[24px] border border-[#dcc7bb] bg-[#f4e6de] p-2 pb-0 shadow-[0_10px_30px_rgba(91,61,44,0.08)] sm:p-3 sm:pb-0 lg:flex lg:min-h-0 lg:flex-col lg:p-2.5 lg:pb-0">
-            {loadingDiscovery && <HomeCarousel id="public-events-loading" label="Завантаження афіші" className="lg:space-y-3">{[1, 2, 3, 4].map((item) => <div role="listitem" key={item} className="h-72 w-[88%] flex-none snap-start animate-pulse rounded-2xl border border-brand-border bg-white min-[420px]:w-[86%] sm:w-[46%] md:w-[44%] lg:w-auto" />)}</HomeCarousel>}
+            {loadingDiscovery && shownPublic.length === 0 && <HomeCarousel id="public-events-loading" label="Завантаження афіші" className="lg:space-y-3">{[1, 2, 3, 4].map((item) => <div role="listitem" key={item} className="h-72 w-[88%] flex-none snap-start animate-pulse rounded-2xl border border-brand-border bg-white min-[420px]:w-[86%] sm:w-[46%] md:w-[44%] lg:w-auto" />)}</HomeCarousel>}
             {!loadingDiscovery && shownPublic.length === 0 && <div className="rounded-2xl border border-dashed border-brand-border-strong bg-white px-4 py-6 text-center lg:flex-1"><p className="text-sm font-bold text-brand-ink">{discoveryError ? 'Не вдалося завантажити події.' : 'Поки немає публічних подій поруч.'}</p>{!discoveryError && selectedCategory !== 'all' && <p className="mt-1.5 text-xs text-brand-ink-muted">Спробуйте іншу категорію або збільшіть радіус.</p>}</div>}
-            {!loadingDiscovery && shownPublic.length > 0 && <HomeCarousel id="public-events-carousel" label="Афіша поруч" showScrollControls className="gap-3.5 lg:space-y-2">{shownPublic.map((event) => <div role="listitem" key={event.id} className="w-[88%] flex-none snap-start [scroll-snap-stop:always] min-[420px]:w-[86%] sm:w-[46%] md:w-[44%] lg:w-auto"><PublicEventCard event={event} isNew={event.id === newEventId} isOrganizer={event.organizer?.id === supaUser?.id} /></div>)}</HomeCarousel>}
+            {shownPublic.length > 0 && <HomeCarousel key={city.id} id="public-events-carousel" label="Афіша поруч" showScrollControls className="gap-3.5 lg:space-y-2">{shownPublic.map((event) => <div role="listitem" key={event.id} className="w-[88%] flex-none snap-start [scroll-snap-stop:always] min-[420px]:w-[86%] sm:w-[46%] md:w-[44%] lg:w-auto"><PublicEventCard event={event} isNew={event.id === newEventId} isOrganizer={Boolean(supaUser?.id && (event.organizer_id ?? event.organizer?.id) === supaUser.id)} /></div>)}</HomeCarousel>}
 
             {hasMorePublic && <button type="button" onClick={() => setPublicPage((page) => page + 1)} className="mt-4 w-full rounded-xl border border-brand-border bg-white py-3 text-sm font-bold text-brand-ink-soft transition hover:border-brand-border-strong hover:bg-brand-surface-muted">Показати більше ({filteredPublic.length - shownPublic.length})</button>}
             <div className="-mx-2 mt-1 flex-none rounded-b-[23px] border-t border-[#dfcec4] bg-white/28 px-3 py-2 sm:-mx-3 lg:-mx-2.5 xl:flex xl:min-h-11 xl:items-center xl:gap-2">
@@ -404,7 +410,7 @@ export default function HomeScreen() {
             </div>
             <div className="min-w-0 sm:max-w-[520px] sm:flex-1 [&>div]:pb-0 [&_button]:min-h-8 [&_button]:rounded-[10px] [&_button]:px-2.5 [&_button]:text-[10px]"><CategoryChips items={TABS} selected={selectedCategory} onSelect={(key) => { setSelectedCategory(key); setPublicPage(1) }} /></div>
           </div>
-          {loadingDiscovery && allDiscoveryEvents.length === 0 ? <div className="min-h-[430px] flex-1 animate-pulse rounded-2xl bg-brand-surface-muted lg:min-h-0" /> : discoveryError ? <div className="grid min-h-[430px] flex-1 place-items-center rounded-2xl border border-dashed border-brand-border-strong bg-white px-4 text-center text-sm font-bold text-brand-ink">Не вдалося завантажити події.</div> : <Suspense fallback={<div className="min-h-[430px] flex-1 animate-pulse rounded-2xl bg-brand-surface-muted lg:min-h-0" />}><DiscoveryMap events={mapEvents} center={discoveryCenter} /></Suspense>}
+          <Suspense fallback={<div className="min-h-[430px] flex-1 animate-pulse rounded-2xl bg-brand-surface-muted lg:min-h-0" />}><DiscoveryMap events={mapEvents} center={discoveryCenter} /></Suspense>
         </section>}
       </div>
     </div>

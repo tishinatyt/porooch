@@ -36,7 +36,7 @@ export function PersonalEventCard({ event, management = false, isOrganizer = fal
   const visibleUsers = participantUsers.length > 0 ? participantUsers : event.organizer ? [{ id: event.organizer.id, name: event.organizer.name, avatar_url: event.organizer.avatar_url }] : []
   const participantCount = event.participant_count ?? event.participants.length
   const isFull = participantCount >= event.max_participants
-  const actionLabel = isOrganizer
+  const actionLabel = event.isDemo ? 'ПЕРЕГЛЯНУТИ' : isOrganizer
     ? 'КЕРУВАТИ'
     : event.participationStatus === 'joined'
       ? 'ВИ УЧАСНИК'
@@ -49,11 +49,12 @@ export function PersonalEventCard({ event, management = false, isOrganizer = fal
 
   return (
     <article className="home-event-card h-full rounded-[18px] border border-[#d8d0e7] bg-white p-3 transition-[transform,box-shadow,border-color] duration-200 hover:border-[#c7b9df] sm:p-3.5">
+      {event.isDemo && <span className="mb-2 inline-block rounded-lg bg-amber-100 px-2 py-1 text-[10px] font-bold text-amber-900">Тестова подія</span>}
       <div className="mb-2 flex items-center gap-2.5">
         {event.organizer ? <ProfileAvatar profile={{ id: event.organizer.id, name: event.organizer.name, age: event.organizer.age, avatar_url: event.organizer.avatar_url }} className="grid h-8 w-8 flex-shrink-0 place-items-center overflow-hidden rounded-full border border-white bg-brand-accent-soft text-xs font-extrabold text-brand-accent shadow-[0_2px_7px_rgba(62,44,105,0.13)]" /> : <div className="grid h-8 w-8 place-items-center rounded-full border border-white bg-brand-accent-soft text-xs font-extrabold text-brand-accent shadow-[0_2px_7px_rgba(62,44,105,0.13)]">О</div>}
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-bold text-brand-ink sm:text-[15px]">{event.organizer?.name ?? 'Організатор'}{event.organizer?.age ? `, ${event.organizer.age}` : ''}</p>
-          <p className="mt-0.5 text-[10px] font-medium text-brand-ink-muted">Запрошує на особисту зустріч</p>
+          <p className="mt-0.5 text-[10px] font-medium text-brand-ink-muted">{event.isDemo ? 'Приклад особистої зустрічі' : 'Запрошує на особисту зустріч'}</p>
         </div>
         <span className="rounded-full border border-violet-200 bg-violet-100 px-2 py-0.5 text-[10px] font-bold text-violet-800">Особиста</span>
       </div>
@@ -87,7 +88,7 @@ export function PublicEventCard({ event, isNew = false, isOrganizer = false }: {
   const participantUsers = event.participants ?? (event.organizer ? [{ id: event.organizer.id, name: event.organizer.name, avatar_url: event.organizer.avatar_url }] : [])
   const openEvent = () => navigate(`/event/${event.id}`)
   const isFull = event.participant_count >= event.max_participants
-  const actionLabel = isOrganizer
+  const actionLabel = event.isDemo ? 'ПЕРЕГЛЯНУТИ' : isOrganizer
     ? 'КЕРУВАТИ'
     : event.participationStatus === 'joined'
       ? 'ВИ УЧАСНИК'
@@ -100,6 +101,7 @@ export function PublicEventCard({ event, isNew = false, isOrganizer = false }: {
 
   return (
     <article className={`home-event-card group h-full rounded-[18px] border bg-white p-3 transition-[transform,box-shadow,border-color] duration-200 hover:border-[#c9bedb] sm:p-3.5 lg:h-auto lg:p-3 ${isNew ? 'border-brand-accent/50 ring-2 ring-brand-accent/10' : 'border-[#d9d2e4]'}`}>
+      {event.isDemo && <span className="mb-2 inline-block rounded-lg bg-amber-100 px-2 py-1 text-[10px] font-bold text-amber-900">Тестова подія</span>}
       <div className="flex min-w-0 gap-3 lg:gap-2.5">
         <div className="min-w-0 flex-1">
           <div className="mb-1 flex items-center gap-1.5">
