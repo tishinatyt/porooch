@@ -1,5 +1,6 @@
-// Only event detail routes may survive onboarding; never accept an external redirect.
+// Only explicit local destinations may survive onboarding.
 export function eventReturnPath(pathname: string): string {
+  if (pathname === '/create') return '/create'
   return /^\/event\/[a-zA-Z0-9_-]+\/?$/.test(pathname) ? pathname.replace(/\/$/, '') : '/'
 }
 

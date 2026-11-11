@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import { useDiscoveryCity } from '@/contexts/DiscoveryCityContext'
 import TopBar from '@/components/TopBar'
+import OrganizerSection from '@/components/home/OrganizerSection'
 import { PersonalEventCard, PublicEventCard } from '@/components/home/HomeEventCards'
 import { CategoryChips } from '@/components/home/HomeControls'
 import HomeCarousel from '@/components/home/HomeCarousel'
@@ -354,6 +355,7 @@ export default function HomeScreen() {
   // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
+    <>
     <div className="relative isolate min-h-screen overflow-hidden bg-home-bg pb-24 text-brand-ink lg:flex lg:h-screen lg:min-h-0 lg:flex-col lg:pb-0">
       <HomeBackgroundDecorations />
       <TopBar
@@ -414,5 +416,7 @@ export default function HomeScreen() {
         </section>}
       </div>
     </div>
+    <div className="px-4 pb-24 sm:px-6 lg:pb-8"><OrganizerSection /></div>
+    </>
   )
 }

@@ -43,3 +43,10 @@ yarn-error.log*
 next-env.d.ts
 .env.local
 remote-schema.sql
+
+# Build output
+dist/
+
+# Supabase local state
+supabase/.temp
+supabase/.branches

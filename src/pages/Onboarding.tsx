@@ -130,6 +130,19 @@ export default function Onboarding() {
     }
   }
 
+  if (step === 'landing' && pathname === '/create') return (
+    <div className="flex min-h-screen items-center justify-center px-4 py-8">
+      <main className="w-full max-w-md rounded-3xl border border-brand-border bg-white p-8 text-center shadow-card">
+        <BrandLogo className="mx-auto w-40" />
+        <h1 className="mt-6 text-2xl font-extrabold">Увійди, щоб створити подію</h1>
+        <p className="mt-3 text-sm text-brand-ink-muted">Після входу повернемо тебе до форми створення події.</p>
+        {error && <p role="alert" className="mt-4 text-red-700">{error}</p>}
+        <button type="button" className="organizer-cta mt-6 w-full" onClick={() => { setError(null); void signInWithGoogle().catch(() => setError('Не вдалося увійти через Google. Спробуйте ще раз')) }}>УВІЙТИ З GOOGLE</button>
+        <button type="button" className="mt-4 min-h-12 w-full rounded-xl border border-brand-border px-4 text-sm font-bold" onClick={() => { setError(null); setStep('profile') }}>Продовжити без Google</button>
+      </main>
+    </div>
+  )
+
   if (step === 'landing') return <LandingPage onStart={() => { setError(null); setStep('profile') }} onGoogleSignIn={() => { setError(null); void signInWithGoogle().catch((signInError) => { console.error('Google sign-in failed', signInError); setError('Не вдалося увійти через Google. Спробуйте ще раз') }) }} error={error} />
 
   if (step === 'interests') {

@@ -11,6 +11,8 @@ for (const key of ['window', 'document', 'location', 'navigator', 'HTMLElement',
 Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', { value: true, configurable: true })
 const copies: string[] = []
 const shares: ShareData[] = []
+let guest = false
+let googleSignIns = 0
 let copyFails = false
 let shareError: Error | null = null
 function clipboard(available = true) {
@@ -24,7 +26,9 @@ mock.module('../src/lib/supabase.ts', { namedExports: { supabase: {
   from: () => ({ update: () => ({ eq: async () => ({ error: null }) }) }),
   auth: { updateUser: async () => ({ error: null }) },
 } } })
-mock.module('../src/contexts/AuthContext.tsx', { namedExports: { useAuth: () => ({
+mock.module('../src/contexts/AuthContext.tsx', { namedExports: { useAuth: () => guest ? ({
+  supaUser: null, profile: null, signInWithGoogle: async () => { googleSignIns += 1 },
+}) : ({
   supaUser: { id: 'fixture-user', user_metadata: { poruch_onboarding: 'interests' } },
   profile: { name: 'Fixture', city: 'Київ', avatar_url: 'https://example.test/avatar.jpg', interests: ['Кава', 'Кіно'] },
   refreshProfile: async () => {},
@@ -89,9 +93,9 @@ test('native sharing sends only title and clean URL; cancel is quiet and failure
   } finally { await unmount() }
 })
 
-test('onboarding returns to the shared event while other entry routes keep their home destination', async () => {
+test('onboarding returns to the shared event or create form', async () => {
   function Form() { const location = useLocation(); return <><output>{location.pathname}</output><Onboarding /></> }
-  for (const [entry, destination] of [['/event/fixture', '/event/fixture'], ['/create', '/']]) {
+  for (const [entry, destination] of [['/event/fixture', '/event/fixture'], ['/create', '/create'], ['/profile', '/']]) {
     root = createRoot(container)
     await act(async () => root.render(<MemoryRouter initialEntries={[entry]}><Routes><Route path="*" element={<Form />} /></Routes></MemoryRouter>))
     try {
@@ -101,7 +105,25 @@ test('onboarding returns to the shared event while other entry routes keep their
   }
 })
 
-test('OAuth return paths allow only local event details within the deployment base', () => {
+test('guest organizer CTA opens sign-in at the preserved creation destination', async () => {
+  guest = true; googleSignIns = 0
+  root = createRoot(container)
+  try {
+    await act(async () => root.render(<MemoryRouter initialEntries={['/']}><Onboarding /></MemoryRouter>))
+    const cta = [...container.querySelectorAll('a')].find(a => a.textContent?.includes('Створити подію'))
+    assert.ok(cta)
+    assert.equal(cta.getAttribute('href'), '/create')
+    assert.match(container.textContent!, /Незабаром/)
+    await act(async () => cta.click())
+    assert.match(container.querySelector('h1')!.textContent!, /Увійди, щоб створити подію/)
+    await click('УВІЙТИ З GOOGLE')
+    assert.equal(googleSignIns, 1)
+  } finally { guest = false; await unmount() }
+})
+
+test('OAuth return paths allow local event details and creation within the deployment base', () => {
+  assert.equal(eventAuthRedirect('/create', '/', 'https://poruch.fun'), 'https://poruch.fun/create')
+  assert.equal(eventAuthRedirect('/porooch/create', '/porooch/', 'https://poruch.fun'), 'https://poruch.fun/porooch/create')
   assert.equal(eventAuthRedirect('/event/fixture', '/', 'https://poruch.fun'), expectedUrl)
   assert.equal(eventAuthRedirect('/event/fixture', '/', 'http://localhost:5173'), 'http://localhost:5173/event/fixture')
   for (const path of ['/other/event/fixture', '/event/fixture/edit', '//evil.test/event/fixture', '/event/%2F%2Fevil.test', '/event/..']) {

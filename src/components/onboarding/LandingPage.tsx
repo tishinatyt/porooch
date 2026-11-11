@@ -1,4 +1,5 @@
 import BrandLogo from '@/components/BrandLogo'
+import OrganizerSection from '@/components/home/OrganizerSection'
 import { Icon, type IconName } from '@/components/icons'
 
 const FEATURES: readonly [string, string, IconName, string, string][] = [
@@ -19,7 +20,7 @@ const EXAMPLES = [
   ['«Створив зустріч»', 'Сам вирішуй, кого підтвердити', 'poruch-friends.jpg', 'Друзі проводять час разом'],
 ] as const
 
-const landingImage = (name: string) => `${import.meta.env.BASE_URL}images/landing/${name}`
+const landingImage = (name: string) => `${import.meta.env?.BASE_URL ?? '/'}images/landing/${name}`
 
 export default function LandingPage({ onStart, onGoogleSignIn, error }: { onStart: () => void; onGoogleSignIn: () => void; error?: string | null }) {
   return (
@@ -38,6 +39,7 @@ export default function LandingPage({ onStart, onGoogleSignIn, error }: { onStar
         <section className="py-11 sm:py-16"><p className="text-xs font-extrabold uppercase tracking-[0.14em] text-brand-accent">Знайоме відчуття?</p><h2 className="mt-2 text-2xl font-extrabold tracking-[-0.03em] sm:text-3xl">Сценарії на щодень</h2><div className="mt-7 grid gap-4 sm:grid-cols-2">{EXAMPLES.map(([quote, result, image, alt]) => <article key={quote} className="group relative min-h-64 overflow-hidden rounded-[24px] bg-brand-ink shadow-[0_12px_32px_rgba(36,28,48,0.13)]"><img src={landingImage(image)} alt={alt} loading="lazy" className="absolute inset-0 h-full w-full object-cover transition duration-300 group-hover:scale-[1.025]" /><div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" /><div className="absolute inset-x-0 bottom-0 p-5 text-white sm:p-6"><h3 className="text-xl font-extrabold tracking-[-0.02em]">{quote}</h3><p className="mt-1 text-sm text-white/85">{result}</p></div></article>)}</div></section>
 
         <section className="relative overflow-hidden rounded-[26px] bg-gradient-to-br from-[#7258ad] via-brand-accent to-[#9a76c1] px-6 py-10 text-center text-white shadow-[0_18px_45px_rgba(91,66,145,0.25)] sm:px-10 sm:py-12"><div className="absolute -left-10 -top-12 h-40 w-40 rounded-full border-[24px] border-white/10" aria-hidden="true" /><div className="absolute -bottom-14 -right-8 h-44 w-44 rounded-full bg-[#f3cdbb]/20 blur-sm" aria-hidden="true" /><div className="absolute inset-0 opacity-15 [background-image:radial-gradient(white_0.6px,transparent_0.6px)] [background-size:13px_13px]" aria-hidden="true" /><div className="relative"><p className="text-xs font-bold uppercase tracking-[0.16em] text-white/75">Кава · прогулянки · концерти · спорт</p><h2 className="mt-3 text-3xl font-extrabold tracking-[-0.04em]">Знайди своїх поруч</h2><p className="mx-auto mt-3 max-w-md text-sm leading-6 text-white/80">Обери, що тобі цікаво, і зроби перший крок до реальної зустрічі.</p><button type="button" onClick={onStart} className="mt-6 h-12 rounded-2xl bg-white px-9 text-sm font-extrabold text-brand-accent shadow-lg transition hover:-translate-y-0.5 hover:bg-brand-accent-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">ПОЧАТИ</button></div></section>
+        <OrganizerSection />
       </main>
     </div>
   )
