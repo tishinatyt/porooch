@@ -1,3 +1,4 @@
+import { appOrigin } from '@/lib/appUrl'
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 import type { Session, User as SupabaseUser } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
@@ -75,7 +76,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   async function signInWithGoogle() {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: eventAuthRedirect(window.location.pathname, import.meta.env.BASE_URL, window.location.origin) }
+      options: { redirectTo: eventAuthRedirect(window.location.pathname, import.meta.env.BASE_URL, appOrigin()) }
     })
     if (error) throw error
   }

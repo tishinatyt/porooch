@@ -6,7 +6,7 @@ import { JSDOM } from 'jsdom'
 import React, { act } from 'react'
 import { eventAuthRedirect, eventReturnPath } from '../src/lib/eventLinks.ts'
 
-const dom = new JSDOM('<!doctype html><div id="app"></div>', { url: 'https://tishinatyt.github.io/porooch/event/fixture?code=secret#access_token=secret', pretendToBeVisual: true })
+const dom = new JSDOM('<!doctype html><div id="app"></div>', { url: 'https://poruch.fun/event/fixture?code=secret#access_token=secret', pretendToBeVisual: true })
 for (const key of ['window', 'document', 'location', 'navigator', 'HTMLElement', 'Event', 'MouseEvent']) Object.defineProperty(globalThis, key, { value: dom.window[key as keyof typeof dom.window], configurable: true })
 Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', { value: true, configurable: true })
 const copies: string[] = []
@@ -36,11 +36,11 @@ const { default: EventShare } = await import('../src/components/event-detail/Eve
 const { default: Onboarding } = await import('../src/pages/Onboarding.tsx')
 const container = document.getElementById('app')!
 let root: ReturnType<typeof createRoot>
-const expectedUrl = 'https://tishinatyt.github.io/porooch/event/fixture'
+const expectedUrl = 'https://poruch.fun/event/fixture'
 async function mount(isPublic = true) {
   copyFails = false; shareError = null; copies.length = 0; shares.length = 0
   root = createRoot(container)
-  await act(async () => root.render(<MemoryRouter basename="/porooch" initialEntries={['/porooch/event/fixture?code=secret#access_token=secret']}><EventShare eventId="fixture" title="Прогулянка містом" isPublic={isPublic} /></MemoryRouter>))
+  await act(async () => root.render(<MemoryRouter basename="/" initialEntries={['/event/fixture?code=secret#access_token=secret']}><EventShare eventId="fixture" title="Прогулянка містом" isPublic={isPublic} /></MemoryRouter>))
 }
 async function click(text: string) { await act(async () => { const button = [...container.querySelectorAll('button')].find(b => b.textContent === text); assert.ok(button, text); button.click() }) }
 async function unmount() { await act(async () => root.unmount()) }
@@ -102,10 +102,10 @@ test('onboarding returns to the shared event while other entry routes keep their
 })
 
 test('OAuth return paths allow only local event details within the deployment base', () => {
-  assert.equal(eventAuthRedirect('/porooch/event/fixture', '/porooch/', 'https://tishinatyt.github.io'), expectedUrl)
+  assert.equal(eventAuthRedirect('/event/fixture', '/', 'https://poruch.fun'), expectedUrl)
   assert.equal(eventAuthRedirect('/event/fixture', '/', 'http://localhost:5173'), 'http://localhost:5173/event/fixture')
-  for (const path of ['/other/event/fixture', '/porooch/event/fixture/edit', '//evil.test/event/fixture', '/porooch/event/%2F%2Fevil.test', '/porooch/event/..']) {
-    assert.equal(eventAuthRedirect(path, '/porooch/', 'https://tishinatyt.github.io'), 'https://tishinatyt.github.io/porooch/')
+  for (const path of ['/other/event/fixture', '/event/fixture/edit', '//evil.test/event/fixture', '/event/%2F%2Fevil.test', '/event/..']) {
+    assert.equal(eventAuthRedirect(path, '/', 'https://poruch.fun'), 'https://poruch.fun/')
   }
   assert.equal(eventReturnPath('https://evil.test/event/fixture'), '/')
 })
@@ -115,11 +115,11 @@ test('GitHub Pages fallback preserves a directly opened event until the app rest
   const sessionStorage = { setItem: (key: string, value: string) => saved.set(key, value), getItem: (key: string) => saved.get(key) ?? null, removeItem: (key: string) => saved.delete(key) }
   let redirected = ''
   const page404 = readFileSync(new URL('../public/404.html', import.meta.url), 'utf8').match(/<script>([\s\S]*?)<\/script>/)![1]
-  vm.runInNewContext(page404, { sessionStorage, window: { location: { pathname: '/porooch/event/fixture', search: '', hash: '', protocol: 'https:', hostname: 'tishinatyt.github.io', port: '', replace: (url: string) => { redirected = url } } } })
-  assert.equal(redirected, 'https://tishinatyt.github.io/porooch/')
-  const location = { origin: 'https://tishinatyt.github.io', pathname: '/porooch/' }
-  const restore = readFileSync(new URL('../index.html', import.meta.url), 'utf8').match(/<script>\s*\/\/ Restore[\s\S]*?<\/script>/)![0].replace(/<\/?script>/g, '').replaceAll('%BASE_URL%', '/porooch/')
+  vm.runInNewContext(page404, { sessionStorage, window: { location: { pathname: '/event/fixture', search: '?code=oauth-code', hash: '#access_token=secret', protocol: 'https:', hostname: 'poruch.fun', port: '', replace: (url: string) => { redirected = url } } } })
+  assert.equal(redirected, 'https://poruch.fun/')
+  const location = { origin: 'https://poruch.fun', pathname: '/' }
+  const restore = readFileSync(new URL('../index.html', import.meta.url), 'utf8').match(/<script>\s*\/\/ Restore[\s\S]*?<\/script>/)![0].replace(/<\/?script>/g, '').replaceAll('%BASE_URL%', '/')
   vm.runInNewContext(restore, { URL, sessionStorage, window: { location, history: { replaceState: (_state: unknown, _title: string, url: string) => { location.pathname = url } } } })
-  assert.equal(location.pathname, '/porooch/event/fixture')
+  assert.equal(location.pathname, '/event/fixture?code=oauth-code#access_token=secret')
   assert.equal(saved.size, 0)
 })

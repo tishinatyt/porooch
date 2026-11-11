@@ -1,3 +1,4 @@
+import { appOrigin } from '@/lib/appUrl'
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
@@ -32,7 +33,7 @@ export default function Admin() {
     setLoggingIn(true); setLoginError('')
     try {
       const { error } = await supabase.auth.signInWithOAuth({ provider: 'google', options: {
-        redirectTo: new URL(`${import.meta.env?.BASE_URL ?? '/'}admin`, window.location.origin).toString(),
+        redirectTo: new URL(`${import.meta.env?.BASE_URL ?? '/'}admin`, appOrigin()).toString(),
         queryParams: { prompt: 'select_account', login_hint: 'dr12071980@gmail.com' },
       } })
       if (error) throw error

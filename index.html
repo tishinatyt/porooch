@@ -14,33 +14,33 @@
     <title>Poruch — знайомства, зустрічі та події поруч</title>
     <meta name="description" content="Poruch допомагає знаходити людей, компанію та події поруч за інтересами, віком і відстанню. Створюй власні зустрічі та долучайся до подій у своєму місті." />
     <meta name="robots" content="index,follow,max-image-preview:large" />
-    <link rel="canonical" href="https://tishinatyt.github.io/porooch/" />
+    <link rel="canonical" href="%VITE_APP_URL%" />
 
     <meta property="og:type" content="website" />
     <meta property="og:locale" content="uk_UA" />
     <meta property="og:site_name" content="Poruch" />
     <meta property="og:title" content="Poruch — знайомства, зустрічі та події поруч" />
     <meta property="og:description" content="Знаходь людей і події поруч, створюй зустрічі та збирай компанію за спільними інтересами." />
-    <meta property="og:url" content="https://tishinatyt.github.io/porooch/" />
-    <meta property="og:image" content="https://tishinatyt.github.io/porooch/poruch-logo.png" />
+    <meta property="og:url" content="%VITE_APP_URL%" />
+    <meta property="og:image" content="%VITE_APP_URL%poruch-logo.png" />
     <meta property="og:image:alt" content="Логотип Poruch" />
 
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="Poruch — знайомства, зустрічі та події поруч" />
     <meta name="twitter:description" content="Знаходь людей і події поруч, створюй зустрічі та збирай компанію за спільними інтересами." />
-    <meta name="twitter:image" content="https://tishinatyt.github.io/porooch/poruch-logo.png" />
+    <meta name="twitter:image" content="%VITE_APP_URL%poruch-logo.png" />
 
     <script type="application/ld+json">
       {
         "@context": "https://schema.org",
         "@type": "WebApplication",
         "name": "Poruch",
-        "url": "https://tishinatyt.github.io/porooch/",
+        "url": "%VITE_APP_URL%",
         "applicationCategory": "SocialNetworkingApplication",
         "operatingSystem": "Web",
         "inLanguage": "uk",
         "description": "Сервіс для пошуку людей, зустрічей та подій поруч за інтересами, віком і відстанню.",
-        "image": "https://tishinatyt.github.io/porooch/poruch-logo.png"
+        "image": "%VITE_APP_URL%poruch-logo.png"
       }
     </script>
 
@@ -49,7 +49,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <script>
       // Restore deep-link path after SPA redirect from 404.html.
-      // 404.html stores the full path (including /porooch prefix); restore it as-is.
+      // 404.html stores the full path, query and hash; restore them on this origin.
       // BrowserRouter uses Vite's BASE_URL, so no manual prefix stripping is needed.
       (function() {
         var appBase = '%BASE_URL%';
@@ -67,7 +67,7 @@
         if (redirect) {
           try {
             var target = new URL(redirect, window.location.origin);
-            if (target.origin === window.location.origin && target.pathname.indexOf(appBase) === 0) {
+            if (target.origin === window.location.origin && target.pathname.indexOf(appBase) === 0 && !/^\/(meetnow|porooch)(\/|$)/.test(target.pathname)) {
               window.history.replaceState(null, '', target.pathname + target.search + target.hash);
             }
           } catch (_) {

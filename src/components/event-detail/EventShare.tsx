@@ -1,3 +1,4 @@
+import { appOrigin } from '@/lib/appUrl'
 import { useId, useRef, useState } from 'react'
 import { useHref } from 'react-router-dom'
 import { Icon } from '@/components/icons'
@@ -5,7 +6,7 @@ import { Icon } from '@/components/icons'
 export default function EventShare({ eventId, title, isPublic }: { eventId: string; title: string; isPublic: boolean }) {
   const href = useHref(`/event/${encodeURIComponent(eventId)}`)
   // Build from the event ID, not location.href: never share auth tokens or query parameters.
-  const url = new URL(href, window.location.origin).toString()
+  const url = new URL(href, appOrigin()).toString()
   const panelId = useId()
   const inputRef = useRef<HTMLInputElement>(null)
   const busyRef = useRef(false)

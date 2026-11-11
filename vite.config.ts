@@ -8,8 +8,8 @@ import { dirname, resolve } from 'path'
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
 
-export default defineConfig(({ command }) => {
-  const base = command === 'build' ? '/porooch/' : '/'
+export default defineConfig(() => {
+  const base = '/'
 
   return {
   base,

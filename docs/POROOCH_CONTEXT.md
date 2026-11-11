@@ -6,7 +6,7 @@
 
 **Current product brand:** **Poruch**.
 
-Legacy technical identifiers may still use `porooch` for compatibility because the GitHub repository and current GitHub Pages deployment remain under `/porooch/`. Do not rename those deployment paths or existing storage keys until a compatible migration is planned.
+Legacy technical identifiers may still use `porooch` for compatibility because the GitHub repository is still named `porooch`. The custom-domain migration now uses the root path; preserve existing storage keys.
 
 **Primary UI language:** Ukrainian.
 
@@ -31,23 +31,23 @@ Never conflate private visibility with approval-based joining.
 ## 2. Repository and deployment
 
 - Repository: `tishinatyt/porooch`
-- Production: <https://tishinatyt.github.io/porooch/>
+- Production: <https://poruch.fun/>
 - Developer workspace: `C:\Users\Dell\Documents\meetnow`
 - Stack: React 19, TypeScript, Vite 6, Tailwind CSS 4, Supabase, Leaflet/OpenStreetMap, and `vite-plugin-pwa`.
 - Deployment: `.github/workflows/deploy.yml` uses checkout, Node 20, `npm ci`, `npm run build`, official Pages artifact upload, and Pages deployment actions. Supabase frontend values come from GitHub Actions secrets.
 
-Vite uses `/` for development and `/porooch/` for production builds. `BrowserRouter` derives its basename from `import.meta.env.BASE_URL`; internal routes must remain basename-relative.
+Vite uses `/` for development and production builds. `VITE_APP_URL=https://poruch.fun/` supplies the production origin. `BrowserRouter` derives its basename from `import.meta.env.BASE_URL`; internal routes must remain basename-relative.
 
 The app is an installable PWA. Current production manifest values are:
 
-- `start_url: /porooch/`
-- `scope: /porooch/`
-- `id: /porooch/`
+- `start_url: /`
+- `scope: /`
+- `id: /`
 - standalone display, Ukrainian language, and Poruch branding.
 
 The generated service worker uses auto-update, outdated-cache cleanup, `skipWaiting`, `clientsClaim`, and an hourly online update check. Do not reintroduce demo avatars into the precache.
 
-GitHub Pages SPA fallback uses `public/404.html` and `index.html`. The sessionStorage key is `porooch:redirect`; restoration must stay namespaced, same-origin, restricted to `/porooch/`, and compatible with standalone PWA startup. Do not restore old `/meetnow/` routing.
+GitHub Pages SPA fallback uses `public/404.html` and `index.html`. The sessionStorage key is `porooch:redirect`; restoration must stay namespaced, same-origin, restricted to the same origin, and compatible with standalone PWA startup. Do not restore old `/meetnow/` routing.
 
 ## 3. Supabase
 
@@ -197,12 +197,12 @@ Existing Google-authenticated sessions and profiles remain supported without con
 
 Anonymous sessions use the Supabase client's normal browser persistence. The current test version keeps the same simple sign-out action for every account type. Cross-device recovery is not available until a future “Зберегти акаунт” flow links phone/email credentials to the same auth user; such linking must preserve the existing user ID and data.
 
-Supabase Auth production Site URL and legacy OAuth redirects remain:
+Supabase Auth production Site URL and redirect URLs were updated manually in the dashboard (do not push Supabase config):
 
 ```text
-https://tishinatyt.github.io/porooch/
+https://poruch.fun/
 http://localhost:5173/**
-https://tishinatyt.github.io/porooch/**
+https://poruch.fun/**
 ```
 
 Do not reintroduce old `/meetnow/` redirect paths.
@@ -304,7 +304,7 @@ Use `git log --oneline` for newer milestones; update this section when an archit
 
 ### PWA
 
-- [ ] Installed production app opens `/porooch/` without a blank window.
+- [ ] Installed production app opens `/` without a blank window.
 - [ ] Direct routes and refresh work.
 - [ ] A deployed update is detected and activated without clearing all caches every launch.
 
@@ -325,7 +325,7 @@ The catalogue deliberately remains the original 24 oblast centres. Users switch 
 
 ## 16. Admin console (2026-10-27)
 
-`/admin` is a separate lazy-loaded route inside AuthProvider/AdminProvider, outside participant onboarding. Google OAuth returns to `/porooch/admin`; it does not create or merge profiles. The sidebar and Profile expose its link only after the server confirms admin access.
+`/admin` is a separate lazy-loaded route inside AuthProvider/AdminProvider, outside participant onboarding. Google OAuth returns to `/admin`; it does not create or merge profiles. The sidebar and Profile expose its link only after the server confirms admin access.
 
 Only the live, confirmed, non-anonymous `auth.users.email = dr12071980@gmail.com` identity can administer Poruch. Soft-deleted/banned accounts are denied. No user-editable metadata or frontend email comparison grants permissions. Public RPC wrappers run as SECURITY INVOKER; guarded implementations are SECURITY DEFINER in non-exposed `poruch_private` with empty search_path and explicit execute grants. The private audit table has RLS and no client table privileges. Existing event/profile policies and SVOYA are untouched.
 
@@ -349,6 +349,6 @@ Form controls lock during save; image validation prevents premature submit. Uplo
 
 Real event details expose «Поділитися» below the description on mobile and desktop. EventShare builds an absolute URL from the router basename and event ID; it never shares the current query/hash (which may contain auth data). The expandable panel offers clipboard copy with confirmation, a selectable manual-copy fallback, and native sharing where supported. Demo examples have no sharing control. Invitation-only links do not grant access or participation; existing authentication and RLS remain authoritative. No database, policy, storage or Auth configuration changes.
 
-Unauthenticated recipients still complete the normal onboarding. Onboarding now returns to the event detail they opened, instead of the home feed. Google OAuth similarly preserves only a validated event-detail pathname within the current deployment base, using the existing allowed production `/porooch/**` redirect configuration. Other onboarding/Google entry points retain home as their destination; the separate admin OAuth flow is unchanged. No query/hash values are carried into OAuth redirect targets. GitHub Pages 404/sessionStorage restoration remains in place.
+Unauthenticated recipients still complete the normal onboarding. Onboarding now returns to the event detail they opened, instead of the home feed. Google OAuth similarly preserves only a validated event-detail pathname within the current deployment base, using the existing allowed production `/**` redirect configuration. Other onboarding/Google entry points retain home as their destination; the separate admin OAuth flow is unchanged. No query/hash values are carried into OAuth redirect targets. GitHub Pages 404/sessionStorage restoration remains in place.
 
 `tests/event-share.test.tsx` covers canonical URLs, clipboard denial/absence, native-share success/cancellation/failure, private-event explanation, onboarding return routing, safe OAuth redirect construction and the actual Pages restoration scripts. Automated tests mock browser sharing and onboarding persistence; they do not send real messages or authenticate a real user.

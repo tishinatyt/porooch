@@ -74,9 +74,9 @@ Do not run the historical seed migrations against production or reset a hosted d
 
 ## Deployment
 
-Production builds use the GitHub Pages project base `/porooch/`; local development uses `/`. The router, PWA scope/start URL, asset URLs, and GitHub Pages fallback in `public/404.html` follow that base.
+Production and local development both use `/`. Production is https://poruch.fun/. `public/CNAME` declares the Pages domain. The router, PWA scope/start URL, asset URLs, and GitHub Pages fallback in `public/404.html` follow that base.
 
-Configure Supabase Auth redirect allow-list entries for both `http://localhost:5173/` and the deployed `https://<owner>.github.io/porooch/` URL. The app derives its OAuth return URL from Vite's configured base.
+`VITE_APP_URL` is the public origin for OAuth callbacks, event links and HTML metadata (production: `https://poruch.fun/`, include the trailing slash). Supabase Auth Site URL and redirect allow-list were updated separately in the dashboard; do not run `supabase config push` for this migration. The deploy remains GitHub Actions from `main`.
 
 ## Current limitations
 
