@@ -367,6 +367,10 @@ export default function HomeScreen() {
       />
 
       <div className="relative z-10 mx-auto flex w-full max-w-[1440px] flex-col px-4 py-3 sm:px-6 sm:py-4 lg:min-h-0 lg:max-w-none lg:flex-1 lg:overflow-hidden lg:px-4 lg:py-4 xl:px-4">
+        <aside className="organizer-banner" aria-label="Для організаторів подій">
+          <p><strong>Організовуєш події?</strong> Створюй свої події та продавай на них квитки разом з Poruch.fun</p>
+          <Link to="/create">Створити подію</Link>
+        </aside>
         {loadingDiscovery && <p role="status" className="mb-2 text-xs text-brand-ink-muted">Оновлюємо події: {city.name}…</p>}
         {discoveryError && <p role="alert" className="mb-2 rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-900">Не вдалося завантажити реальні події. Нижче доступні тестові приклади. <button type="button" onClick={() => void fetchDiscoveryEvents()} className="font-bold underline">Повторити</button></p>}
         <div className="mb-2 flex flex-none flex-wrap items-center justify-between gap-2">

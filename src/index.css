@@ -28,6 +28,8 @@
 
 :root {
   color-scheme: light;
+  --organizer-petrol: #0F4C4C;
+  --organizer-amber: #E8A33D;
 }
 
 * {
@@ -327,3 +329,41 @@ select {
 .organizer-cta:hover { background: #176262; }
 .organizer-cta:focus-visible { outline: 3px solid var(--organizer-amber); outline-offset: 4px; }
 @media (max-width: 767px) { .organizer-tickets { grid-template-columns: 1fr; } .organizer-cta { width: 100%; } }
+
+/* The two hero actions share size, colour and weight: discovery and hosting are peers. */
+.landing-page > header button { font-size: 10px; font-weight: 800; line-height: 14px; white-space: nowrap; }
+.landing-hero { display: grid; gap: 28px; padding: 24px 20px; border: 1px solid #0f4c4c20; border-radius: 28px; background: #f6f1e7; color: var(--organizer-petrol); }
+.landing-hero-eyebrow { margin: 0 0 14px; font-size: 10px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+.landing-hero h1 { margin: 0; font-family: 'Fraunces', Georgia, serif; font-size: clamp(30px, 4vw, 48px); font-weight: 700; line-height: 1.08; letter-spacing: -.035em; text-wrap: balance; }
+.landing-hero-organizer { margin: 18px 0 0; padding-top: 18px; border-top: 2px dashed #0f4c4c35; font-family: 'Fraunces', Georgia, serif; font-size: clamp(23px, 2.7vw, 34px); font-weight: 600; line-height: 1.2; text-wrap: balance; }
+.landing-hero-intro { margin-top: 14px; font-size: 13px; line-height: 1.65; }
+.landing-hero-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 20px; }
+.landing-hero-action { display: flex; align-items: center; justify-content: center; min-height: 48px; padding: 12px 8px; border: 1px solid var(--organizer-petrol); border-radius: 12px; background: var(--organizer-petrol); color: white; font-size: 12px; font-weight: 800; text-decoration: none; cursor: pointer; }
+.landing-hero-action:hover { background: #176262; }
+.landing-hero-action:focus-visible, .organizer-banner a:focus-visible { outline: 3px solid var(--organizer-amber); outline-offset: 3px; }
+.landing-hero-note { margin-top: 12px; font-size: 10px; line-height: 1.5; }
+.landing-hero-media { position: relative; display: none; min-width: 0; }
+.landing-hero-media img { width: 100%; height: 100%; object-fit: cover; border-radius: 20px; }
+.landing-hero-stamp { position: absolute; right: 18px; bottom: 18px; padding: 14px 20px; border: 1px dashed var(--organizer-petrol); border-radius: 10px; background: var(--organizer-amber); font-size: 12px; font-weight: 800; line-height: 1.8; transform: rotate(-4deg); }
+.landing-hero + .organizer-section { margin-top: 24px; }
+.organizer-banner { display: flex; flex: none; align-items: center; gap: 10px; width: 100%; margin-bottom: 10px; padding: 8px 12px; border: 1px solid #0f4c4c35; border-radius: 12px; background: #f6f1e7; color: var(--organizer-petrol); }
+.organizer-banner p { flex: 1; min-width: 0; font-size: 11px; line-height: 14px; }
+.organizer-banner strong { display: block; font-family: 'Fraunces', Georgia, serif; font-size: 13px; line-height: 16px; }
+.organizer-banner a { display: flex; flex: 0 0 86px; align-items: center; justify-content: center; align-self: stretch; min-height: 44px; padding: 6px 8px; border-left: 1px dashed #0f4c4c55; border-radius: 8px; background: var(--organizer-amber); text-align: center; font-size: 11px; font-weight: 800; line-height: 15px; }
+@media (min-width: 768px) {
+  .landing-page > header button { font-size: 12px; }
+  .landing-hero { grid-template-columns: 1.1fr .9fr; gap: 32px; padding: 36px; }
+  .landing-hero-media { display: block; min-height: 380px; }
+  .landing-hero-action { font-size: 14px; }
+  .organizer-banner p { font-size: 13px; line-height: 20px; }
+  .organizer-banner strong { display: inline; margin-right: 6px; font-size: 16px; }
+  .organizer-banner a { flex-basis: 150px; font-size: 13px; }
+}
+@media (max-width: 767px) and (max-height: 640px) {
+  .landing-hero { padding-top: 18px; padding-bottom: 18px; }
+  .landing-hero-eyebrow { margin-bottom: 10px; }
+  .landing-hero h1 { font-size: 28px; }
+  .landing-hero-organizer { margin-top: 12px; padding-top: 12px; font-size: 22px; }
+  .landing-hero-intro { margin-top: 10px; }
+  .landing-hero-actions { margin-top: 14px; }
+}
