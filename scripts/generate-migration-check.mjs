@@ -56,5 +56,6 @@ for (const file of fs.readdirSync('supabase/migrations').filter(f=>f.endsWith('.
   if (/storage\.buckets/.test(sql)) add('bucket avatars',"exists(select 1 from storage.buckets where id='avatars')")
   for(const [label,expr] of checks) rows.push(`select ${q(file)} as "миграция", ${q(label)} as "объект", case when coalesce((${expr}),false) then 'есть' else 'нет' end as "есть/нет"`)
 }
-fs.writeFileSync('check-migrations.sql', '-- Read-only inventory of all migration-created objects and expected ACLs.\n-- Run as postgres/owner to inspect all catalogs. No application functions are called.\n-- Existence is NOT proof of migration application or function/policy body equivalence.\n-- Historical policies/ACLs superseded by later migrations may report нет.\n-- Seed rows are intentionally excluded; storage bucket configuration is not compared.\n'+rows.join('\nunion all\n')+'\norder by 1,2;\n')
+fs.mkdirSync('docs/sql', { recursive: true })
+fs.writeFileSync('docs/sql/check-migrations.sql', '-- Read-only inventory of all migration-created objects and expected ACLs.\n-- Run as postgres/owner to inspect all catalogs. No application functions are called.\n-- Existence is NOT proof of migration application or function/policy body equivalence.\n-- Historical policies/ACLs superseded by later migrations may report нет.\n-- Seed rows are intentionally excluded; storage bucket configuration is not compared.\n'+rows.join('\nunion all\n')+'\norder by 1,2;\n')
 console.log(`${rows.length} catalog checks generated`)
