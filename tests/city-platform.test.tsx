@@ -47,6 +47,9 @@ test('city switches inside the platform, queries the chosen coordinates, updates
   await mount()
   try {
     assert.match(container.textContent!, /Кава та знайомство · Чернігів/)
+    assert.equal(container.querySelector('.organizer-section'), null)
+    assert.equal(container.querySelectorAll('.organizer-banner').length, 1)
+    assert.doesNotMatch(container.textContent!, /продавай на них квитки/)
     assert.match(container.textContent!, /Відкрита прогулянка містом · Чернігів/)
     await chooseCity('Львів')
     assert.match(container.textContent!, /Кава та знайомство · Львів/)

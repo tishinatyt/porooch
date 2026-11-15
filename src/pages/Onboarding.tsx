@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState, type ChangeEvent } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { eventReturnPath } from '@/lib/eventLinks'
 import BrandLogo from '@/components/BrandLogo'
 import LandingPage from '@/components/onboarding/LandingPage'
 import { InterestChips } from '@/components/profile/ProfileComponents'
@@ -123,7 +122,9 @@ export default function Onboarding() {
       const { error: markerError } = await supabase.auth.updateUser({ data: { poruch_onboarding: 'complete' } })
       if (markerError) throw markerError
       await refreshProfile(userId)
-      navigate(eventReturnPath(pathname), { replace: true })
+      // Completing a new/incomplete profile starts in the feed. Existing users
+      // bypass onboarding and retain their OAuth destination (e.g. /create).
+      navigate('/', { replace: true })
     } catch (finishError) {
       console.error('Interest onboarding failed', finishError)
       setError('Не вдалося зберегти інтереси. Спробуйте ще раз')
@@ -138,9 +139,9 @@ export default function Onboarding() {
       <main className="w-full max-w-md rounded-3xl border border-brand-border bg-white p-8 text-center shadow-card">
         <BrandLogo className="mx-auto w-40" />
         <h1 className="mt-6 text-2xl font-extrabold">Увійди, щоб створити подію</h1>
-        <p className="mt-3 text-sm text-brand-ink-muted">Після входу повернемо тебе до форми створення події.</p>
+        <p className="mt-3 text-sm text-brand-ink-muted">Уже маєш профіль? Після входу відкриємо форму створення події.</p>
         {error && <p role="alert" className="mt-4 text-red-700">{error}</p>}
-        <button type="button" className="organizer-cta mt-6 w-full" onClick={() => { setError(null); void signInWithGoogle().catch(() => setError('Не вдалося увійти через Google. Спробуйте ще раз')) }}>УВІЙТИ З GOOGLE</button>
+        <button type="button" className="onboarding-signin-action mt-6 w-full" onClick={() => { setError(null); void signInWithGoogle().catch(() => setError('Не вдалося увійти через Google. Спробуйте ще раз')) }}>УВІЙТИ З GOOGLE</button>
         <button type="button" className="mt-4 min-h-12 w-full rounded-xl border border-brand-border px-4 text-sm font-bold" onClick={() => { setError(null); setStep('profile') }}>Продовжити без Google</button>
       </main>
     </div>

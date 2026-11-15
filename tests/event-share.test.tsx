@@ -93,9 +93,9 @@ test('native sharing sends only title and clean URL; cancel is quiet and failure
   } finally { await unmount() }
 })
 
-test('onboarding returns to the shared event or create form', async () => {
+test('completing a new profile always opens the feed, including entry through create or a shared event', async () => {
   function Form() { const location = useLocation(); return <><output>{location.pathname}</output><Onboarding /></> }
-  for (const [entry, destination] of [['/event/fixture', '/event/fixture'], ['/create', '/create'], ['/profile', '/']]) {
+  for (const [entry, destination] of [['/event/fixture', '/'], ['/create', '/'], ['/profile', '/']]) {
     root = createRoot(container)
     await act(async () => root.render(<MemoryRouter initialEntries={[entry]}><Routes><Route path="*" element={<Form />} /></Routes></MemoryRouter>))
     try {
@@ -113,7 +113,9 @@ test('guest organizer CTA opens sign-in at the preserved creation destination', 
     const cta = [...container.querySelectorAll('a')].find(a => a.textContent?.includes('Створити подію'))
     assert.ok(cta)
     assert.equal(cta.getAttribute('href'), '/create')
-    assert.match(container.textContent!, /Незабаром/)
+    assert.equal(container.querySelectorAll('.landing-hero-organizer').length, 1)
+    assert.equal(container.querySelector('.organizer-section'), null)
+    assert.equal(container.querySelectorAll('a[href="/create"]').length, 1)
     await act(async () => cta.click())
     assert.match(container.querySelector('h1')!.textContent!, /Увійди, щоб створити подію/)
     await click('УВІЙТИ З GOOGLE')

@@ -4,7 +4,6 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import { useDiscoveryCity } from '@/contexts/DiscoveryCityContext'
 import TopBar from '@/components/TopBar'
-import OrganizerSection from '@/components/home/OrganizerSection'
 import { PersonalEventCard, PublicEventCard } from '@/components/home/HomeEventCards'
 import { CategoryChips } from '@/components/home/HomeControls'
 import HomeCarousel from '@/components/home/HomeCarousel'
@@ -368,7 +367,7 @@ export default function HomeScreen() {
 
       <div className="relative z-10 mx-auto flex w-full max-w-[1440px] flex-col px-4 py-3 sm:px-6 sm:py-4 lg:min-h-0 lg:max-w-none lg:flex-1 lg:overflow-hidden lg:px-4 lg:py-4 xl:px-4">
         <aside className="organizer-banner" aria-label="Для організаторів подій">
-          <p><strong>Організовуєш події?</strong> Створюй свої події та продавай на них квитки разом з Poruch.fun</p>
+          <p><strong>Організовуєш події?</strong> Запроси свою компанію.</p>
           <Link to="/create">Створити подію</Link>
         </aside>
         {loadingDiscovery && <p role="status" className="mb-2 text-xs text-brand-ink-muted">Оновлюємо події: {city.name}…</p>}
@@ -420,7 +419,6 @@ export default function HomeScreen() {
         </section>}
       </div>
     </div>
-    <div className="px-4 pb-24 sm:px-6 lg:pb-8"><OrganizerSection /></div>
     </>
   )
 }

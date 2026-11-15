@@ -61,7 +61,7 @@ test('QA cleanup retries transient errors and continues other resources after pe
 // Execute the real entry point with explicit offline dependencies. Do not import
 // Playwright or construct a network-capable Supabase client in these tests.
 async function runEntryPoint(failure: 'profile' | 'event' | 'none', withAdminKey = true) {
-  const source = readFileSync(new URL('../qa/production-smoke.mjs', import.meta.url), 'utf8').replace(/^import .*\n/gm, '')
+  const source = readFileSync(new URL('../qa/production-smoke.mjs', import.meta.url), 'utf8').replace(/^import [^\r\n]*\r?\n/gm, '')
   const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor
   const profiles = new Map<string, any>()
   const identities = new Map<string, any>()

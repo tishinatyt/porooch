@@ -1,6 +1,5 @@
 import { Link } from 'react-router-dom'
 import BrandLogo from '@/components/BrandLogo'
-import OrganizerSection from '@/components/home/OrganizerSection'
 import { Icon, type IconName } from '@/components/icons'
 
 const FEATURES: readonly [string, string, IconName, string, string][] = [
@@ -45,7 +44,6 @@ export default function LandingPage({ onStart, onGoogleSignIn, error }: { onStar
             <span className="landing-hero-stamp" aria-hidden="true">PORUCH<br />Зустрінемось наживо ↗</span>
           </div>
         </section>
-        <OrganizerSection />
 
         <section className="py-10 sm:py-14"><div className="flex items-end justify-between gap-4"><div><p className="text-xs font-black uppercase tracking-[0.14em] text-brand-accent">Живи не лише онлайн</p><h2 className="mt-2 text-2xl font-black tracking-[-0.03em] text-[#1d1824] sm:text-3xl">Що можна робити в Poruch</h2></div><span className="hidden rotate-2 rounded-full bg-[#e8ddf7] px-4 py-2 text-xs font-extrabold text-[#593ca0] sm:block">Люди поруч →</span></div><div className="mt-7 grid gap-3 sm:grid-cols-2 lg:grid-cols-12 lg:gap-4">{FEATURES.map(([title, text, icon, surface, chip], index) => <article key={title} className={`group relative overflow-hidden rounded-[24px] border border-white/80 bg-gradient-to-br p-5 shadow-[0_14px_34px_rgba(43,34,66,0.11)] sm:p-6 ${surface} ${FEATURE_LAYOUT[index]}`}><span className="absolute -right-10 -top-12 h-36 w-36 rounded-[42%_58%_64%_36%] bg-white/35 transition-transform duration-300 group-hover:scale-110" aria-hidden="true" /><span className="absolute -bottom-12 right-[22%] h-24 w-24 rounded-full border-[16px] border-white/20" aria-hidden="true" /><div className="relative flex items-start justify-between gap-4"><span className="grid h-14 w-14 shrink-0 place-items-center rounded-[20px_25px_18px_24px] bg-white/85 text-[#5b3e9e] shadow-[0_7px_18px_rgba(70,50,108,0.14)]"><Icon name={icon} className="h-7 w-7" /></span><span className="rounded-full border border-white/70 bg-white/55 px-3 py-1 text-[10px] font-extrabold text-[#534661]">{chip}</span></div><h3 className={`relative mt-5 font-black leading-tight text-[#211b29] ${index === 0 || index === 3 ? 'text-xl' : 'text-lg'}`}>{title}</h3><p className="relative mt-2 max-w-xl text-sm font-semibold leading-6 text-[#4b4353]">{text}</p></article>)}</div></section>
 
