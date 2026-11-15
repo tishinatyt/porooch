@@ -2,8 +2,9 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import type { User } from '@/types'
 import { joinEventParticipation } from '@/lib/eventParticipation'
+import type { VideoFields } from '@/lib/eventVideo'
 
-export interface EventDetail {
+export interface EventDetail extends VideoFields {
   id: string
   title: string
   description: string
@@ -147,10 +148,7 @@ export function useEvent(eventId: string) {
       supabase
         .from('events')
         .select(`
-          id, title, description, category, is_public, event_type, join_mode, bank_enabled, bank_note,
-          organizer_id, cover_photo_url, address_text,
-          event_datetime, max_participants, min_age, max_age,
-          gender_filter, status, created_at,
+          *,
           organizer:users!events_organizer_id_fkey(
             id, name, age, gender, avatar_url, google_verified, city, bio, interests, created_at
           )
@@ -189,6 +187,7 @@ export function useEvent(eventId: string) {
       : (raw.organizer as User | null)
 
     setEvent({
+      video_path: raw.video_path, video_poster_path: raw.video_poster_path, video_duration_ms: raw.video_duration_ms, video_updated_at: raw.video_updated_at,
       id: raw.id,
       title: raw.title,
       description: raw.description,
@@ -276,5 +275,5 @@ export function useEvent(eventId: string) {
   }
 
   const current = event?.id === eventId
-  return { event: current ? event : null, participants: current ? participants : [], participantCount: current ? participantCount : 0, loading: loading || Boolean(event && !current), error, joinEvent, reviewRequest, leaveEvent }
+  return { event: current ? event : null, participants: current ? participants : [], participantCount: current ? participantCount : 0, loading: loading || Boolean(event && !current), error, joinEvent, reviewRequest, leaveEvent, updateVideo: (fields: VideoFields) => setEvent(previous => previous?.id === eventId ? { ...previous, ...fields } : previous) }
 }

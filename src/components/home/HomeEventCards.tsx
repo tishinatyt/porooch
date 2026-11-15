@@ -5,6 +5,7 @@ import ParticipantAvatars from '@/components/home/ParticipantAvatars'
 import type { PersonalEventData, PublicEventData } from '@/components/home/types'
 import ProfileAvatar from '@/components/ProfileAvatar'
 import { getEventAccessChipClass, getEventAccessLabel } from '@/lib/eventAccess'
+import VideoInvitePlayer from '@/components/video/VideoInvitePlayer'
 
 const CATEGORY_LABEL: Record<string, string> = { cinema: 'Кіно', theatre: 'Театр', bar: 'Бар', sport: 'Спорт', music: 'Музика', food: 'Їжа', games: 'Ігри', walk: 'Прогулянка', art: 'Мистецтво', communication: 'Спілкування', other: 'Інше' }
 const GENDER_LABEL: Record<string, string> = { any: 'Для всіх', male: 'Хлопці', female: 'Дівчата' }
@@ -56,7 +57,7 @@ export function PersonalEventCard({ event, management = false, isOrganizer = fal
           <p className="truncate text-sm font-bold text-brand-ink sm:text-[15px]">{event.organizer?.name ?? 'Організатор'}{event.organizer?.age ? `, ${event.organizer.age}` : ''}</p>
           <p className="mt-0.5 text-[10px] font-medium text-brand-ink-muted">{event.isDemo ? 'Приклад особистої зустрічі' : 'Запрошує на особисту зустріч'}</p>
         </div>
-        <span className="rounded-full border border-violet-200 bg-violet-100 px-2 py-0.5 text-[10px] font-bold text-violet-800">Особиста</span>
+        {event.video_path ? <div className="relative h-8 w-11 flex-none"><div className="absolute inset-x-0 -top-1.5 h-11"><VideoInvitePlayer compact fields={event} /></div></div> : <span className="rounded-full border border-violet-200 bg-violet-100 px-2 py-0.5 text-[10px] font-bold text-violet-800">Особиста</span>}
       </div>
 
       <button type="button" onClick={() => navigate(`/event/${event.eventId}`)} className="home-card-details block w-full text-left">
@@ -115,9 +116,9 @@ export function PublicEventCard({ event, isNew = false, isOrganizer = false }: {
             <div className="mt-1.5 space-y-0.5"><MetaRow icon="clock">{formatDateTime(event.event_datetime)}</MetaRow><MetaRow icon="pin">{event.address_text || 'Місце не вказано'}{event.distance_km !== null ? ` · ${event.distance_km.toFixed(1)} км` : ''}</MetaRow></div>
           </button>
         </div>
-        <button type="button" onClick={openEvent} aria-label={`Відкрити подію «${event.title}»`} className="home-card-cover relative h-20 w-20 flex-none overflow-hidden rounded-xl bg-brand-surface-muted text-left sm:h-24 sm:w-24 lg:h-[104px] lg:w-[104px] xl:h-[108px] xl:w-[108px]">
+        {event.video_path ? <div className="home-card-cover relative h-20 w-20 flex-none sm:h-24 sm:w-24 lg:h-[104px] lg:w-[104px] xl:h-[108px] xl:w-[108px]"><VideoInvitePlayer compact fields={event} /></div> : <button type="button" onClick={openEvent} aria-label={`Відкрити подію «${event.title}»`} className="home-card-cover relative h-20 w-20 flex-none overflow-hidden rounded-xl bg-brand-surface-muted text-left sm:h-24 sm:w-24 lg:h-[104px] lg:w-[104px] xl:h-[108px] xl:w-[108px]">
           <EventMedia category={event.category} coverUrl={event.cover_photo_url} alt={event.cover_photo_url ? event.title : ''} compactFallback className="h-full w-full" imageClassName="transition duration-300 group-hover:scale-[1.04]" />
-        </button>
+        </button>}
       </div>
 
       <div className="home-card-footer mt-1.5 flex items-center justify-between gap-2 border-t border-[#ece9f0] pt-1.5">

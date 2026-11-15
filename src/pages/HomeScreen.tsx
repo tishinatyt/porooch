@@ -70,6 +70,7 @@ function sortDiscovery(left: PublicEventData, right: PublicEventData) {
 
 function asPersonalEvent(event: PublicEventData): PersonalEventData {
   return {
+    video_path: event.video_path, video_poster_path: event.video_poster_path, video_duration_ms: event.video_duration_ms, video_updated_at: event.video_updated_at,
     eventId: event.id,
     organizer_id: event.organizer_id,
     title: event.title,
@@ -169,12 +170,12 @@ export default function HomeScreen() {
         events: nearbyRows.map((row) => ({ id: row.id, title: row.title })),
       })
     }
-    const typeById = new Map<string, { event_type: 'personal' | 'public'; join_mode: 'open' | 'approval'; is_public: boolean; bank_enabled: boolean; description?: string }>()
+    const typeById = new Map<string, { event_type: 'personal' | 'public'; join_mode: 'open' | 'approval'; is_public: boolean; bank_enabled: boolean; description?: string; video_path?: string; video_poster_path?: string; video_duration_ms?: number; video_updated_at?: string }>()
 
     if (ids.length > 0) {
       const { data: typeRows, error: typeError } = await supabase
         .from('events')
-        .select('id, event_type, join_mode, is_public, bank_enabled, description')
+        .select('*')
         .in('id', ids)
       if (requestId !== discoveryRequestId.current) return
       if (typeError) {
@@ -196,6 +197,7 @@ export default function HomeScreen() {
           is_public: row.is_public ?? true,
           bank_enabled: row.bank_enabled ?? false,
           description: row.description ?? undefined,
+          video_path: row.video_path, video_poster_path: row.video_poster_path, video_duration_ms: row.video_duration_ms, video_updated_at: row.video_updated_at,
         })
       }
       if (import.meta.env?.DEV) {
@@ -239,6 +241,7 @@ export default function HomeScreen() {
         is_public: metadata?.is_public ?? (e.is_public as boolean | undefined) ?? true,
         bank_enabled: metadata?.bank_enabled ?? false,
         description: metadata?.description ?? (e.description as string | undefined) ?? '',
+        video_path: metadata?.video_path, video_poster_path: metadata?.video_poster_path, video_duration_ms: metadata?.video_duration_ms, video_updated_at: metadata?.video_updated_at,
         participationStatus: participantMembershipById.get(e.id as string),
       } as PublicEventData
     })

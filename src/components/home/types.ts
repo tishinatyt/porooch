@@ -1,3 +1,5 @@
+import type { VideoFields } from '@/lib/eventVideo'
+
 export interface OrganizerInfo {
   id: string
   name: string
@@ -11,7 +13,7 @@ export interface ParticipantInfo {
   user: { id: string; name: string; avatar_url: string | null } | null
 }
 
-export interface PersonalEventData {
+export interface PersonalEventData extends VideoFields {
   eventId: string
   role?: 'organizer' | 'participant'
   participationStatus?: 'pending' | 'joined' | 'rejected'
@@ -38,7 +40,7 @@ export interface PersonalEventData {
   bank_enabled?: boolean
 }
 
-export interface PublicEventData {
+export interface PublicEventData extends VideoFields {
   id: string
   title: string
   category: string

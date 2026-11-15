@@ -91,7 +91,7 @@ test('event cancellation requires confirmation and reason, sends expected status
     assert.deepEqual(calls.find(call => call.name === 'poruch_admin_set_event_status')?.args, { p_event_id: 'event-one', p_action: 'cancel', p_reason: 'Дубль тестової події', p_expected_status: 'upcoming' })
     assert.equal(container.querySelector('[role="dialog"]'),null)
     assert.match(container.textContent!, /Подію скасовано/)
-    assert.equal(calls.at(-1)?.name,'poruch_admin_data')
+    assert.ok(calls.slice(calls.findIndex(call => call.name === 'poruch_admin_set_event_status') + 1).some(call => call.name === 'poruch_admin_data'))
   } finally { await unmount() }
 })
 

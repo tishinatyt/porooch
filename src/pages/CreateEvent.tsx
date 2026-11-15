@@ -11,6 +11,11 @@ import CreateEventMap from '@/components/CreateEventMap'
 import { getEventAccessChipClass, getEventAccessLabel } from '@/lib/eventAccess'
 import DemoQrPlaceholder from '@/components/DemoQrPlaceholder'
 import { checkEventCoverImage, EVENT_COVER_ACCEPT, uploadEventCover } from '@/lib/eventCover'
+import VideoInviteEditor from '@/components/video/VideoInviteEditor'
+import VideoInvitePlayer from '@/components/video/VideoInvitePlayer'
+import { saveEventVideo, type VideoFields } from '@/lib/eventVideo'
+import type { PreparedVideo } from '@/lib/videoInviteProcessing'
+import { videoText } from '@/lib/videoInviteText'
 
 const CATEGORIES = [
   { value: 'other', label: 'Спілкування', emoji: '💬' },
@@ -118,6 +123,18 @@ export default function CreateEvent() {
   const [coverFile, setCoverFile] = useState<File | null>(null)
   const [coverPreview, setCoverPreview] = useState('')
   const [coverPreparing, setCoverPreparing] = useState(false)
+  const [videoFields, setVideoFields] = useState<VideoFields>({})
+  const [videoPrepared, setVideoPrepared] = useState<PreparedVideo | null>(null)
+  const [videoEditor, setVideoEditor] = useState(false)
+  const [videoBusy, setVideoBusy] = useState(false)
+  const [videoUpload, setVideoUpload] = useState<number | null>(null)
+  const videoBusyRef = useRef(false)
+  const createdEventIdRef = useRef<string | null>(null)
+  const submitScope = useRef(0)
+  useEffect(() => {
+    createdEventIdRef.current = null; setVideoFields({}); setVideoPrepared(null); setVideoEditor(false); videoBusyRef.current = false; setVideoBusy(false)
+    return () => { submitScope.current++ }
+  }, [eventId, supaUser?.id])
   const [form, setForm] = useState<FormState>({
     event_type: searchParams.get('type') === 'public' ? 'public' : 'personal', is_public: true, join_mode: 'open', title: '', description: '', category: 'other',
     cover_photo_url: '', event_date: defaults.date, event_time: defaults.time, venue_name: '', address: '',
@@ -173,7 +190,7 @@ export default function CreateEvent() {
     async function loadEventForEdit() {
       setLoadingEvent(true); setLoadError(null)
       const [eventResult, coordsResult] = await Promise.all([
-        supabase.from('events').select('event_type, is_public, join_mode, title, description, category, cover_photo_url, event_datetime, address_text, max_participants, min_age, max_age, gender_filter, bank_enabled, bank_note').eq('id', eventId).eq('organizer_id', organizerId).maybeSingle(),
+        supabase.from('events').select('*').eq('id', eventId).eq('organizer_id', organizerId).maybeSingle(),
         (supabase.rpc('get_event_coords', { p_event_id: eventId }).single() as unknown) as Promise<{ data: { lat: number; lng: number } | null; error: unknown }>,
       ])
       if (cancelled) return
@@ -184,6 +201,7 @@ export default function CreateEvent() {
         return
       }
       const source = eventResult.data
+      setVideoFields({ video_path: source.video_path, video_poster_path: source.video_poster_path, video_duration_ms: source.video_duration_ms, video_updated_at: source.video_updated_at })
       const date = new Date(source.event_datetime)
       setForm({
         event_type: source.event_type ?? 'personal', is_public: source.is_public, join_mode: source.join_mode ?? 'open', title: source.title,
@@ -280,7 +298,8 @@ export default function CreateEvent() {
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (!supaUser || submittingRef.current || coverPreparingRef.current || !validate()) return
+    if (!supaUser || submittingRef.current || coverPreparingRef.current || videoBusyRef.current || !validate()) return
+    const scope = submitScope.current
     submittingRef.current = true
     setSubmitting(true)
 
@@ -329,8 +348,9 @@ export default function CreateEvent() {
           location: payload.location,
         })
       }
-      const { data, error } = eventId
-        ? await supabase.from('events').update(payload).eq('id', eventId).eq('organizer_id', supaUser.id).select('id').single()
+      const saveId = eventId ?? createdEventIdRef.current
+      const { data, error } = saveId
+        ? await supabase.from('events').update(payload).eq('id', saveId).eq('organizer_id', supaUser.id).select('id').single()
         : await supabase.from('events').insert({ ...payload, status: 'upcoming' }).select('id').single()
       if (import.meta.env?.DEV) {
         console.info('[CreateEvent diagnostic] EVENT INSERT RESULT', { id: data?.id ?? null, succeeded: !error && Boolean(data?.id) })
@@ -365,6 +385,13 @@ export default function CreateEvent() {
         submittingRef.current = false
         return
       }
+      if (!eventId) createdEventIdRef.current = data.id
+      if (videoPrepared) {
+        setVideoUpload(0)
+        try { const fields = await saveEventVideo(data.id, videoPrepared, videoFields, setVideoUpload); setVideoFields(fields); setVideoPrepared(null) }
+        catch (error) { setErrors({ submit: error instanceof Error ? error.message : videoText.storage }); return }
+        finally { setVideoUpload(null) }
+      }
       if (import.meta.env?.DEV && !eventId) {
         console.info('[CreateEvent diagnostic] CREATED EVENT ID', data.id)
         const membershipResult = await supabase
@@ -383,7 +410,7 @@ export default function CreateEvent() {
           })
         }
       }
-      navigate(`/event/${data.id}`)
+      if (scope === submitScope.current) navigate(`/event/${data.id}`)
     } catch {
       setErrors((current) => ({ ...current, submit: 'Не вдалося зберегти подію. Перевірте інтернет і спробуйте ще раз.' }))
     } finally {
@@ -470,6 +497,13 @@ export default function CreateEvent() {
                 </div>
               </div>
             </SectionCard>
+
+            <section className="rounded-2xl border border-brand-border bg-white p-4">
+              {videoFields.video_path && <VideoInvitePlayer fields={videoFields} />}
+              <button type="button" disabled={submitting} className="min-h-11 rounded-xl border px-3 font-bold" onClick={() => setVideoEditor(true)}>{videoFields.video_path ? videoText.replace : videoText.add}</button>
+              {videoEditor && <VideoInviteEditor onChange={setVideoPrepared} onBusy={busy => { videoBusyRef.current = busy; setVideoBusy(busy) }} disabled={submitting} />}
+              {videoUpload !== null && <p role="status">{videoText.uploading} {videoUpload}%<progress max={100} value={videoUpload} className="w-full" /></p>}
+            </section>
 
             <SectionCard number="3" title="Коли?">
               <div className="grid gap-3 sm:grid-cols-2">
@@ -669,12 +703,12 @@ export default function CreateEvent() {
             </section>
 
             {errors.submit && <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{errors.submit}</div>}
-            <div className="hidden justify-end lg:flex"><button type="submit" disabled={submitting || coverPreparing} className="h-12 min-w-52 rounded-xl bg-brand-accent px-6 text-sm font-extrabold text-white transition hover:bg-brand-accent-hover disabled:cursor-wait disabled:opacity-60">{submitting ? 'Зберігаємо...' : eventId ? 'Зберегти зміни' : 'Створити подію'}</button></div>
+            <div className="hidden justify-end lg:flex"><button type="submit" disabled={submitting || coverPreparing || videoBusy} className="h-12 min-w-52 rounded-xl bg-brand-accent px-6 text-sm font-extrabold text-white transition hover:bg-brand-accent-hover disabled:cursor-wait disabled:opacity-60">{submitting ? 'Зберігаємо...' : eventId ? 'Зберегти зміни' : 'Створити подію'}</button></div>
           </div>
         </div>
 
         <div className="fixed inset-x-0 bottom-0 z-40 border-t border-brand-border bg-white/95 px-4 py-3 shadow-[0_-8px_30px_rgba(23,23,28,0.06)] backdrop-blur-xl lg:hidden">
-          <button type="submit" disabled={submitting || coverPreparing} className="mx-auto block h-13 w-full max-w-lg rounded-xl bg-brand-accent text-sm font-extrabold text-white disabled:cursor-wait disabled:opacity-60">{submitting ? 'Зберігаємо...' : eventId ? 'Зберегти зміни' : 'Створити подію'}</button>
+          <button type="submit" disabled={submitting || coverPreparing || videoBusy} className="mx-auto block h-13 w-full max-w-lg rounded-xl bg-brand-accent text-sm font-extrabold text-white disabled:cursor-wait disabled:opacity-60">{submitting ? 'Зберігаємо...' : eventId ? 'Зберегти зміни' : 'Створити подію'}</button>
         </div>
         </fieldset>
       </form>

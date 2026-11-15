@@ -14,6 +14,8 @@ import type { EventDetail as EventDetailData, EventParticipant } from '@/hooks/u
 import { getEventAccessChipClass, getEventAccessLabel } from '@/lib/eventAccess'
 import DemoQrPlaceholder from '@/components/DemoQrPlaceholder'
 import EventShare from '@/components/event-detail/EventShare'
+import EventVideoInvite from '@/components/video/EventVideoInvite'
+import { removeEventVideo } from '@/lib/eventVideo'
 
 const EventMap = lazy(() => import('@/components/EventMap'))
 
@@ -54,7 +56,7 @@ export default function EventDetail() {
   const { supaUser } = useAuth()
   const isDemoRoute = id?.startsWith('demo-city-') ?? false
   const demoEvent = demoEventsEnabled() ? getDemoEvent(id) : null
-  const { event: liveEvent, participants: liveParticipants, participantCount: liveParticipantCount, loading, error, joinEvent, reviewRequest, leaveEvent } = useEvent(isDemoRoute ? '' : id!)
+  const { event: liveEvent, participants: liveParticipants, participantCount: liveParticipantCount, loading, error, joinEvent, reviewRequest, leaveEvent, updateVideo } = useEvent(isDemoRoute ? '' : id!)
   const event: EventDetailData | null = demoEvent ? {
     id: demoEvent.id,
     title: demoEvent.title,
@@ -191,6 +193,7 @@ export default function EventDetail() {
     setDeleteError(null)
 
     try {
+      if (event.video_path) await removeEventVideo(event.id, event)
       const { data, error: deleteEventError } = await supabase
         .from('events')
         .delete()
@@ -261,6 +264,7 @@ export default function EventDetail() {
             <h1 className="text-[28px] font-extrabold leading-[1.12] tracking-[-0.04em] text-brand-ink md:text-[34px] lg:text-4xl">{event.title}</h1>
             {event.description && <p className="mt-3 max-w-3xl text-sm leading-6 text-brand-ink-soft md:text-[15px]">{event.description}</p>}
             {!demoEvent && <EventShare key={event.id} eventId={event.id} title={event.title} isPublic={event.is_public} />}
+            {!demoEvent && <EventVideoInvite key={`${event.id}:${event.video_updated_at ?? ''}`} eventId={event.id} initial={event} owner={isOrganizer} onSaved={updateVideo} />}
           </section>
           <div className="border-t border-brand-border" />
           <div className="grid gap-2 sm:grid-cols-2"><EventInfoRow icon="calendar" eyebrow="Дата і час" primary={formattedDate.day} secondary={formattedDate.time} />{event.address_text && <EventInfoRow icon="pin" eyebrow="Місце" primary={event.address_text} secondary={locationSecondary} />}</div>
