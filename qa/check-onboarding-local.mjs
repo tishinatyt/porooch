@@ -12,7 +12,7 @@ const outDir = 'qa-artifacts/onboarding-local'
 await fs.mkdir(outDir, { recursive: true })
 const server = spawn(process.execPath, ['node_modules/vite/bin/vite.js', '--host', '127.0.0.1', '--port', '4178', '--strictPort'], {
   windowsHide: true,
-  env: { ...process.env, VITE_SUPABASE_URL: 'https://offline.supabase.invalid', VITE_SUPABASE_ANON_KEY: 'offline-fixture', VITE_APP_URL: `${base}/`, VITE_GA_MEASUREMENT_ID: '' },
+  env: { ...process.env, VITE_SUPABASE_URL: 'https://offline.supabase.invalid', VITE_SUPABASE_ANON_KEY: 'offline-fixture', VITE_APP_URL: `${base}/`, VITE_GA_MEASUREMENT_ID: '', VITE_SHOW_DEMO_EVENTS: 'false' },
   stdio: ['ignore', 'pipe', 'pipe'],
 })
 let serverLog = ''
@@ -97,7 +97,7 @@ try {
         const title = card.querySelector('h3'), description = card.querySelector('.home-card-description')
         return { height: card.getBoundingClientRect().height, width: card.getBoundingClientRect().width, titleHeight: title.clientHeight, descriptionHeight: description.clientHeight, titleClamp: getComputedStyle(title).webkitLineClamp, descriptionClamp: getComputedStyle(description).webkitLineClamp }
       }))
-      assert.ok(metrics.length >= 2)
+      assert.ok(metrics.length >= 1)
       for (const metric of metrics) {
         assert.equal(metric.height, expectedHeight)
         assert.ok(Math.abs(metric.width - metrics[0].width) < 1)
@@ -184,6 +184,19 @@ try {
     const publicBox = await publicRail.boundingBox(), personalBox = await personalRail.boundingBox()
     const categoryBox = await homePage.locator('[aria-label="Категорії афіші"]').boundingBox()
     assert.ok(categoryBox.height <= 48, 'Filters must occupy just one row')
+    assert.equal(await homePage.locator('.home-city-summary').count(), 0)
+    assert.equal(await homePage.locator('.home-card-demo').count(), 0)
+    const switcher = homePage.getByRole('group', { name: 'Режим перегляду подій' })
+    const switcherBefore = await switcher.boundingBox()
+    const toolbarBox = await homePage.locator('.home-toolbar').boundingBox()
+    assert.ok(toolbarBox.height <= 48)
+    assert.ok(categoryBox.x + categoryBox.width + 4 <= switcherBefore.x, 'Category viewport must end before switcher')
+    assert.ok(Math.abs(categoryBox.y + categoryBox.height / 2 - switcherBefore.y - switcherBefore.height / 2) <= 1, 'Controls share one row')
+    await homePage.locator('[aria-label="Категорії подій"]').evaluate(strip => { strip.scrollLeft = strip.scrollWidth })
+    assert.deepEqual(await switcher.boundingBox(), switcherBefore, 'Switcher does not move when categories scroll')
+    await homePage.locator('[aria-label="Категорії подій"]').evaluate(strip => { strip.scrollLeft = 0 })
+    const toolbarTargets = await homePage.locator('.home-toolbar button').evaluateAll(buttons => buttons.filter(button => { const r = button.getBoundingClientRect(); return r.width < 44 || r.height < 44 || button.scrollWidth > button.clientWidth + 1 }).map(button => button.textContent))
+    assert.deepEqual(toolbarTargets, [], 'Toolbar hit areas must be >=44px with full labels')
     assert.ok(categoryBox.y + categoryBox.height <= publicBox.y, 'Filters precede afisha')
     assert.ok(publicBox.y < 400, 'Afisha must begin above fold')
     if (width < 640) assert.ok(publicBox.y < personalBox.y)
@@ -196,7 +209,7 @@ try {
       const headingBox = await homePage.locator('#personal-feed-title').boundingBox()
       assert.ok(headingBox.y + headingBox.height <= navBox.y, 'Personal heading must be visible above bottom nav')
       assert.ok(personalBox.y + 44 <= navBox.y, 'At least 44px of the personal rail must fit the first screen')
-      assert.ok(categoryBox.height <= 32, 'Mobile chips must be compact')
+      assert.equal(categoryBox.height, 44)
       assert.equal(await homePage.locator('.home-city-summary').isVisible(), false)
       const cardMetrics = await homePage.locator('#public-events-carousel > [role="listitem"]:first-child article').evaluate(card => ({ width: card.getBoundingClientRect().width, height: card.getBoundingClientRect().height, padding: getComputedStyle(card).padding, cover: card.querySelector('.home-card-cover').getBoundingClientRect().width }))
       assert.ok(cardMetrics.width >= width * 0.8, 'Cards should use nearly all available width')
@@ -224,7 +237,7 @@ try {
       await homePage.waitForFunction(() => !document.querySelector('[role="status"]') && document.getElementById('public-events-carousel')?.textContent.includes('PUBLIC_FIXTURE_0'))
       await firstCards(homePage)
     } else {
-      assert.equal(await homePage.locator('.home-city-summary').isVisible(), true)
+      assert.equal(await homePage.locator('.home-city-summary').count(), 0)
       assert.equal(await homePage.locator('.home-card-cover').first().evaluate(cover => cover.getBoundingClientRect().width), 108)
     }
     for (const type of ['public', 'personal']) {

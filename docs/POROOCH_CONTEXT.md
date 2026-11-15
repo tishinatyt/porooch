@@ -322,6 +322,8 @@ Use `git log --oneline` for newer milestones; update this section when an archit
 
 The catalogue deliberately remains the original 24 oblast centres. Users switch discovery city in the platform TopBar; it persists independently of profile city, controls discovery/map centre, and defaults the creation map. Explicit city selection takes precedence over device GPS. Each city has one labelled personal and one labelled public test example with working detail pages. Examples have no real participants and perform no database writes. See `docs/CITIES_AND_TEST_EVENTS.md`. Authentication, RLS and SVOYA are unchanged. Run `npm test` and `npm run build`; CI uses Node 24.
 
+Update 2026-11-15: these examples are now available only with explicit development opt-in (`VITE_SHOW_DEMO_EVENTS=true`); production never displays them. See section 24.
+
 
 ## 16. Admin console (2026-10-27)
 
@@ -380,3 +382,9 @@ Local mock-browser checks at 360/390/430px confirm both feed beginnings above th
 This supersedes the unbounded wrapping in the initial compact release above. Mobile Afisha cards are 236px high; personal cards are 296px. Both reserve two-line title/description slots even when description is empty. Covers use a fixed square; footer counts/actions remain visible, with participant mini-avatars omitted on mobile to keep its size stable. Desktop keeps its previous layout.
 
 Rails are explicitly LTR with normal array order. On mount and the first demo→server transition, a layout effect disables snap briefly and resets scroll offsets before restoring snap. Filter keys also reset the appropriate rail; pagination appends do not. Local touch tests verify right-to-left swipes reveal following cards and the first card/next-card peek are correct at 360/390/430px. See `docs/home-carousel-2026-11-15.md` for causes, validation and screenshots.
+
+## 24. Single-row toolbar and development-only examples (2026-11-15)
+
+The city/feed-summary line is removed at every width. Categories scroll in the left flex strip of one toolbar; the non-scrolling feed/map switch has reserved space on the right, with 44px minimum button targets. Both feeds start higher.
+
+The example generator creates code fixtures (`demo-city-*` / isDemo), not database rows. Display in Home/map/detail is now disabled by default; only `DEV && VITE_SHOW_DEMO_EVENTS === 'true'` enables it. Production cannot enable it with the env flag. No database connection, deletion or SQL was needed. See `docs/home-toolbar-2026-11-15.md` for checks and screenshots.

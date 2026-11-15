@@ -9,6 +9,7 @@ import HomeCarousel from '@/components/home/HomeCarousel'
 import HomeBackgroundDecorations from '@/components/home/HomeBackgroundDecorations'
 import type { PersonalEventData, PublicEventData } from '@/components/home/types'
 import { getCityDemoEvents } from '@/components/home/demoEvents'
+import { demoEventsEnabled } from '@/lib/demoEventsConfig'
 import { useMyEventsContext } from '@/contexts/MyEventsContext'
 import { eventCategoryLabel } from '@/components/home/eventLabels'
 
@@ -100,7 +101,7 @@ function asPersonalEvent(event: PublicEventData): PersonalEventData {
 export default function HomeScreen() {
   const { supaUser, profile } = useAuth()
   const { city } = useDiscoveryCity()
-  const cityDemos = useMemo(() => getCityDemoEvents(city), [city])
+  const cityDemos = useMemo(() => demoEventsEnabled() ? getCityDemoEvents(city) : [], [city])
   const { pendingRequestCountByEvent } = useMyEventsContext()
 
   const [searchQuery, setSearchQuery] = useState('')
@@ -373,17 +374,16 @@ export default function HomeScreen() {
       />
 
       <div className="home-feeds-content relative z-10 mx-auto flex w-full max-w-[1440px] flex-col px-4 py-3 sm:px-6 sm:py-4 lg:min-h-0 lg:max-w-none lg:flex-1 lg:overflow-hidden lg:px-4 lg:py-4 xl:px-4">
-        <div className="mb-2 min-w-0 flex-none" aria-label="Категорії афіші">
-          <CategoryChips items={TABS} selected={selectedCategory} onSelect={(key) => { setSelectedCategory(key); setPublicPage(1) }} />
-        </div>
-        {loadingDiscovery && <p role="status" className="mb-2 text-xs text-brand-ink-muted">Оновлюємо події: {city.name}…</p>}
-        {discoveryError && <p role="alert" className="mb-2 rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-900">Не вдалося завантажити реальні події. Нижче доступні тестові приклади. <button type="button" onClick={() => void fetchDiscoveryEvents()} className="font-bold underline">Повторити</button></p>}
-        <div className="home-view-switcher mb-2 flex flex-none flex-wrap items-center justify-between gap-2">
-          <p className="home-city-summary hidden text-[11px] text-brand-ink-muted sm:block">{city.name} · особисті та публічні події. Приклади позначено «Тестова подія».</p>
-          <div className="inline-flex rounded-xl border border-brand-border bg-white/90 p-1 shadow-sm" role="group" aria-label="Режим перегляду подій">
+        <div className="home-toolbar">
+          <div className="home-category-strip" aria-label="Категорії афіші">
+            <CategoryChips items={TABS} selected={selectedCategory} onSelect={(key) => { setSelectedCategory(key); setPublicPage(1) }} />
+          </div>
+          <div className="home-view-switcher inline-flex rounded-xl border border-brand-border bg-white/90 shadow-sm" role="group" aria-label="Режим перегляду подій">
             {(['feed', 'map'] as const).map((mode) => <button key={mode} type="button" aria-pressed={viewMode === mode} onClick={() => setViewMode(mode)} className={`h-8 rounded-lg px-3 text-[11px] font-extrabold transition ${viewMode === mode ? 'bg-brand-accent text-white shadow-sm' : 'text-brand-ink-muted hover:bg-brand-accent-soft hover:text-brand-accent'}`}>{mode === 'feed' ? 'Стрічка' : 'Карта'}</button>)}
           </div>
         </div>
+        {loadingDiscovery && <p role="status" className="mb-2 text-xs text-brand-ink-muted">Оновлюємо події: {city.name}…</p>}
+        {discoveryError && <p role="alert" className="mb-2 rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-900">Не вдалося завантажити події. Спробуйте ще раз. <button type="button" onClick={() => void fetchDiscoveryEvents()} className="font-bold underline">Повторити</button></p>}
 
         {viewMode === 'feed' ? <div className="home-feeds-grid grid min-w-0 flex-1 grid-cols-1 items-start gap-6 sm:gap-7 lg:min-h-0 lg:grid-cols-[minmax(0,0.6fr)_minmax(280px,0.4fr)] lg:items-stretch lg:gap-2 xl:grid-cols-[minmax(0,0.6fr)_minmax(340px,0.4fr)] xl:gap-2.5">
           <section aria-labelledby="public-feed-title" className="home-feed-section min-w-0 rounded-[24px] border border-[#dcc7bb] bg-[#f4e6de] p-2 pb-0 shadow-[0_10px_30px_rgba(91,61,44,0.08)] sm:p-3 sm:pb-0 lg:flex lg:min-h-0 lg:flex-col lg:p-2.5 lg:pb-0">

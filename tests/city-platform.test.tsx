@@ -13,6 +13,8 @@ const queries: Record<string, number>[] = []
 let rpcResponse: (_args: Record<string, number>) => Promise<any> = async () => ({ data: [], error: null })
 let metadata: any[] = []
 const realtime = new Map<string, (payload: any) => void>()
+let showDemoEvents = true
+mock.module('../src/lib/demoEventsConfig.ts', { namedExports: { demoEventsEnabled: () => showDemoEvents } })
 function chain(data: any[] = []) { const q: any = { then: (resolve: any) => Promise.resolve({ data, error: null }).then(resolve) }; for (const key of ['select', 'eq', 'in', 'on', 'subscribe']) q[key] = () => q; return q }
 mock.module('../src/contexts/AuthContext.tsx', { namedExports: { useAuth: () => auth } })
 mock.module('../src/contexts/MyEventsContext.tsx', { namedExports: { useMyEventsContext: () => ({ events: [], loading: false, pendingRequestCount: 0, pendingRequestCountByEvent: {} }) } })
@@ -111,7 +113,7 @@ test('city, both demo feeds and map change immediately while the server is still
     assert.match(container.textContent!, /Кава та знайомство · Львів/)
     // A failed request must preserve the selected city and its examples.
     await act(async () => { pending[2]({ data: null, error: { message: 'Fixture network error' } }) })
-    assert.match(container.textContent!, /Не вдалося завантажити реальні події/)
+    assert.match(container.textContent!, /Не вдалося завантажити події/)
     assert.match(container.textContent!, /Кава та знайомство · Львів/)
     await act(async () => { pending[0]({ data: [], error: null }); pending[1]({ data: [], error: null }) })
     assert.match(container.textContent!, /Відкрита прогулянка містом · Львів/)
@@ -155,6 +157,11 @@ test('afisha comes first, top category filters affect only afisha, and no duplic
   try {
     assert.deepEqual([...container.querySelectorAll('section[aria-labelledby]')].map(s => s.getAttribute('aria-labelledby')), ['public-feed-title', 'personal-feed-title'])
     assert.equal(container.querySelectorAll('[aria-label="Категорії подій"]').length, 1)
+    const toolbar = container.querySelector('.home-toolbar')!
+    assert.ok(toolbar.querySelector('[aria-label="Категорії афіші"]'))
+    assert.ok(toolbar.querySelector('[aria-label="Режим перегляду подій"]'))
+    assert.equal(container.querySelector('.home-city-summary'), null)
+    assert.doesNotMatch(container.textContent!, /особисті та публічні події\. Приклади/)
     const filters = container.querySelector('[aria-label="Категорії афіші"]')!
     assert.ok(filters.compareDocumentPosition(rail('public')) & dom.window.Node.DOCUMENT_POSITION_FOLLOWING)
     const before = rail('personal').textContent
@@ -165,6 +172,35 @@ test('afisha comes first, top category filters affect only afisha, and no duplic
     assert.equal(container.querySelectorAll('a[href^="/create"]').length, 0)
     assert.equal(container.querySelector('.organizer-banner'), null)
   } finally { resetFixtures(); await act(async () => root.unmount()) }
+})
+
+test('demo-disabled home and map show only real data and honest empty states', async () => {
+  showDemoEvents = false
+  setFixtures([])
+  await mount()
+  try {
+    assert.equal(container.querySelector('.home-card-demo'), null)
+    assert.match(container.textContent!, /Поки немає публічних подій поруч/)
+    assert.match(container.textContent!, /Поки немає особистих подій поруч/)
+    assert.doesNotMatch(container.textContent!, /Кава та знайомство|Відкрита прогулянка містом/)
+    await click('Карта')
+    assert.equal(container.querySelector('[data-testid="map"]')!.textContent, '')
+    await click('Стрічка')
+    setFixtures([fixtureEvent({ title: 'REAL_EVENT' })]); await refreshEvents()
+    assert.match(container.textContent!, /REAL_EVENT/)
+    assert.equal(container.querySelector('.home-card-demo'), null)
+  } finally { showDemoEvents = true; resetFixtures(); await act(async () => root.unmount()) }
+})
+
+test('demo-disabled direct example link does not display a demo or request a fake database UUID', async () => {
+  showDemoEvents = false; eventRequests.length = 0
+  root = createRoot(container)
+  try {
+    const id = `demo-city-${findCity('Київ')!.id}-public`
+    await act(async () => root.render(<MemoryRouter initialEntries={[`/event/${id}`]}><Routes><Route path="/event/:id" element={<EventDetail />} /></Routes></MemoryRouter>))
+    assert.doesNotMatch(container.textContent!, /Тестова подія · Публічна|Відкрита прогулянка містом/)
+    assert.ok(eventRequests.length > 0 && eventRequests.every(id => id === ''))
+  } finally { showDemoEvents = true; await act(async () => root.unmount()) }
 })
 
 test('both rails load separate batches on horizontal and vertical end scroll; filters reset afisha paging', async () => {

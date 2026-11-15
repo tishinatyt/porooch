@@ -1,5 +1,7 @@
 # City selection and test events — 2026-10-24
 
+**Update 2026-11-15:** the example-display behavior below is now development-only and off by default. Set `VITE_SHOW_DEMO_EVENTS=true` in `.env.local` to enable it with the Vite dev server. Production never displays these fixtures, even with that flag. Home/map and direct demo routes share this gate; real city selection and discovery are unchanged. See `home-toolbar-2026-11-15.md`.
+
 The city catalogue remains the same 24 oblast centres in `src/lib/cities.ts`. Smaller cities are intentionally excluded per the user's final instruction. Existing profile city strings remain compatible. Stable identifiers come from KATOTTG (2026-07-07); coordinates are the existing application coordinates.
 
 `DiscoveryCityProvider` supplies a shared selection inside the platform. `DiscoveryCityPicker` in TopBar provides searchable Ukrainian/Russian names and a native city select on mobile and desktop. A choice is stored as `poruch:discovery-city`; if storage is unavailable it still works for the current session. Without a saved choice, the profile city is used, then Chernihiv. Browsing another city does not edit the profile.

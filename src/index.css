@@ -249,19 +249,18 @@ textarea {
 
 .home-card-demo-slot, .home-card-avatars { display: contents; }
 
+/* Only the category strip scrolls; the mode switch keeps its own fixed space. */
+.home-screen .home-toolbar { display: flex; flex: none; align-items: center; gap: 6px; min-width: 0; margin-bottom: 4px; }
+.home-screen .home-category-strip { flex: 1 1 0; min-width: 0; overflow: hidden; }
+.home-screen .home-toolbar [aria-label="Категорії подій"] { margin: 0; padding: 0 2px 0 0; gap: 4px; }
+.home-screen .home-toolbar [aria-label="Категорії подій"] button { height: 44px; min-height: 44px; min-width: 44px; padding: 4px 10px; font-size: 11px; line-height: 14px; white-space: nowrap; }
+.home-screen .home-toolbar .home-view-switcher { flex: 0 0 auto; margin: 0; padding: 0; }
+.home-screen .home-toolbar .home-view-switcher button { height: 44px; min-height: 44px; min-width: 44px; padding: 0 9px; font-size: 11px; line-height: 16px; }
+
 /* Compact Home only: keep shared cards and the desktop grid unchanged. */
 @media (max-width: 639px) {
   .home-screen .home-feeds-content { padding: 6px 8px; }
-  .home-screen [aria-label="Категорії афіші"] { margin-bottom: 4px; }
-  .home-screen [aria-label="Категорії подій"] { gap: 4px; padding-bottom: 0; }
-  .home-screen [aria-label="Категорії подій"] button {
-    min-height: 32px;
-    padding: 4px 10px;
-    font-size: 10px;
-    line-height: 14px;
-    white-space: nowrap;
-  }
-  .home-screen .home-view-switcher { margin-bottom: 4px; }
+  .home-screen .home-toolbar [aria-label="Категорії подій"] button { font-size: 10px; }
   .home-screen .home-feeds-grid { gap: 10px; }
   .home-screen .home-feed-section { display: flex; flex-direction: column; padding: 6px; border-radius: 18px; }
   .home-screen .home-feed-heading {

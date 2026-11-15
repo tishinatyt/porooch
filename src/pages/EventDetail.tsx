@@ -9,6 +9,7 @@ import TopBar from '@/components/TopBar'
 import EventMedia from '@/components/EventMedia'
 import { EventActionContent, EventInfoRow, EventRequirements, OrganizerHeader, ParticipantList, PendingRequestList } from '@/components/event-detail/EventDetailSections'
 import { getDemoEvent } from '@/components/home/demoEvents'
+import { demoEventsEnabled } from '@/lib/demoEventsConfig'
 import type { EventDetail as EventDetailData, EventParticipant } from '@/hooks/useEvent'
 import { getEventAccessChipClass, getEventAccessLabel } from '@/lib/eventAccess'
 import DemoQrPlaceholder from '@/components/DemoQrPlaceholder'
@@ -51,8 +52,9 @@ export default function EventDetail() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const { supaUser } = useAuth()
-  const demoEvent = getDemoEvent(id)
-  const { event: liveEvent, participants: liveParticipants, participantCount: liveParticipantCount, loading, error, joinEvent, reviewRequest, leaveEvent } = useEvent(demoEvent ? '' : id!)
+  const isDemoRoute = id?.startsWith('demo-city-') ?? false
+  const demoEvent = demoEventsEnabled() ? getDemoEvent(id) : null
+  const { event: liveEvent, participants: liveParticipants, participantCount: liveParticipantCount, loading, error, joinEvent, reviewRequest, leaveEvent } = useEvent(isDemoRoute ? '' : id!)
   const event: EventDetailData | null = demoEvent ? {
     id: demoEvent.id,
     title: demoEvent.title,

@@ -1,7 +1,8 @@
 import type { PublicEventData } from './types'
 import { findCity, cityLabel, type UkrainianCity } from '../../lib/cities.ts'
 
-/** Exactly two labelled examples per city. These never create production memberships or chats. */
+/** Two labelled examples per city, shown only with explicit development opt-in.
+ * These are in-memory UI fixtures, never database inserts or memberships/chats. */
 export function getCityDemoEvents(city: UkrainianCity, now = new Date()): PublicEventData[] {
   return (['personal', 'public'] as const).map((type, index) => {
     const date = new Date(now)
