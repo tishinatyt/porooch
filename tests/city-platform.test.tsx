@@ -217,6 +217,22 @@ test('create is a single entry in each responsive navigation with the new label'
   } finally { await act(async () => root.unmount()) }
 })
 
+test('afisha title and metadata share one detail action without losing long event text', async () => {
+  const title = 'Зустріч друзів міста: великий вечір кіно і музики для всіх охочих'
+  const address = 'Київ, центральна площа біля театру, головний вхід'
+  const event = fixtureEvent({ id: 'public-long', title, address_text: address })
+  setFixtures([event])
+  metadata[0].event_type = 'public'
+  await mount()
+  try {
+    const details = rail('public').querySelector<HTMLButtonElement>('.home-card-details')!
+    assert.match(details.textContent!, new RegExp(title))
+    assert.match(details.textContent!, new RegExp(address))
+    await act(async () => details.click())
+    assert.equal(eventRequests.at(-1), 'public-long')
+  } finally { resetFixtures(); await act(async () => root.unmount()) }
+})
+
 test('Kyiv organizer keeps their edited event after audience changes and reload; other audience and radius filters still apply', async () => {
   dom.window.localStorage.setItem(CITY_STORAGE_KEY, findCity('Київ')!.id)
   auth.profile.gender = 'male'

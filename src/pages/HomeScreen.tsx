@@ -360,7 +360,7 @@ export default function HomeScreen() {
 
   return (
     <>
-    <div className="relative isolate min-h-screen overflow-x-clip bg-home-bg pb-24 text-brand-ink lg:flex lg:overflow-hidden lg:h-screen lg:min-h-0 lg:flex-col lg:pb-0">
+    <div className="home-screen relative isolate min-h-screen overflow-x-clip bg-home-bg pb-24 text-brand-ink lg:flex lg:overflow-hidden lg:h-screen lg:min-h-0 lg:flex-col lg:pb-0">
       <HomeBackgroundDecorations />
       <TopBar
         searchQuery={searchQuery}
@@ -370,27 +370,27 @@ export default function HomeScreen() {
         radiusOptions={RADIUS_OPTIONS}
       />
 
-      <div className="relative z-10 mx-auto flex w-full max-w-[1440px] flex-col px-4 py-3 sm:px-6 sm:py-4 lg:min-h-0 lg:max-w-none lg:flex-1 lg:overflow-hidden lg:px-4 lg:py-4 xl:px-4">
+      <div className="home-feeds-content relative z-10 mx-auto flex w-full max-w-[1440px] flex-col px-4 py-3 sm:px-6 sm:py-4 lg:min-h-0 lg:max-w-none lg:flex-1 lg:overflow-hidden lg:px-4 lg:py-4 xl:px-4">
         <div className="mb-2 min-w-0 flex-none" aria-label="Категорії афіші">
           <CategoryChips items={TABS} selected={selectedCategory} onSelect={(key) => { setSelectedCategory(key); setPublicPage(1) }} />
         </div>
         {loadingDiscovery && <p role="status" className="mb-2 text-xs text-brand-ink-muted">Оновлюємо події: {city.name}…</p>}
         {discoveryError && <p role="alert" className="mb-2 rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-900">Не вдалося завантажити реальні події. Нижче доступні тестові приклади. <button type="button" onClick={() => void fetchDiscoveryEvents()} className="font-bold underline">Повторити</button></p>}
-        <div className="mb-2 flex flex-none flex-wrap items-center justify-between gap-2">
-          <p className="text-[11px] text-brand-ink-muted">{city.name} · особисті та публічні події. Приклади позначено «Тестова подія».</p>
+        <div className="home-view-switcher mb-2 flex flex-none flex-wrap items-center justify-between gap-2">
+          <p className="home-city-summary hidden text-[11px] text-brand-ink-muted sm:block">{city.name} · особисті та публічні події. Приклади позначено «Тестова подія».</p>
           <div className="inline-flex rounded-xl border border-brand-border bg-white/90 p-1 shadow-sm" role="group" aria-label="Режим перегляду подій">
             {(['feed', 'map'] as const).map((mode) => <button key={mode} type="button" aria-pressed={viewMode === mode} onClick={() => setViewMode(mode)} className={`h-8 rounded-lg px-3 text-[11px] font-extrabold transition ${viewMode === mode ? 'bg-brand-accent text-white shadow-sm' : 'text-brand-ink-muted hover:bg-brand-accent-soft hover:text-brand-accent'}`}>{mode === 'feed' ? 'Стрічка' : 'Карта'}</button>)}
           </div>
         </div>
 
-        {viewMode === 'feed' ? <div className="grid min-w-0 flex-1 grid-cols-1 items-start gap-6 sm:gap-7 lg:min-h-0 lg:grid-cols-[minmax(0,0.6fr)_minmax(280px,0.4fr)] lg:items-stretch lg:gap-2 xl:grid-cols-[minmax(0,0.6fr)_minmax(340px,0.4fr)] xl:gap-2.5">
-          <section aria-labelledby="public-feed-title" className="min-w-0 rounded-[24px] border border-[#dcc7bb] bg-[#f4e6de] p-2 pb-0 shadow-[0_10px_30px_rgba(91,61,44,0.08)] sm:p-3 sm:pb-0 lg:flex lg:min-h-0 lg:flex-col lg:p-2.5 lg:pb-0">
+        {viewMode === 'feed' ? <div className="home-feeds-grid grid min-w-0 flex-1 grid-cols-1 items-start gap-6 sm:gap-7 lg:min-h-0 lg:grid-cols-[minmax(0,0.6fr)_minmax(280px,0.4fr)] lg:items-stretch lg:gap-2 xl:grid-cols-[minmax(0,0.6fr)_minmax(340px,0.4fr)] xl:gap-2.5">
+          <section aria-labelledby="public-feed-title" className="home-feed-section min-w-0 rounded-[24px] border border-[#dcc7bb] bg-[#f4e6de] p-2 pb-0 shadow-[0_10px_30px_rgba(91,61,44,0.08)] sm:p-3 sm:pb-0 lg:flex lg:min-h-0 lg:flex-col lg:p-2.5 lg:pb-0">
             {loadingDiscovery && shownPublic.length === 0 && <HomeCarousel id="public-events-loading" label="Завантаження афіші" className="lg:space-y-3">{[1, 2, 3, 4].map((item) => <div role="listitem" key={item} className="h-72 w-[88%] flex-none snap-start animate-pulse rounded-2xl border border-brand-border bg-white min-[420px]:w-[86%] sm:w-[46%] md:w-[44%] lg:w-auto" />)}</HomeCarousel>}
             {!loadingDiscovery && shownPublic.length === 0 && <div className="rounded-2xl border border-dashed border-brand-border-strong bg-white px-4 py-6 text-center lg:flex-1"><p className="text-sm font-bold text-brand-ink">{discoveryError ? 'Не вдалося завантажити події.' : 'Поки немає публічних подій поруч.'}</p>{!discoveryError && selectedCategory !== 'all' && <p className="mt-1.5 text-xs text-brand-ink-muted">Спробуйте іншу категорію або збільшіть радіус.</p>}</div>}
             {shownPublic.length > 0 && <HomeCarousel key={`${city.id}:${selectedCategory}:${radiusKm}:${searchQuery}`} id="public-events-carousel" label="Афіша поруч" showScrollControls onReachEnd={hasMorePublic ? () => setPublicPage(page => page + 1) : undefined} className="gap-3.5 lg:space-y-2">{shownPublic.map((event) => <div role="listitem" key={event.id} className="w-[88%] flex-none snap-start [scroll-snap-stop:always] min-[420px]:w-[86%] sm:w-[46%] md:w-[44%] lg:w-auto"><PublicEventCard event={event} isNew={event.id === newEventId} isOrganizer={Boolean(supaUser?.id && (event.organizer_id ?? event.organizer?.id) === supaUser.id)} /></div>)}</HomeCarousel>}
 
-            {hasMorePublic && <button type="button" onClick={() => setPublicPage((page) => page + 1)} className="mt-4 w-full rounded-xl border border-brand-border bg-white py-3 text-sm font-bold text-brand-ink-soft transition hover:border-brand-border-strong hover:bg-brand-surface-muted">Показати більше ({filteredPublic.length - shownPublic.length})</button>}
-            <div className="-mx-2 mt-1 flex-none rounded-b-[23px] border-t border-[#dfcec4] bg-white/28 px-3 py-2 sm:-mx-3 lg:-mx-2.5 xl:flex xl:min-h-11 xl:items-center xl:gap-2">
+            {hasMorePublic && <button type="button" onClick={() => setPublicPage((page) => page + 1)} className="home-feed-more mt-4 w-full rounded-xl border border-brand-border bg-white py-3 text-sm font-bold text-brand-ink-soft transition hover:border-brand-border-strong hover:bg-brand-surface-muted">Показати більше ({filteredPublic.length - shownPublic.length})</button>}
+            <div className="home-feed-heading -mx-2 mt-1 flex-none rounded-b-[23px] border-t border-[#dfcec4] bg-white/28 px-3 py-2 sm:-mx-3 lg:-mx-2.5 xl:flex xl:min-h-11 xl:items-center xl:gap-2">
               <div className="flex items-center gap-1.5">
                 <h2 id="public-feed-title" className="text-sm font-extrabold tracking-[-0.02em] text-brand-ink">Афіша</h2>
                 {!loadingDiscovery && <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full border border-white/70 bg-white/75 px-1.5 text-[10px] font-bold tabular-nums text-brand-ink-muted" aria-label={`${filteredPublic.length} подій у стрічці Афіша`}>{filteredPublic.length}</span>}
@@ -398,15 +398,15 @@ export default function HomeScreen() {
             </div>
           </section>
 
-          <section aria-labelledby="personal-feed-title" className="min-w-0 rounded-[24px] border border-[#c5badc] bg-[#e4def1] p-2 pb-0 shadow-[0_10px_30px_rgba(61,45,96,0.09)] sm:p-3 sm:pb-0 lg:flex lg:min-h-0 lg:flex-col">
+          <section aria-labelledby="personal-feed-title" className="home-feed-section min-w-0 rounded-[24px] border border-[#c5badc] bg-[#e4def1] p-2 pb-0 shadow-[0_10px_30px_rgba(61,45,96,0.09)] sm:p-3 sm:pb-0 lg:flex lg:min-h-0 lg:flex-col">
             {loadingDiscovery && personalEvents.length === 0 && <HomeCarousel id="personal-events-loading" label="Завантаження знайомств" className="lg:space-y-3">{[1, 2, 3].map((item) => <div role="listitem" key={item} className="h-56 w-[88%] flex-none snap-start animate-pulse rounded-2xl border border-brand-border bg-white min-[420px]:w-[86%] sm:w-[46%] md:w-[44%] lg:w-auto" />)}</HomeCarousel>}
             {!loadingDiscovery && personalEvents.length === 0 && (
               <div className="rounded-2xl border border-dashed border-brand-border-strong bg-white px-4 py-6 text-center lg:flex-1"><p className="text-sm font-bold text-brand-ink">{discoveryError ? 'Не вдалося завантажити події.' : 'Поки немає особистих подій поруч.'}</p></div>
             )}
             {personalEvents.length > 0 && <HomeCarousel key={`${city.id}:${radiusKm}:${searchQuery}`} id="personal-events-carousel" label="Знайомства поруч" showScrollControls onReachEnd={hasMorePersonal ? () => setPersonalPage(page => page + 1) : undefined} className="gap-3.5 lg:space-y-3.5">{shownPersonal.map((event) => <div role="listitem" key={event.eventId} className="w-[88%] flex-none snap-start [scroll-snap-stop:always] min-[420px]:w-[86%] sm:w-[46%] md:w-[44%] lg:w-auto"><PersonalEventCard event={event} isOrganizer={Boolean(supaUser?.id && (event.organizer_id ?? event.organizer?.id) === supaUser.id)} /></div>)}</HomeCarousel>}
 
-            {hasMorePersonal && <button type="button" onClick={() => setPersonalPage(page => page + 1)} className="mt-2 min-h-10 w-full rounded-xl border border-brand-border bg-white px-3 text-xs font-bold text-brand-ink-soft">Показати більше знайомств ({personalEvents.length - shownPersonal.length})</button>}
-            <div className="-mx-2 mt-1 flex min-h-9 flex-none items-center gap-2 rounded-b-[23px] border-t border-[#cfc4e2] bg-white/30 px-3 py-2 sm:-mx-3">
+            {hasMorePersonal && <button type="button" onClick={() => setPersonalPage(page => page + 1)} className="home-feed-more mt-2 min-h-10 w-full rounded-xl border border-brand-border bg-white px-3 text-xs font-bold text-brand-ink-soft">Показати більше знайомств ({personalEvents.length - shownPersonal.length})</button>}
+            <div className="home-feed-heading -mx-2 mt-1 flex min-h-9 flex-none items-center gap-2 rounded-b-[23px] border-t border-[#cfc4e2] bg-white/30 px-3 py-2 sm:-mx-3">
               <h1 id="personal-feed-title" className="text-sm font-extrabold tracking-[-0.02em] text-brand-ink">Знайомства</h1>
               {!loadingDiscovery && <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full border border-white/70 bg-white/75 px-1.5 text-[10px] font-bold tabular-nums text-brand-ink-muted" aria-label={`${personalEvents.length} подій у стрічці Знайомства`}>{personalEvents.length}</span>}
             </div>

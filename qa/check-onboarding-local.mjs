@@ -30,7 +30,7 @@ try {
   }
   browser = await chromium.launch({ headless: true, channel: 'msedge' })
   async function contextFor(width, mode = 'guest') {
-    const context = await browser.newContext({ viewport: { width, height: width === 360 ? 800 : 900 }, serviceWorkers: 'block' })
+    const context = await browser.newContext({ viewport: { width, height: ({ 360: 800, 390: 844, 430: 932 })[width] ?? 900 }, serviceWorkers: 'block' })
     let fixtureRows = []
     context.setFixtureRows = rows => { fixtureRows = rows }
     await context.routeWebSocket('**/*', socket => socket.close())
@@ -81,7 +81,7 @@ try {
     assert.equal(await page.getByText(message, { exact: true }).count(), 0)
     assert.equal(await page.locator('.organizer-banner').count(), 0)
   }
-  for (const width of [360, 1440]) {
+  for (const width of [360, 390, 430, 1440]) {
     const guest = await contextFor(width)
     const page = await guest.newPage()
     await page.goto(base)
@@ -137,11 +137,31 @@ try {
     assert.ok(categoryBox.height <= 48, 'Filters must occupy just one row')
     assert.ok(categoryBox.y + categoryBox.height <= publicBox.y, 'Filters precede afisha')
     assert.ok(publicBox.y < 400, 'Afisha must begin above fold')
-    if (width === 360) assert.ok(publicBox.y < personalBox.y)
+    if (width < 640) assert.ok(publicBox.y < personalBox.y)
     else { assert.ok(publicBox.x < personalBox.x); assert.ok(Math.abs(publicBox.y - personalBox.y) <= 3) }
     assert.equal(await publicRail.locator(':scope > [role="listitem"]').count(), 10)
     assert.equal(await personalRail.locator(':scope > [role="listitem"]').count(), 10)
     await layout(homePage, `home-layout-${width}`)
+    if (width < 640) {
+      const navBox = await homePage.locator('nav.fixed').boundingBox()
+      const headingBox = await homePage.locator('#personal-feed-title').boundingBox()
+      assert.ok(headingBox.y + headingBox.height <= navBox.y, 'Personal heading must be visible above bottom nav')
+      assert.ok(personalBox.y + 44 <= navBox.y, 'At least 44px of the personal rail must fit the first screen')
+      assert.ok(categoryBox.height <= 32, 'Mobile chips must be compact')
+      assert.equal(await homePage.locator('.home-city-summary').isVisible(), false)
+      const cardMetrics = await homePage.locator('#public-events-carousel > [role="listitem"]:first-child article').evaluate(card => ({ width: card.getBoundingClientRect().width, height: card.getBoundingClientRect().height, padding: getComputedStyle(card).padding, cover: card.querySelector('.home-card-cover').getBoundingClientRect().width }))
+      assert.ok(cardMetrics.width >= width * 0.8, 'Cards should use nearly all available width')
+      assert.ok(cardMetrics.height <= 175, 'A short afisha card should be lower than the previous ~180px layout')
+      assert.equal(cardMetrics.cover, 56)
+      assert.equal(cardMetrics.padding, '8px')
+      const smallTargets = await homePage.locator('#public-events-carousel > [role="listitem"]:first-child button, #personal-events-carousel > [role="listitem"]:first-child button').evaluateAll(buttons => buttons.filter(button => { const r = button.getBoundingClientRect(); return r.width < 44 || r.height < 44 }).map(button => button.getAttribute('aria-label') ?? button.textContent))
+      assert.deepEqual(smallTargets, [], 'Every event-card button must have a 44px target')
+      const clippedChips = await homePage.locator('[aria-label="Категорії афіші"] button').evaluateAll(buttons => buttons.filter(button => button.scrollWidth > button.clientWidth + 1).map(button => button.textContent))
+      assert.deepEqual(clippedChips, [])
+    } else {
+      assert.equal(await homePage.locator('.home-city-summary').isVisible(), true)
+      assert.equal(await homePage.locator('.home-card-cover').first().evaluate(cover => cover.getBoundingClientRect().width), 108)
+    }
     for (const type of ['public', 'personal']) {
       await homePage.locator(`#${type}-events-carousel`).evaluate((element, vertical) => {
         if (vertical) element.scrollTop = element.scrollHeight
@@ -153,7 +173,7 @@ try {
       const untouched = await homePage.locator(`#${other}-events-carousel`).evaluate(element => ({ x: element.scrollLeft, y: element.scrollTop }))
       if (type === 'public') assert.deepEqual(untouched, { x: 0, y: 0 })
     }
-    if (width === 360) {
+    if (width < 640) {
       await homePage.evaluate(() => window.scrollTo(0, 250))
       const header = await homePage.locator('header.top-bar-surface').boundingBox()
       assert.ok(Math.abs(header.y) <= 1, `Header should stick, got ${header.y}`)
@@ -174,11 +194,37 @@ try {
     await homePage.getByText('Поки немає особистих подій поруч.', { exact: true }).waitFor()
     await homePage.getByText('Поки немає публічних подій поруч.', { exact: true }).waitFor()
     assert.deepEqual(await visibleCreates(), ['Створити'])
+    if (width < 640) {
+      // Stress wrapping with long user content and a demo badge/real cover.
+      const longTitle = 'Велика зустріч друзів міста: кіно, театр і музика для всіх охочих разом у вихідні'
+      home.setFixtureRows(['public', 'personal'].map(type => ({
+        id: `${type}-long`, event_type: type, title: longTitle, category: 'cinema',
+        address_text: 'Київ, велика пішохідна площа біля центрального театру, головний вхід',
+        cover_photo_url: `${base}/poruch-logo.png`, event_datetime: '2099-01-01T15:00:00Z',
+        min_age: 18, max_age: 99, gender_filter: 'any', distance_km: 1, max_participants: 10,
+        participant_count: 4, organizer_id: 'another-fixture-user',
+        organizer: { id: 'another-fixture-user', name: 'Організатор із довгим ім’ям та прізвищем', avatar_url: null },
+      })))
+      await homePage.reload()
+      await homePage.locator('#public-events-carousel').getByText(longTitle, { exact: true }).waitFor()
+      await homePage.locator('[data-home-carousel]').evaluateAll(elements => elements.forEach(element => element.scrollTo({ left: 0, behavior: 'instant' })))
+      await homePage.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))
+      await layout(homePage, `home-long-content-${width}`)
+      const clippedText = await homePage.locator('.home-event-card h3, .home-event-card .home-card-meta > span:last-child').evaluateAll(elements => elements.filter(element => {
+        const style = getComputedStyle(element)
+        return element.scrollWidth > element.clientWidth + 2 || (style.overflowY === 'hidden' && element.scrollHeight > element.clientHeight + 2)
+      }).map(element => ({ text: element.textContent, scrollWidth: element.scrollWidth, width: element.clientWidth, height: element.clientHeight, scrollHeight: element.scrollHeight, overflow: getComputedStyle(element).overflow })))
+      assert.deepEqual(clippedText, [], 'Long titles and addresses must wrap without clipping')
+      assert.equal(await homePage.locator('#public-events-carousel h3').first().evaluate(title => getComputedStyle(title).webkitLineClamp), 'none')
+      const longRail = await homePage.locator('#personal-events-carousel').boundingBox()
+      const bottomNav = await homePage.locator('nav.fixed').boundingBox()
+      assert.ok(longRail.y + 44 <= bottomNav.y, 'Second rail must still begin on screen with long titles')
+    }
     // The sole responsive create action must still open the creation form.
     for (const link of await homePage.locator('a[href="/create"]').all()) if (await link.isVisible()) { await link.click(); break }
     await homePage.getByText('Яку подію ви створюєте?', { exact: true }).waitFor()
     await home.close()
-    checks.push({ width, guestMessageCount: 1, organizerCards: 0, newProfileDestination: '/', existingLoginDestination: '/create', subsequentHomeDestination: '/' })
+    checks.push({ width, guestMessageCount: 1, organizerCards: 0, newProfileDestination: '/', existingLoginDestination: '/create', subsequentHomeDestination: '/', filtersHeight: categoryBox.height, publicRailTop: publicBox.y, personalRailTop: personalBox.y, compact: width < 640 })
   }
   await fs.writeFile(`${outDir}/result.json`, JSON.stringify(checks, null, 2))
   console.log(JSON.stringify(checks, null, 2))

@@ -368,3 +368,9 @@ The event/ticket message is shown once in the guest hero with Find/Create action
 Home shows Afisha before personal meetings: above on mobile, left on desktop, with the original feed titles. Category chips occupy one horizontal row below TopBar and filter only Afisha in feed mode; map filtering remains available. Both rails reveal independent 10-item batches on end-scroll with a button fallback. Mobile uses horizontal rails/page scrolling; desktop keeps independently scrolling columns. Root overflow clipping preserves the sticky mobile header.
 
 The organizer banner, TopBar create shortcut and empty-state create link are removed. Exactly one responsive navigation entry is visible: «Створити» in BottomNav on mobile or AppSidebar on desktop. See `docs/home-feed-2026-11-15.md` for local-only 360/1440px browser checks, empty states, tests and file list.
+
+## 22. Compact mobile Home (2026-11-15)
+
+At widths below 640px, Home has 32px category chips, no city-summary line, 8px horizontal page padding, 96%-width cards and 10px between feeds. Feed headings appear above the cards on mobile. Event covers are 56px, card padding is 8px, text wraps without line-clamp and card buttons have 44px minimum hit areas. Desktop and shared cards outside Home keep their previous layout. Header and bottom navigation are unchanged.
+
+Local mock-browser checks at 360/390/430px confirm both feed beginnings above the bottom panel, including long text; 1440px remains in the desktop grid. See `docs/home-compact-2026-11-15.md` and its committed 360/1440px screenshots for dimensions and validation.
