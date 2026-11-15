@@ -7,12 +7,30 @@ interface HomeCarouselProps {
   children: ReactNode
   className?: string
   showScrollControls?: boolean
+  onReachEnd?: () => void
 }
 
-export default function HomeCarousel({ id, label, children, className = '', showScrollControls = false }: HomeCarouselProps) {
+export default function HomeCarousel({ id, label, children, className = '', showScrollControls = false, onReachEnd }: HomeCarouselProps) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const [canScrollUp, setCanScrollUp] = useState(false)
   const [canScrollDown, setCanScrollDown] = useState(false)
+  const requestedCountRef = useRef(-1)
+
+  const handleScroll = () => {
+    const element = scrollRef.current
+    if (!element || !onReachEnd) return
+    const vertical = window.innerWidth >= 1024
+    const viewport = vertical ? element.clientHeight : element.clientWidth
+    const offset = vertical ? element.scrollTop : element.scrollLeft
+    const extent = vertical ? element.scrollHeight : element.scrollWidth
+    const count = element.children.length
+    // One request per rendered page, even if several scroll events arrive
+    // before React commits the next batch. Ignore zero-sized/hidden rails.
+    if (viewport > 0 && offset > 0 && extent - offset - viewport <= 100 && requestedCountRef.current !== count) {
+      requestedCountRef.current = count
+      onReachEnd()
+    }
+  }
 
   const updateScrollState = useCallback(() => {
     const element = scrollRef.current
@@ -53,6 +71,7 @@ export default function HomeCarousel({ id, label, children, className = '', show
         id={id}
         role="list"
         aria-label={label}
+        onScroll={handleScroll}
         data-home-carousel={id}
         className={`scrollbar-hide desktop-feed-scrollbar isolate flex min-w-0 max-w-full snap-x snap-mandatory items-stretch gap-3 overflow-x-auto overflow-y-hidden overscroll-x-contain pb-2 pr-4 [scroll-padding-inline:1px] [touch-action:pan-x_pan-y] [-webkit-overflow-scrolling:touch] lg:block lg:h-full lg:min-h-0 lg:snap-none lg:overflow-x-hidden lg:overflow-y-auto lg:overscroll-x-auto lg:overscroll-y-contain lg:pb-0 lg:pr-2 ${className}`}
       >

@@ -361,4 +361,10 @@ The manual QA script targets poruch.fun and requires a server-only cleanup key b
 
 ## 20. Guest message and signup destination (2026-11-15)
 
-The event/ticket message is shown once in the guest hero with Find/Create actions. OrganizerSection and its three instructional cards/styles have been removed from LandingPage and HomeScreen. The authenticated feed retains only a compact organizer banner with different copy (no ticket-message repetition). New profile completion always opens `/`; existing Google logins from `/create` still open creation. See `docs/guest-onboarding-2026-11-15.md` for local-only 360/1440px browser and test verification.
+The event/ticket message is shown once in the guest hero with Find/Create actions. OrganizerSection and its three instructional cards/styles have been removed from LandingPage and HomeScreen. New profile completion always opens `/`; existing Google logins from `/create` still open creation. See `docs/guest-onboarding-2026-11-15.md` for that change; the subsequent authenticated-feed layout below supersedes its compact-banner decision.
+
+## 21. Afisha first and a single create entry (2026-11-15)
+
+Home shows Afisha before personal meetings: above on mobile, left on desktop, with the original feed titles. Category chips occupy one horizontal row below TopBar and filter only Afisha in feed mode; map filtering remains available. Both rails reveal independent 10-item batches on end-scroll with a button fallback. Mobile uses horizontal rails/page scrolling; desktop keeps independently scrolling columns. Root overflow clipping preserves the sticky mobile header.
+
+The organizer banner, TopBar create shortcut and empty-state create link are removed. Exactly one responsive navigation entry is visible: «Створити» in BottomNav on mobile or AppSidebar on desktop. See `docs/home-feed-2026-11-15.md` for local-only 360/1440px browser checks, empty states, tests and file list.

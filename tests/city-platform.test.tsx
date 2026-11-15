@@ -15,7 +15,9 @@ let metadata: any[] = []
 const realtime = new Map<string, (payload: any) => void>()
 function chain(data: any[] = []) { const q: any = { then: (resolve: any) => Promise.resolve({ data, error: null }).then(resolve) }; for (const key of ['select', 'eq', 'in', 'on', 'subscribe']) q[key] = () => q; return q }
 mock.module('../src/contexts/AuthContext.tsx', { namedExports: { useAuth: () => auth } })
-mock.module('../src/contexts/MyEventsContext.tsx', { namedExports: { useMyEventsContext: () => ({ pendingRequestCountByEvent: {} }) } })
+mock.module('../src/contexts/MyEventsContext.tsx', { namedExports: { useMyEventsContext: () => ({ events: [], loading: false, pendingRequestCount: 0, pendingRequestCountByEvent: {} }) } })
+mock.module('../src/contexts/UnreadMessagesContext.tsx', { namedExports: { useUnreadMessages: () => ({ unreadCount: 0 }) } })
+mock.module('../src/contexts/AdminContext.tsx', { namedExports: { useAdmin: () => ({ isAdmin: false }) } })
 mock.module('../src/contexts/ProfilePreviewContext.tsx', { namedExports: { useProfilePreview: () => ({ openProfilePreview: () => { throw Error('Demo must not open a fake profile') } }) } })
 mock.module('../src/lib/supabase.ts', { namedExports: { supabase: { from: (table: string) => chain(table === 'events' ? metadata : []), rpc: async (_name: string, args: Record<string, number>) => { queries.push(args); return rpcResponse(args) }, channel: (name: string) => { const q = chain(); q.on = (_event: string, _filter: any, callback: (payload: any) => void) => { realtime.set(name, callback); return q }; return q }, removeChannel: () => {} } } })
 mock.module('../src/components/BrandLogo.tsx', { defaultExport: () => <span>ПОРУЧ</span> })
@@ -25,6 +27,8 @@ const eventRequests: string[] = []
 mock.module('../src/hooks/useEvent.ts', { namedExports: { useEvent: (id: string) => { eventRequests.push(id); return { event: null, participants: [], participantCount: 0, loading: false, error: null, joinEvent: () => { throw Error('Demo join must not write') } } } } })
 const { DiscoveryCityProvider } = await import('../src/contexts/DiscoveryCityContext.tsx')
 const { default: HomeScreen } = await import('../src/pages/HomeScreen.tsx')
+const { default: BottomNav } = await import('../src/components/BottomNav.tsx')
+const { default: AppSidebar } = await import('../src/components/AppSidebar.tsx')
 const { default: EventDetail } = await import('../src/pages/EventDetail.tsx')
 const { CITY_STORAGE_KEY, findCity } = await import('../src/lib/cities.ts')
 const container = document.getElementById('app')!
@@ -48,7 +52,7 @@ test('city switches inside the platform, queries the chosen coordinates, updates
   try {
     assert.match(container.textContent!, /Кава та знайомство · Чернігів/)
     assert.equal(container.querySelector('.organizer-section'), null)
-    assert.equal(container.querySelectorAll('.organizer-banner').length, 1)
+    assert.equal(container.querySelectorAll('.organizer-banner').length, 0)
     assert.doesNotMatch(container.textContent!, /продавай на них квитки/)
     assert.match(container.textContent!, /Відкрита прогулянка містом · Чернігів/)
     await chooseCity('Львів')
@@ -127,6 +131,91 @@ function setFixtures(rows: any[]) {
 }
 async function refreshEvents() { await act(async () => { realtime.get('events-discovery-feed')!({ eventType: 'UPDATE' }) }) }
 function resetFixtures() { metadata = []; rpcResponse = async () => ({ data: [], error: null }); auth.profile.gender = 'any' }
+
+function setMixedFixtures() {
+  const rows = ['public', 'personal'].flatMap(type => Array.from({ length: 24 }, (_, index) => fixtureEvent({
+    id: `${type}-${index}`, title: `${type.toUpperCase()}_FIXTURE_${index}`, category: index % 2 ? 'theatre' : 'cinema',
+  })))
+  setFixtures(rows)
+  metadata = rows.map(row => ({ id: row.id, event_type: row.id.split('-')[0], is_public: true, join_mode: 'open', bank_enabled: false }))
+}
+const rail = (type: string) => container.querySelector<HTMLElement>(`#${type}-events-carousel`)!
+async function reachEnd(type: string, width: number) {
+  Object.defineProperty(window, 'innerWidth', { value: width, configurable: true })
+  const element = rail(type)
+  const vertical = width >= 1024
+  Object.defineProperties(element, vertical ? { clientHeight: { value: 400, configurable: true }, scrollHeight: { value: 3000, configurable: true } } : { clientWidth: { value: 320, configurable: true }, scrollWidth: { value: 3000, configurable: true } })
+  if (vertical) element.scrollTop = 2600
+  else element.scrollLeft = 2680
+  await act(async () => { element.dispatchEvent(new Event('scroll')); element.dispatchEvent(new Event('scroll')) })
+}
+
+test('afisha comes first, top category filters affect only afisha, and no duplicate create CTA remains', async () => {
+  setMixedFixtures(); await mount()
+  try {
+    assert.deepEqual([...container.querySelectorAll('section[aria-labelledby]')].map(s => s.getAttribute('aria-labelledby')), ['public-feed-title', 'personal-feed-title'])
+    assert.equal(container.querySelectorAll('[aria-label="Категорії подій"]').length, 1)
+    const filters = container.querySelector('[aria-label="Категорії афіші"]')!
+    assert.ok(filters.compareDocumentPosition(rail('public')) & dom.window.Node.DOCUMENT_POSITION_FOLLOWING)
+    const before = rail('personal').textContent
+    await click('Кіно')
+    assert.match(rail('public').textContent!, /PUBLIC_FIXTURE_0/)
+    assert.doesNotMatch(rail('public').textContent!, /PUBLIC_FIXTURE_1\b/)
+    assert.equal(rail('personal').textContent, before)
+    assert.equal(container.querySelectorAll('a[href^="/create"]').length, 0)
+    assert.equal(container.querySelector('.organizer-banner'), null)
+  } finally { resetFixtures(); await act(async () => root.unmount()) }
+})
+
+test('both rails load separate batches on horizontal and vertical end scroll; filters reset afisha paging', async () => {
+  for (const width of [360, 1440]) {
+    setMixedFixtures(); await mount()
+    try {
+      assert.equal(rail('public').children.length, 10)
+      assert.equal(rail('personal').children.length, 10)
+      await reachEnd('public', width)
+      assert.equal(rail('public').children.length, 20)
+      assert.equal(rail('personal').children.length, 10)
+      await reachEnd('personal', width)
+      assert.equal(rail('personal').children.length, 20)
+      assert.equal(rail('public').children.length, 20)
+      await click('Кіно')
+      assert.equal(rail('public').children.length, 10)
+      assert.equal(rail('personal').children.length, 20)
+    } finally { resetFixtures(); await act(async () => root.unmount()) }
+  }
+})
+
+test('global and personal empty states work independently without adding create links', async () => {
+  setMixedFixtures(); await mount()
+  try {
+    const search = container.querySelector<HTMLInputElement>('input[type="search"]')!
+    async function find(value: string) {
+      await act(async () => { Object.getOwnPropertyDescriptor(dom.window.HTMLInputElement.prototype, 'value')!.set!.call(search, value); search.dispatchEvent(new Event('input', { bubbles: true })) })
+    }
+    await find('PUBLIC_FIXTURE')
+    assert.match(container.textContent!, /Поки немає особистих подій поруч/)
+    assert.ok(rail('public'))
+    await find('PERSONAL_FIXTURE')
+    assert.match(container.textContent!, /Поки немає публічних подій поруч/)
+    assert.ok(rail('personal'))
+    await find('NO_RESULTS')
+    assert.match(container.textContent!, /Поки немає особистих подій поруч/)
+    assert.match(container.textContent!, /Поки немає публічних подій поруч/)
+    assert.equal(container.querySelectorAll('a[href^="/create"]').length, 0)
+  } finally { resetFixtures(); await act(async () => root.unmount()) }
+})
+
+test('create is a single entry in each responsive navigation with the new label', async () => {
+  root = createRoot(container)
+  await act(async () => root.render(<MemoryRouter><BottomNav /><AppSidebar /></MemoryRouter>))
+  try {
+    const links = container.querySelectorAll('a[href="/create"]')
+    assert.equal(links.length, 2) // CSS shows exactly one navigation per breakpoint.
+    for (const link of links) assert.equal(link.textContent, 'Створити')
+    assert.doesNotMatch(container.textContent!, /Додати/)
+  } finally { await act(async () => root.unmount()) }
+})
 
 test('Kyiv organizer keeps their edited event after audience changes and reload; other audience and radius filters still apply', async () => {
   dom.window.localStorage.setItem(CITY_STORAGE_KEY, findCity('Київ')!.id)

@@ -6,7 +6,7 @@ import { useMyEventsContext } from '@/contexts/MyEventsContext'
 const tabs: { to: string; label: string; icon: IconName; primary?: boolean; badge?: 'messages' | 'events' }[] = [
   { to: '/', label: 'Головна', icon: 'home' },
   { to: '/my-events', label: 'Мої події', icon: 'calendar', badge: 'events' },
-  { to: '/create', label: 'Додати', icon: 'plus', primary: true },
+  { to: '/create', label: 'Створити', icon: 'plus', primary: true },
   { to: '/chats', label: 'Чати', icon: 'message', badge: 'messages' },
   { to: '/profile', label: 'Профіль', icon: 'user' },
 ]
