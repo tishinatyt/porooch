@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import { useUnreadMessages } from '@/contexts/UnreadMessagesContext'
 import TopBar from '@/components/TopBar'
+import { getChatDelivery, subscribeChatDelivery, setChatDraft, sendChatDraft, retryChatDelivery } from '@/lib/chatDelivery'
 import ParticipantAvatars from '@/components/home/ParticipantAvatars'
 import { EventContextCard, formatMessageDay, MessageBubble, MessageComposer, MessageDateSeparator, type ChatMessage } from '@/components/chat/ChatComponents'
 
@@ -29,6 +30,13 @@ function formatEventDate(iso: string) {
 
 export default function EventChat() {
   const { id } = useParams<{ id: string }>()
+  const { supaUser } = useAuth()
+  // A new screen instance also isolates A→B→A and account-switch callbacks.
+  return <EventChatScreen key={`${supaUser?.id ?? ''}:${id ?? ''}`} />
+}
+
+function EventChatScreen() {
+  const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const { supaUser } = useAuth()
   const { markChatRead } = useUnreadMessages()
@@ -39,8 +47,6 @@ export default function EventChat() {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [hasAccess, setHasAccess] = useState<boolean | null>(null)
   const [loading, setLoading] = useState(true)
-  const [text, setText] = useState('')
-  const [sending, setSending] = useState(false)
   const [sendError, setSendError] = useState<string | null>(null)
   const [hasNewMessages, setHasNewMessages] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
@@ -49,19 +55,27 @@ export default function EventChat() {
   const activeTargetRef = useRef('')
   const loadRequestRef = useRef(0)
   const chatIdRef = useRef<string | null>(null)
+  const mountedRef = useRef(false)
 
   const activeTarget = `${id ?? ''}:${supaUser?.id ?? ''}`
   activeTargetRef.current = activeTarget
   chatIdRef.current = chatId
+  const deliveryTarget = `${supaUser?.id ?? ''}:${id ?? ''}`
+  const delivery = useSyncExternalStore(subscribeChatDelivery, useCallback(() => getChatDelivery(deliveryTarget), [deliveryTarget]))
+
+  useEffect(() => {
+    mountedRef.current = true
+    return () => { mountedRef.current = false }
+  }, [])
 
   const checkAccess = useCallback(async () => {
-    if (!id || !supaUser) return false
+    if (!mountedRef.current || !id || !supaUser) return false
     const target = `${id}:${supaUser.id}`
     const [{ data: eventRow }, { data: membership }] = await Promise.all([
       supabase.from('events').select('organizer_id').eq('id', id).maybeSingle(),
       supabase.from('event_participants').select('status').eq('event_id', id).eq('user_id', supaUser.id).eq('status', 'joined').maybeSingle(),
     ])
-    if (activeTargetRef.current !== target) return false
+    if (!mountedRef.current || activeTargetRef.current !== target) return false
 
     const allowed = eventRow?.organizer_id === supaUser.id || Boolean(membership)
     setHasAccess(allowed)
@@ -70,7 +84,7 @@ export default function EventChat() {
   }, [id, supaUser])
 
   const load = useCallback(async (showLoading = true) => {
-    if (!id || !supaUser) return
+    if (!mountedRef.current || !id || !supaUser) return
     const target = `${id}:${supaUser.id}`
     const requestId = ++loadRequestRef.current
     if (showLoading) setLoading(true)
@@ -142,6 +156,10 @@ export default function EventChat() {
   }, [load])
 
   useEffect(() => {
+    if (delivery.sentVersion) void load(false)
+  }, [delivery.sentVersion, load])
+
+  useEffect(() => {
     if (!id || !supaUser) return
     const channel = supabase.channel(`event-chat-access:${id}:${supaUser.id}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'event_participants', filter: `event_id=eq.${id}` }, () => { void load(false) })
@@ -152,10 +170,11 @@ export default function EventChat() {
 
   useEffect(() => {
     if (!chatId || !supaUser) return
+    let cancelled = false
     const subscribedChatId = chatId
     const channel = supabase.channel(`event-chat:${subscribedChatId}`).on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'event_chat_messages', filter: `event_chat_id=eq.${subscribedChatId}` }, async (payload) => {
       const { data } = await supabase.from('event_chat_messages').select('id, event_chat_id, sender_id, content, created_at, sender:users!event_chat_messages_sender_id_fkey(id, name, avatar_url)').eq('id', (payload.new as { id: string }).id).maybeSingle()
-      if (chatIdRef.current !== subscribedChatId) return
+      if (cancelled || !mountedRef.current || chatIdRef.current !== subscribedChatId) return
       if (!data) { void checkAccess(); return }
       const message = normalizeMessage(data as unknown as Record<string, unknown>)
       if (message.sender_id === supaUser.id) nearBottomRef.current = true
@@ -163,7 +182,7 @@ export default function EventChat() {
       setMessages((current) => mergeMessages(current, [message]))
       if (nearBottomRef.current) void markChatRead(subscribedChatId, message.created_at)
     }).subscribe()
-    return () => { void supabase.removeChannel(channel) }
+    return () => { cancelled = true; void supabase.removeChannel(channel) }
   }, [chatId, checkAccess, markChatRead, supaUser])
 
   useEffect(() => {
@@ -182,16 +201,10 @@ export default function EventChat() {
     if (chatId && newest) void markChatRead(chatId, newest.created_at)
   }
 
-  async function handleSend() {
-    const content = text.trim()
-    if (!content || content.length > MESSAGE_LIMIT || !chatId || !supaUser || sending || !hasAccess) return
-    const target = activeTarget
-    const targetChatId = chatId
-    setSending(true); setSendError(null); nearBottomRef.current = true
-    const { error } = await supabase.from('event_chat_messages').insert({ event_chat_id: targetChatId, sender_id: supaUser.id, content })
-    if (activeTargetRef.current !== target || chatIdRef.current !== targetChatId) return
-    if (error) { setSendError('Не вдалося надіслати повідомлення'); await checkAccess() } else setText('')
-    if (activeTargetRef.current === target) setSending(false)
+  function handleSend() {
+    if (!chatId || !supaUser || !hasAccess) return
+    nearBottomRef.current = true
+    void sendChatDraft(deliveryTarget, chatId, supaUser.id)
   }
 
   if (loading || hasAccess === null) return <div className="min-h-screen bg-brand-bg"><TopBar title="Чат події" /><div className="mx-auto max-w-5xl space-y-3 px-4 py-6">{[1, 2, 3, 4].map((item) => <div key={item} className="h-16 animate-pulse rounded-2xl border border-brand-border bg-white" />)}</div></div>
@@ -219,7 +232,14 @@ export default function EventChat() {
           <div ref={bottomRef} />
           {hasNewMessages && <button type="button" onClick={scrollToNewest} className="sticky bottom-3 mx-auto block rounded-full bg-brand-accent px-4 py-2 text-xs font-bold text-white shadow-lg">Нові повідомлення</button>}
         </div>
-        <div className="sticky bottom-0 z-20 flex-shrink-0 lg:static"><MessageComposer value={text} sending={sending} disabled={!hasAccess || !chatId} error={sendError} maxLength={MESSAGE_LIMIT} onChange={setText} onSend={() => { void handleSend() }} /></div>
+        <div className="sticky bottom-0 z-20 flex-shrink-0 lg:static">
+          {delivery.pending && <div className="border-t border-brand-border bg-white px-4 py-2 text-xs">
+            {!messages.some(message => message.id === delivery.pending?.id) && <p className="break-words">{delivery.sending ? 'Надсилаємо' : 'Очікує надсилання'}: {delivery.pending.content}</p>}
+            {delivery.error && <p role="alert">{delivery.error}</p>}
+            {!delivery.sending && <button type="button" disabled={!hasAccess || chatId !== delivery.pending.event_chat_id} className="mt-1 min-h-10 font-bold text-brand-accent" onClick={() => { void retryChatDelivery(deliveryTarget) }}>Повторити надсилання</button>}
+          </div>}
+          <MessageComposer value={delivery.draft} sending={delivery.sending || Boolean(delivery.pending)} disabled={!hasAccess || !chatId} error={sendError} maxLength={MESSAGE_LIMIT} onChange={draft => setChatDraft(deliveryTarget, draft)} onSend={handleSend} />
+        </div>
       </div>
     </div>
   )

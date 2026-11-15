@@ -59,17 +59,30 @@ export function useEvent(eventId: string) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [participantCount, setParticipantCount] = useState(0)
-  const activeEventIdRef = useRef(eventId)
   const mountedRef = useRef(true)
-  activeEventIdRef.current = eventId
+  const scopeRef = useRef({ id: eventId })
+  const loadRequestRef = useRef(0)
+  const participantsRequestRef = useRef(0)
+  if (scopeRef.current.id !== eventId) {
+    scopeRef.current = { id: eventId }
+    loadRequestRef.current += 1
+    participantsRequestRef.current += 1
+  }
 
   useEffect(() => {
     mountedRef.current = true
-    return () => { mountedRef.current = false }
+    return () => {
+      mountedRef.current = false
+      loadRequestRef.current += 1
+      participantsRequestRef.current += 1
+    }
   }, [])
 
   const reloadParticipants = useCallback(async () => {
     if (!eventId) return
+    const scope = scopeRef.current
+    if (scope.id !== eventId) return
+    const requestId = ++participantsRequestRef.current
     const targetEventId = eventId
     const [participantsResult, countResult] = await Promise.all([
       supabase
@@ -84,7 +97,7 @@ export function useEvent(eventId: string) {
       supabase.rpc('event_participant_count', { p_event_id: targetEventId }),
     ])
 
-    if (!mountedRef.current || activeEventIdRef.current !== targetEventId) return
+    if (!mountedRef.current || scopeRef.current !== scope || requestId !== participantsRequestRef.current) return
 
     if (participantsResult.error) console.error('Failed to refresh event participants', participantsResult.error)
     else setParticipants(normalizeParticipants((participantsResult.data ?? []) as unknown as Record<string, unknown>[]))
@@ -121,6 +134,12 @@ export function useEvent(eventId: string) {
 
   async function load() {
     const targetEventId = eventId
+    const scope = scopeRef.current
+    const requestId = ++loadRequestRef.current
+    const participantsRequestId = ++participantsRequestRef.current
+    setEvent(null)
+    setParticipants([])
+    setParticipantCount(0)
     setLoading(true)
     setError(null)
 
@@ -152,7 +171,7 @@ export function useEvent(eventId: string) {
       supabase.rpc('event_participant_count', { p_event_id: targetEventId }),
     ])
 
-    if (!mountedRef.current || activeEventIdRef.current !== targetEventId) return
+    if (!mountedRef.current || scopeRef.current !== scope || requestId !== loadRequestRef.current) return
 
     if (eventResult.error || !eventResult.data) {
       if (eventResult.error) console.error('Failed to load event', eventResult.error)
@@ -194,16 +213,18 @@ export function useEvent(eventId: string) {
       location_lng: coordsResult.data?.lng ?? null,
     })
 
-    if (participantsResult.error) console.error('Failed to load event participants', participantsResult.error)
-    setParticipants(participantsResult.data
-      ? normalizeParticipants(participantsResult.data as unknown as Record<string, unknown>[])
-      : [])
+    if (participantsRequestId === participantsRequestRef.current) {
+      if (participantsResult.error) console.error('Failed to load event participants', participantsResult.error)
+      setParticipants(participantsResult.data
+        ? normalizeParticipants(participantsResult.data as unknown as Record<string, unknown>[])
+        : [])
 
-    if (participantCountResult.error) {
-      console.error('Failed to load participant count', participantCountResult.error)
-      setParticipantCount(0)
-    } else {
-      setParticipantCount(Number(participantCountResult.data ?? 0))
+      if (participantCountResult.error) {
+        console.error('Failed to load participant count', participantCountResult.error)
+        setParticipantCount(0)
+      } else {
+        setParticipantCount(Number(participantCountResult.data ?? 0))
+      }
     }
 
     setLoading(false)
@@ -254,5 +275,6 @@ export function useEvent(eventId: string) {
     return null
   }
 
-  return { event, participants, participantCount, loading, error, joinEvent, reviewRequest, leaveEvent }
+  const current = event?.id === eventId
+  return { event: current ? event : null, participants: current ? participants : [], participantCount: current ? participantCount : 0, loading: loading || Boolean(event && !current), error, joinEvent, reviewRequest, leaveEvent }
 }
