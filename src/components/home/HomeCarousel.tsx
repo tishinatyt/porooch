@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { Icon } from '@/components/icons'
 
 interface HomeCarouselProps {
@@ -8,13 +8,32 @@ interface HomeCarouselProps {
   className?: string
   showScrollControls?: boolean
   onReachEnd?: () => void
+  resetKey?: string
 }
 
-export default function HomeCarousel({ id, label, children, className = '', showScrollControls = false, onReachEnd }: HomeCarouselProps) {
+export default function HomeCarousel({ id, label, children, className = '', showScrollControls = false, onReachEnd, resetKey }: HomeCarouselProps) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const [canScrollUp, setCanScrollUp] = useState(false)
   const [canScrollDown, setCanScrollDown] = useState(false)
   const requestedCountRef = useRef(-1)
+
+  useLayoutEffect(() => {
+    const element = scrollRef.current
+    if (!element) return
+    // Reset after the initial demo→server transition too: native scroll-snap
+    // otherwise keeps the same demo element after real cards are prepended.
+    // Page appends/realtime refreshes deliberately do not change resetKey.
+    element.style.scrollSnapType = 'none'
+    element.scrollLeft = 0
+    element.scrollTop = 0
+    requestedCountRef.current = -1
+    const frame = window.requestAnimationFrame(() => {
+      element.scrollLeft = 0
+      element.scrollTop = 0
+      element.style.scrollSnapType = ''
+    })
+    return () => { window.cancelAnimationFrame(frame); element.style.scrollSnapType = '' }
+  }, [resetKey])
 
   const handleScroll = () => {
     const element = scrollRef.current
@@ -70,6 +89,7 @@ export default function HomeCarousel({ id, label, children, className = '', show
         ref={scrollRef}
         id={id}
         role="list"
+        dir="ltr"
         aria-label={label}
         onScroll={handleScroll}
         data-home-carousel={id}

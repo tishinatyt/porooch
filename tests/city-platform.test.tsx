@@ -220,7 +220,8 @@ test('create is a single entry in each responsive navigation with the new label'
 test('afisha title and metadata share one detail action without losing long event text', async () => {
   const title = 'Зустріч друзів міста: великий вечір кіно і музики для всіх охочих'
   const address = 'Київ, центральна площа біля театру, головний вхід'
-  const event = fixtureEvent({ id: 'public-long', title, address_text: address })
+  const description = 'Опис зустрічі для перегляду в картці'
+  const event = fixtureEvent({ id: 'public-long', title, address_text: address, description })
   setFixtures([event])
   metadata[0].event_type = 'public'
   await mount()
@@ -228,6 +229,7 @@ test('afisha title and metadata share one detail action without losing long even
     const details = rail('public').querySelector<HTMLButtonElement>('.home-card-details')!
     assert.match(details.textContent!, new RegExp(title))
     assert.match(details.textContent!, new RegExp(address))
+    assert.equal(details.querySelector('.home-card-description')!.textContent, description)
     await act(async () => details.click())
     assert.equal(eventRequests.at(-1), 'public-long')
   } finally { resetFixtures(); await act(async () => root.unmount()) }

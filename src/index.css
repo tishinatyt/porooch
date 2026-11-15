@@ -247,6 +247,8 @@ textarea {
   line-height: 1;
 }
 
+.home-card-demo-slot, .home-card-avatars { display: contents; }
+
 /* Compact Home only: keep shared cards and the desktop grid unchanged. */
 @media (max-width: 639px) {
   .home-screen .home-feeds-content { padding: 6px 8px; }
@@ -272,31 +274,44 @@ textarea {
     border-radius: 17px 17px 0 0;
   }
   .home-screen .home-feed-heading h1, .home-screen .home-feed-heading h2 { font-size: 12px; line-height: 16px; }
-  .home-screen [data-home-carousel] { gap: 8px; padding-right: 2px; padding-bottom: 4px; }
+  .home-screen [data-home-carousel] { direction: ltr; flex-direction: row; overflow-anchor: none; scroll-padding-inline: 0; gap: 8px; padding-right: 2px; padding-bottom: 4px; }
   .home-screen [data-home-carousel] > [role="listitem"] { width: 96%; }
-  .home-screen .home-event-card { height: auto; padding: 8px; border-radius: 14px; }
+  .home-screen .home-event-card { display: flex; flex-direction: column; box-sizing: border-box; padding: 8px; border-radius: 14px; }
+  .home-screen .home-public-card { height: 236px; }
+  .home-screen .home-personal-card { height: 296px; }
+  .home-screen .home-card-demo-slot { display: block; flex: 0 0 18px; height: 18px; margin-bottom: 4px; }
+  .home-screen .home-card-avatars { display: none; }
   .home-screen .home-event-card button { min-width: 44px; min-height: 44px; }
-  .home-screen .home-card-cover { width: 56px; height: 56px; border-radius: 10px; }
-  .home-screen .home-card-organizer { gap: 6px; margin-bottom: 4px; }
+  .home-screen .home-card-cover { width: 56px; height: 56px; aspect-ratio: 1; border-radius: 10px; }
+  .home-screen .home-card-organizer { flex: 0 0 44px; height: 44px; gap: 6px; margin-bottom: 4px; }
   .home-screen .home-card-organizer > div { min-width: 0; }
-  .home-screen .home-card-demo { margin-bottom: 4px; padding: 2px 6px; font-size: 9px; line-height: 14px; }
+  .home-screen .home-card-demo { margin-bottom: 0; padding: 2px 6px; font-size: 9px; line-height: 14px; }
   .home-screen .home-event-card h3 {
-    display: block;
-    overflow: visible;
-    -webkit-line-clamp: unset;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    height: 36px;
+    min-height: 36px;
+    -webkit-line-clamp: 2;
     overflow-wrap: anywhere;
     margin-bottom: 4px;
     font-size: 15px;
     line-height: 18px;
   }
-  .home-screen .home-event-card .truncate { white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: anywhere; }
+  .home-screen .home-card-details { flex: 0 0 108px; height: 108px; }
+  .home-screen .home-card-description { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; height: 28px; min-height: 28px; margin: 0 0 4px; overflow: hidden; overflow-wrap: anywhere; font-size: 10px; line-height: 14px; }
+  .home-screen .home-card-details > div { margin-top: 0; }
+  .home-screen .home-card-organizer p, .home-screen .home-card-meta > span:last-child { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .home-screen .home-card-meta { gap: 4px; font-size: 10px; line-height: 14px; }
   .home-screen .home-card-meta > span:first-child { width: 16px; height: 16px; }
-  .home-screen .home-card-tags { margin-top: 4px; gap: 3px; }
-  .home-screen .home-card-footer { flex-wrap: wrap; gap: 4px; margin-top: 4px; padding-top: 4px; }
+  .home-screen .home-card-tags { flex: 0 0 40px; height: 40px; margin-top: 4px; gap: 3px; align-content: start; }
+  .home-screen .home-card-tags > span { padding: 2px 6px; font-size: 9px; line-height: 12px; }
+  .home-screen .home-card-footer { flex: 0 0 50px; height: 50px; flex-wrap: nowrap; gap: 4px; margin-top: auto; padding-top: 4px; }
   .home-screen .home-card-footer > div { max-width: 100%; flex-wrap: wrap; }
+  .home-screen .home-card-footer > .home-card-actions { flex-shrink: 0; flex-wrap: nowrap; }
+  .home-screen .home-card-footer > div:first-child { min-width: 0; flex: 1; }
   .home-screen .home-event-card button[aria-label^="Переглянути профіль"] { width: 44px; height: 44px; margin-left: 0; }
-  .home-screen .home-card-cta { height: 44px; padding: 6px 9px; font-size: 10px; line-height: 14px; white-space: normal; }
+  .home-screen .home-card-cta { max-width: 120px; height: 44px; padding: 6px 9px; font-size: 10px; line-height: 14px; white-space: normal; }
   .home-screen .home-feed-more { min-height: 44px; margin-top: 4px; padding: 6px 8px; font-size: 11px; line-height: 16px; }
 }
 

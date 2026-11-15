@@ -30,7 +30,7 @@ try {
   }
   browser = await chromium.launch({ headless: true, channel: 'msedge' })
   async function contextFor(width, mode = 'guest') {
-    const context = await browser.newContext({ viewport: { width, height: ({ 360: 800, 390: 844, 430: 932 })[width] ?? 900 }, serviceWorkers: 'block' })
+    const context = await browser.newContext({ viewport: { width, height: ({ 360: 800, 390: 844, 430: 932 })[width] ?? 900 }, ...(width < 640 ? { isMobile: true, hasTouch: true } : {}), serviceWorkers: 'block' })
     let fixtureRows = []
     context.setFixtureRows = rows => { fixtureRows = rows }
     await context.routeWebSocket('**/*', socket => socket.close())
@@ -63,8 +63,11 @@ try {
         return route.fulfill({ json: request.headers().accept?.includes('vnd.pgrst.object') ? profile : [profile] })
       }
       if (url.pathname.includes('/rpc/poruch_is_admin')) return route.fulfill({ json: false })
-      if (url.pathname.endsWith('/rpc/events_nearby')) return route.fulfill({ json: fixtureRows })
-      if (url.pathname === '/rest/v1/events') return route.fulfill({ json: fixtureRows.map(row => ({ id: row.id, event_type: row.event_type, join_mode: 'open', is_public: true, bank_enabled: false })) })
+      if (url.pathname.endsWith('/rpc/events_nearby')) {
+        if (mode === 'home') await new Promise(resolve => setTimeout(resolve, 350))
+        return route.fulfill({ json: fixtureRows })
+      }
+      if (url.pathname === '/rest/v1/events') return route.fulfill({ json: fixtureRows.map(row => ({ id: row.id, event_type: row.event_type, description: row.description ?? '', join_mode: 'open', is_public: true, bank_enabled: false })) })
       if (url.pathname.startsWith('/rest/v1/')) return route.fulfill({ json: [] })
       throw Error(`Unexpected offline fixture request: ${request.method()} ${url.pathname}`)
     })
@@ -80,6 +83,50 @@ try {
     assert.equal(await page.locator('.organizer-section, .organizer-ticket').count(), 0)
     assert.equal(await page.getByText(message, { exact: true }).count(), 0)
     assert.equal(await page.locator('.organizer-banner').count(), 0)
+  }
+  async function firstCards(page) {
+    await page.waitForFunction(() => ['public', 'personal'].every(type => {
+      const rail = document.getElementById(`${type}-events-carousel`)
+      if (!rail?.firstElementChild) return false
+      return Math.abs(rail.scrollLeft) <= 1 && rail.firstElementChild.getBoundingClientRect().left >= rail.getBoundingClientRect().left - 1
+    }))
+  }
+  async function uniformCards(page) {
+    for (const [type, expectedHeight] of [['public', 236], ['personal', 296]]) {
+      const metrics = await page.locator(`#${type}-events-carousel article`).evaluateAll(cards => cards.map(card => {
+        const title = card.querySelector('h3'), description = card.querySelector('.home-card-description')
+        return { height: card.getBoundingClientRect().height, width: card.getBoundingClientRect().width, titleHeight: title.clientHeight, descriptionHeight: description.clientHeight, titleClamp: getComputedStyle(title).webkitLineClamp, descriptionClamp: getComputedStyle(description).webkitLineClamp }
+      }))
+      assert.ok(metrics.length >= 2)
+      for (const metric of metrics) {
+        assert.equal(metric.height, expectedHeight)
+        assert.ok(Math.abs(metric.width - metrics[0].width) < 1)
+        assert.equal(metric.titleHeight, 36)
+        assert.equal(metric.descriptionHeight, 28)
+        assert.equal(metric.titleClamp, '2')
+        assert.equal(metric.descriptionClamp, '2')
+      }
+    }
+  }
+  async function swipeForward(context, page, type) {
+    const rail = page.locator(`#${type}-events-carousel`)
+    await rail.scrollIntoViewIfNeeded()
+    const box = await rail.boundingBox()
+    const y = Math.min(box.y + 90, page.viewportSize().height - 100)
+    const cdp = await context.newCDPSession(page)
+    const start = box.x + box.width - 25, end = box.x + 35
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: start, y }] })
+    for (let step = 1; step <= 12; step++) {
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: start + (end - start) * step / 12, y }] })
+      await page.waitForTimeout(16)
+    }
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] })
+    await page.waitForFunction(id => {
+      const rail = document.getElementById(id)
+      const step = rail.children[1].offsetLeft - rail.children[0].offsetLeft
+      return step > 0 && rail.scrollLeft >= step - 2
+    }, `${type}-events-carousel`)
+    await cdp.detach()
   }
   for (const width of [360, 390, 430, 1440]) {
     const guest = await contextFor(width)
@@ -119,7 +166,8 @@ try {
     await existing.close()
     const home = await contextFor(width, 'home')
     home.setFixtureRows(['public', 'personal'].flatMap(type => Array.from({ length: 24 }, (_, index) => ({
-      id: `${type}-fixture-${index}`, title: `${type.toUpperCase()}_FIXTURE_${index}`, event_type: type,
+      id: `${type}-fixture-${index}`, title: `${type.toUpperCase()}_FIXTURE_${index}${index % 3 === 1 ? ' — довга назва зустрічі, концерту та вистави для всіх друзів міста разом у вихідні' : ''}`, event_type: type,
+      description: index % 3 === 0 ? '' : index % 3 === 1 ? 'Довгий опис зустрічі з багатьма подробицями, програмою та додатковою інформацією. '.repeat(5) : 'Короткий опис.',
       category: index % 2 ? 'theatre' : 'cinema', address_text: 'Київ', event_datetime: '2099-01-01T15:00:00Z',
       created_at: '2026-01-01T00:00:00Z', min_age: 18, max_age: 99, gender_filter: 'any', distance_km: 1,
       max_participants: 10, participant_count: 0, organizer_id: 'another-fixture-user', organizer: null,
@@ -128,6 +176,7 @@ try {
     await homePage.goto(base)
     await homePage.locator('#public-events-carousel > [role="listitem"]').first().waitFor()
     await homePage.waitForFunction(() => !document.querySelector('[role="status"]'))
+    if (width < 640) await firstCards(homePage)
     const visibleCreates = () => homePage.locator('a[href="/create"]').evaluateAll(links => links.filter(link => link.getClientRects().length).map(link => link.textContent))
     assert.deepEqual(await visibleCreates(), ['Створити'])
     const publicRail = homePage.locator('#public-events-carousel')
@@ -151,13 +200,29 @@ try {
       assert.equal(await homePage.locator('.home-city-summary').isVisible(), false)
       const cardMetrics = await homePage.locator('#public-events-carousel > [role="listitem"]:first-child article').evaluate(card => ({ width: card.getBoundingClientRect().width, height: card.getBoundingClientRect().height, padding: getComputedStyle(card).padding, cover: card.querySelector('.home-card-cover').getBoundingClientRect().width }))
       assert.ok(cardMetrics.width >= width * 0.8, 'Cards should use nearly all available width')
-      assert.ok(cardMetrics.height <= 175, 'A short afisha card should be lower than the previous ~180px layout')
+      assert.equal(cardMetrics.height, 236)
       assert.equal(cardMetrics.cover, 56)
       assert.equal(cardMetrics.padding, '8px')
       const smallTargets = await homePage.locator('#public-events-carousel > [role="listitem"]:first-child button, #personal-events-carousel > [role="listitem"]:first-child button').evaluateAll(buttons => buttons.filter(button => { const r = button.getBoundingClientRect(); return r.width < 44 || r.height < 44 }).map(button => button.getAttribute('aria-label') ?? button.textContent))
       assert.deepEqual(smallTargets, [], 'Every event-card button must have a 44px target')
       const clippedChips = await homePage.locator('[aria-label="Категорії афіші"] button').evaluateAll(buttons => buttons.filter(button => button.scrollWidth > button.clientWidth + 1).map(button => button.textContent))
       assert.deepEqual(clippedChips, [])
+      await uniformCards(homePage)
+      for (const type of ['public', 'personal']) {
+        const geometry = await homePage.locator(`#${type}-events-carousel`).evaluate(rail => {
+          const r = rail.getBoundingClientRect(), first = rail.children[0].getBoundingClientRect(), second = rail.children[1].getBoundingClientRect()
+          return { direction: getComputedStyle(rail).direction, layout: getComputedStyle(rail).flexDirection, firstLeft: first.left - r.left, firstRight: first.right - r.right, peek: r.right - second.left, inOrder: first.left < second.left }
+        })
+        assert.equal(geometry.direction, 'ltr'); assert.equal(geometry.layout, 'row')
+        assert.ok(geometry.firstLeft >= -1 && geometry.firstLeft <= 1)
+        assert.ok(geometry.firstRight <= 1)
+        assert.ok(geometry.peek > 0 && geometry.peek < 40)
+        assert.ok(geometry.inOrder)
+        await swipeForward(home, homePage, type)
+      }
+      await homePage.reload()
+      await homePage.waitForFunction(() => !document.querySelector('[role="status"]') && document.getElementById('public-events-carousel')?.textContent.includes('PUBLIC_FIXTURE_0'))
+      await firstCards(homePage)
     } else {
       assert.equal(await homePage.locator('.home-city-summary').isVisible(), true)
       assert.equal(await homePage.locator('.home-card-cover').first().evaluate(cover => cover.getBoundingClientRect().width), 108)
@@ -181,6 +246,7 @@ try {
     }
     const beforePersonal = await personalRail.textContent()
     await homePage.locator('[aria-label="Категорії афіші"]').getByRole('button', { name: 'Кіно', exact: true }).click()
+    if (width < 640) await homePage.waitForFunction(() => document.getElementById('public-events-carousel').scrollLeft === 0)
     assert.equal(await publicRail.locator(':scope > [role="listitem"]').count(), 10)
     assert.equal(await personalRail.textContent(), beforePersonal)
     assert.doesNotMatch(await publicRail.textContent(), /PUBLIC_FIXTURE_1\b/)
@@ -195,10 +261,11 @@ try {
     await homePage.getByText('Поки немає публічних подій поруч.', { exact: true }).waitFor()
     assert.deepEqual(await visibleCreates(), ['Створити'])
     if (width < 640) {
-      // Stress wrapping with long user content and a demo badge/real cover.
+      // Long/empty descriptions, long titles and demo badges must share slots.
       const longTitle = 'Велика зустріч друзів міста: кіно, театр і музика для всіх охочих разом у вихідні'
       home.setFixtureRows(['public', 'personal'].map(type => ({
         id: `${type}-long`, event_type: type, title: longTitle, category: 'cinema',
+        description: 'Довгий опис із програмою зустрічі та важливими подробицями. '.repeat(8),
         address_text: 'Київ, велика пішохідна площа біля центрального театру, головний вхід',
         cover_photo_url: `${base}/poruch-logo.png`, event_datetime: '2099-01-01T15:00:00Z',
         min_age: 18, max_age: 99, gender_filter: 'any', distance_km: 1, max_participants: 10,
@@ -207,15 +274,9 @@ try {
       })))
       await homePage.reload()
       await homePage.locator('#public-events-carousel').getByText(longTitle, { exact: true }).waitFor()
-      await homePage.locator('[data-home-carousel]').evaluateAll(elements => elements.forEach(element => element.scrollTo({ left: 0, behavior: 'instant' })))
-      await homePage.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))
+      await firstCards(homePage)
       await layout(homePage, `home-long-content-${width}`)
-      const clippedText = await homePage.locator('.home-event-card h3, .home-event-card .home-card-meta > span:last-child').evaluateAll(elements => elements.filter(element => {
-        const style = getComputedStyle(element)
-        return element.scrollWidth > element.clientWidth + 2 || (style.overflowY === 'hidden' && element.scrollHeight > element.clientHeight + 2)
-      }).map(element => ({ text: element.textContent, scrollWidth: element.scrollWidth, width: element.clientWidth, height: element.clientHeight, scrollHeight: element.scrollHeight, overflow: getComputedStyle(element).overflow })))
-      assert.deepEqual(clippedText, [], 'Long titles and addresses must wrap without clipping')
-      assert.equal(await homePage.locator('#public-events-carousel h3').first().evaluate(title => getComputedStyle(title).webkitLineClamp), 'none')
+      await uniformCards(homePage)
       const longRail = await homePage.locator('#personal-events-carousel').boundingBox()
       const bottomNav = await homePage.locator('nav.fixed').boundingBox()
       assert.ok(longRail.y + 44 <= bottomNav.y, 'Second rail must still begin on screen with long titles')

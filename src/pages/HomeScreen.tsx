@@ -168,12 +168,12 @@ export default function HomeScreen() {
         events: nearbyRows.map((row) => ({ id: row.id, title: row.title })),
       })
     }
-    const typeById = new Map<string, { event_type: 'personal' | 'public'; join_mode: 'open' | 'approval'; is_public: boolean; bank_enabled: boolean }>()
+    const typeById = new Map<string, { event_type: 'personal' | 'public'; join_mode: 'open' | 'approval'; is_public: boolean; bank_enabled: boolean; description?: string }>()
 
     if (ids.length > 0) {
       const { data: typeRows, error: typeError } = await supabase
         .from('events')
-        .select('id, event_type, join_mode, is_public, bank_enabled')
+        .select('id, event_type, join_mode, is_public, bank_enabled, description')
         .in('id', ids)
       if (requestId !== discoveryRequestId.current) return
       if (typeError) {
@@ -194,6 +194,7 @@ export default function HomeScreen() {
           join_mode: (row.join_mode ?? 'open') as 'open' | 'approval',
           is_public: row.is_public ?? true,
           bank_enabled: row.bank_enabled ?? false,
+          description: row.description ?? undefined,
         })
       }
       if (import.meta.env?.DEV) {
@@ -236,6 +237,7 @@ export default function HomeScreen() {
         join_mode: metadata?.join_mode ?? 'open',
         is_public: metadata?.is_public ?? (e.is_public as boolean | undefined) ?? true,
         bank_enabled: metadata?.bank_enabled ?? false,
+        description: metadata?.description ?? (e.description as string | undefined) ?? '',
         participationStatus: participantMembershipById.get(e.id as string),
       } as PublicEventData
     })
@@ -387,7 +389,7 @@ export default function HomeScreen() {
           <section aria-labelledby="public-feed-title" className="home-feed-section min-w-0 rounded-[24px] border border-[#dcc7bb] bg-[#f4e6de] p-2 pb-0 shadow-[0_10px_30px_rgba(91,61,44,0.08)] sm:p-3 sm:pb-0 lg:flex lg:min-h-0 lg:flex-col lg:p-2.5 lg:pb-0">
             {loadingDiscovery && shownPublic.length === 0 && <HomeCarousel id="public-events-loading" label="Завантаження афіші" className="lg:space-y-3">{[1, 2, 3, 4].map((item) => <div role="listitem" key={item} className="h-72 w-[88%] flex-none snap-start animate-pulse rounded-2xl border border-brand-border bg-white min-[420px]:w-[86%] sm:w-[46%] md:w-[44%] lg:w-auto" />)}</HomeCarousel>}
             {!loadingDiscovery && shownPublic.length === 0 && <div className="rounded-2xl border border-dashed border-brand-border-strong bg-white px-4 py-6 text-center lg:flex-1"><p className="text-sm font-bold text-brand-ink">{discoveryError ? 'Не вдалося завантажити події.' : 'Поки немає публічних подій поруч.'}</p>{!discoveryError && selectedCategory !== 'all' && <p className="mt-1.5 text-xs text-brand-ink-muted">Спробуйте іншу категорію або збільшіть радіус.</p>}</div>}
-            {shownPublic.length > 0 && <HomeCarousel key={`${city.id}:${selectedCategory}:${radiusKm}:${searchQuery}`} id="public-events-carousel" label="Афіша поруч" showScrollControls onReachEnd={hasMorePublic ? () => setPublicPage(page => page + 1) : undefined} className="gap-3.5 lg:space-y-2">{shownPublic.map((event) => <div role="listitem" key={event.id} className="w-[88%] flex-none snap-start [scroll-snap-stop:always] min-[420px]:w-[86%] sm:w-[46%] md:w-[44%] lg:w-auto"><PublicEventCard event={event} isNew={event.id === newEventId} isOrganizer={Boolean(supaUser?.id && (event.organizer_id ?? event.organizer?.id) === supaUser.id)} /></div>)}</HomeCarousel>}
+            {shownPublic.length > 0 && <HomeCarousel key={`${city.id}:${selectedCategory}:${radiusKm}:${searchQuery}`} resetKey={loadedCityId === city.id ? 'loaded' : 'pending'} id="public-events-carousel" label="Афіша поруч" showScrollControls onReachEnd={hasMorePublic ? () => setPublicPage(page => page + 1) : undefined} className="gap-3.5 lg:space-y-2">{shownPublic.map((event) => <div role="listitem" key={event.id} className="w-[88%] flex-none snap-start [scroll-snap-stop:always] min-[420px]:w-[86%] sm:w-[46%] md:w-[44%] lg:w-auto"><PublicEventCard event={event} isNew={event.id === newEventId} isOrganizer={Boolean(supaUser?.id && (event.organizer_id ?? event.organizer?.id) === supaUser.id)} /></div>)}</HomeCarousel>}
 
             {hasMorePublic && <button type="button" onClick={() => setPublicPage((page) => page + 1)} className="home-feed-more mt-4 w-full rounded-xl border border-brand-border bg-white py-3 text-sm font-bold text-brand-ink-soft transition hover:border-brand-border-strong hover:bg-brand-surface-muted">Показати більше ({filteredPublic.length - shownPublic.length})</button>}
             <div className="home-feed-heading -mx-2 mt-1 flex-none rounded-b-[23px] border-t border-[#dfcec4] bg-white/28 px-3 py-2 sm:-mx-3 lg:-mx-2.5 xl:flex xl:min-h-11 xl:items-center xl:gap-2">
@@ -403,7 +405,7 @@ export default function HomeScreen() {
             {!loadingDiscovery && personalEvents.length === 0 && (
               <div className="rounded-2xl border border-dashed border-brand-border-strong bg-white px-4 py-6 text-center lg:flex-1"><p className="text-sm font-bold text-brand-ink">{discoveryError ? 'Не вдалося завантажити події.' : 'Поки немає особистих подій поруч.'}</p></div>
             )}
-            {personalEvents.length > 0 && <HomeCarousel key={`${city.id}:${radiusKm}:${searchQuery}`} id="personal-events-carousel" label="Знайомства поруч" showScrollControls onReachEnd={hasMorePersonal ? () => setPersonalPage(page => page + 1) : undefined} className="gap-3.5 lg:space-y-3.5">{shownPersonal.map((event) => <div role="listitem" key={event.eventId} className="w-[88%] flex-none snap-start [scroll-snap-stop:always] min-[420px]:w-[86%] sm:w-[46%] md:w-[44%] lg:w-auto"><PersonalEventCard event={event} isOrganizer={Boolean(supaUser?.id && (event.organizer_id ?? event.organizer?.id) === supaUser.id)} /></div>)}</HomeCarousel>}
+            {personalEvents.length > 0 && <HomeCarousel key={`${city.id}:${radiusKm}:${searchQuery}`} resetKey={loadedCityId === city.id ? 'loaded' : 'pending'} id="personal-events-carousel" label="Знайомства поруч" showScrollControls onReachEnd={hasMorePersonal ? () => setPersonalPage(page => page + 1) : undefined} className="gap-3.5 lg:space-y-3.5">{shownPersonal.map((event) => <div role="listitem" key={event.eventId} className="w-[88%] flex-none snap-start [scroll-snap-stop:always] min-[420px]:w-[86%] sm:w-[46%] md:w-[44%] lg:w-auto"><PersonalEventCard event={event} isOrganizer={Boolean(supaUser?.id && (event.organizer_id ?? event.organizer?.id) === supaUser.id)} /></div>)}</HomeCarousel>}
 
             {hasMorePersonal && <button type="button" onClick={() => setPersonalPage(page => page + 1)} className="home-feed-more mt-2 min-h-10 w-full rounded-xl border border-brand-border bg-white px-3 text-xs font-bold text-brand-ink-soft">Показати більше знайомств ({personalEvents.length - shownPersonal.length})</button>}
             <div className="home-feed-heading -mx-2 mt-1 flex min-h-9 flex-none items-center gap-2 rounded-b-[23px] border-t border-[#cfc4e2] bg-white/30 px-3 py-2 sm:-mx-3">

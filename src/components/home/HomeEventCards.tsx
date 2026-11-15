@@ -48,8 +48,8 @@ export function PersonalEventCard({ event, management = false, isOrganizer = fal
   const actionMuted = !isOrganizer && (isFull || Boolean(event.participationStatus))
 
   return (
-    <article className="home-event-card h-full rounded-[18px] border border-[#d8d0e7] bg-white p-3 transition-[transform,box-shadow,border-color] duration-200 hover:border-[#c7b9df] sm:p-3.5">
-      {event.isDemo && <span className="home-card-demo mb-2 inline-block rounded-lg bg-amber-100 px-2 py-1 text-[10px] font-bold text-amber-900">Тестова подія</span>}
+    <article className="home-event-card home-personal-card h-full rounded-[18px] border border-[#d8d0e7] bg-white p-3 transition-[transform,box-shadow,border-color] duration-200 hover:border-[#c7b9df] sm:p-3.5">
+      <div className="home-card-demo-slot">{event.isDemo && <span className="home-card-demo mb-2 inline-block rounded-lg bg-amber-100 px-2 py-1 text-[10px] font-bold text-amber-900">Тестова подія</span>}</div>
       <div className="home-card-organizer mb-2 flex items-center gap-2.5">
         {event.organizer ? <ProfileAvatar profile={{ id: event.organizer.id, name: event.organizer.name, age: event.organizer.age, avatar_url: event.organizer.avatar_url }} className="grid h-8 w-8 flex-shrink-0 place-items-center overflow-hidden rounded-full border border-white bg-brand-accent-soft text-xs font-extrabold text-brand-accent shadow-[0_2px_7px_rgba(62,44,105,0.13)]" /> : <div className="grid h-8 w-8 place-items-center rounded-full border border-white bg-brand-accent-soft text-xs font-extrabold text-brand-accent shadow-[0_2px_7px_rgba(62,44,105,0.13)]">О</div>}
         <div className="min-w-0 flex-1">
@@ -60,7 +60,8 @@ export function PersonalEventCard({ event, management = false, isOrganizer = fal
       </div>
 
       <button type="button" onClick={() => navigate(`/event/${event.eventId}`)} className="home-card-details block w-full text-left">
-        <h3 className="mb-2 line-clamp-2 text-[17px] font-extrabold leading-[1.16] tracking-[-0.025em] text-brand-ink sm:text-lg">{event.title}</h3>
+        <h3 title={event.title} className="mb-2 line-clamp-2 text-[17px] font-extrabold leading-[1.16] tracking-[-0.025em] text-brand-ink sm:text-lg">{event.title}</h3>
+        <p className="home-card-description hidden" title={event.description}>{event.description ?? ''}</p>
         <div className="space-y-1"><MetaRow icon="clock">{formatDateTime(event.event_datetime)}</MetaRow><MetaRow icon="pin">{event.address_text || 'Місце не вказано'}{event.distance_km != null ? ` · ${event.distance_km.toFixed(1)} км` : ''}</MetaRow></div>
       </button>
 
@@ -72,8 +73,8 @@ export function PersonalEventCard({ event, management = false, isOrganizer = fal
       </div>
 
       <div className="home-card-footer mt-2 flex items-center justify-between gap-2 border-t border-[#ece8f2] pt-2">
-        <div className="flex min-w-0 items-center gap-2"><ParticipantAvatars users={visibleUsers} totalCount={participantCount}/><span className="truncate text-[11px] font-semibold text-brand-ink-muted">{participantCount}/{event.max_participants} учасників</span></div>
-        <div className="flex gap-1.5">
+        <div className="flex min-w-0 items-center gap-2"><div className="home-card-avatars"><ParticipantAvatars users={visibleUsers} totalCount={participantCount}/></div><span className="truncate text-[11px] font-semibold text-brand-ink-muted">{participantCount}/{event.max_participants} учасників</span></div>
+        <div className="home-card-actions flex gap-1.5">
           {isOrganizer && Boolean(event.pending_request_count) && <button type="button" onClick={() => navigate(`/event/${event.eventId}`)} className="rounded-lg border border-amber-200 bg-amber-100 px-2 text-[9px] font-extrabold text-amber-900" aria-label={`${event.pending_request_count} запитів на участь`}>Запити · {event.pending_request_count}</button>}
           {management && <button type="button" onClick={() => navigate(`/event/${event.eventId}`)} className="h-10 rounded-xl border border-brand-border px-3 text-[11px] font-bold text-brand-ink-soft transition hover:border-brand-accent hover:text-brand-accent">Деталі</button>}
           <button type="button" onClick={() => navigate(`/event/${event.eventId}`)} aria-label={`${actionLabel}: «${event.title}»`} className={`home-card-cta font-extrabold tracking-[0.02em] transition ${actionMuted ? 'bg-brand-surface-muted text-brand-ink-muted hover:bg-brand-border' : 'bg-brand-accent text-white hover:bg-brand-accent-hover'}`}>{actionLabel}</button>
@@ -100,8 +101,8 @@ export function PublicEventCard({ event, isNew = false, isOrganizer = false }: {
   const actionMuted = !isOrganizer && (isFull || Boolean(event.participationStatus))
 
   return (
-    <article className={`home-event-card group h-full rounded-[18px] border bg-white p-3 transition-[transform,box-shadow,border-color] duration-200 hover:border-[#c9bedb] sm:p-3.5 lg:h-auto lg:p-3 ${isNew ? 'border-brand-accent/50 ring-2 ring-brand-accent/10' : 'border-[#d9d2e4]'}`}>
-      {event.isDemo && <span className="home-card-demo mb-2 inline-block rounded-lg bg-amber-100 px-2 py-1 text-[10px] font-bold text-amber-900">Тестова подія</span>}
+    <article className={`home-event-card home-public-card group h-full rounded-[18px] border bg-white p-3 transition-[transform,box-shadow,border-color] duration-200 hover:border-[#c9bedb] sm:p-3.5 lg:h-auto lg:p-3 ${isNew ? 'border-brand-accent/50 ring-2 ring-brand-accent/10' : 'border-[#d9d2e4]'}`}>
+      <div className="home-card-demo-slot">{event.isDemo && <span className="home-card-demo mb-2 inline-block rounded-lg bg-amber-100 px-2 py-1 text-[10px] font-bold text-amber-900">Тестова подія</span>}</div>
       <div className="flex min-w-0 gap-3 lg:gap-2.5">
         <div className="min-w-0 flex-1">
           <div className="mb-1 flex items-center gap-1.5">
@@ -109,7 +110,8 @@ export function PublicEventCard({ event, isNew = false, isOrganizer = false }: {
             {isNew && <span className="rounded-full bg-brand-accent px-2 py-0.5 text-[9px] font-extrabold text-white">НОВА</span>}
           </div>
           <button type="button" onClick={openEvent} className="home-card-details block w-full text-left">
-            <h3 className="line-clamp-2 text-[18px] font-extrabold leading-[1.16] tracking-[-0.025em] text-brand-ink sm:text-[19px]">{event.title}</h3>
+            <h3 title={event.title} className="line-clamp-2 text-[18px] font-extrabold leading-[1.16] tracking-[-0.025em] text-brand-ink sm:text-[19px]">{event.title}</h3>
+            <p className="home-card-description hidden" title={event.description}>{event.description ?? ''}</p>
             <div className="mt-1.5 space-y-0.5"><MetaRow icon="clock">{formatDateTime(event.event_datetime)}</MetaRow><MetaRow icon="pin">{event.address_text || 'Місце не вказано'}{event.distance_km !== null ? ` · ${event.distance_km.toFixed(1)} км` : ''}</MetaRow></div>
           </button>
         </div>
@@ -120,11 +122,11 @@ export function PublicEventCard({ event, isNew = false, isOrganizer = false }: {
 
       <div className="home-card-footer mt-1.5 flex items-center justify-between gap-2 border-t border-[#ece9f0] pt-1.5">
           <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-            <ParticipantAvatars users={participantUsers} totalCount={event.participant_count} />
+            <div className="home-card-avatars"><ParticipantAvatars users={participantUsers} totalCount={event.participant_count} /></div>
             <p className="truncate text-[11px] font-bold text-brand-ink-soft">{event.participant_count}/{event.max_participants} учасників</p>
             <p className={`inline-flex max-w-full truncate rounded-md border px-1.5 py-0.5 text-[9px] font-bold ${getEventAccessChipClass(event)}`}>{getEventAccessLabel(event)}</p>
           </div>
-          <div className="flex flex-shrink-0 items-center gap-1.5">
+          <div className="home-card-actions flex flex-shrink-0 items-center gap-1.5">
             {isOrganizer && Boolean(event.pending_request_count) && <button type="button" onClick={openEvent} className="home-card-cta border border-amber-200 bg-amber-100 font-extrabold text-amber-900" aria-label={`${event.pending_request_count} запитів на участь`}>Запити · {event.pending_request_count}</button>}
             <button type="button" onClick={openEvent} aria-label={`${actionLabel}: «${event.title}»`} className={`home-card-cta font-extrabold tracking-[0.02em] transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-accent ${actionMuted ? 'bg-brand-surface-muted text-brand-ink-muted hover:bg-brand-border' : 'bg-brand-accent text-white hover:bg-brand-accent-hover'}`}>{actionLabel}</button>
           </div>

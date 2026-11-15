@@ -374,3 +374,9 @@ The organizer banner, TopBar create shortcut and empty-state create link are rem
 At widths below 640px, Home has 32px category chips, no city-summary line, 8px horizontal page padding, 96%-width cards and 10px between feeds. Feed headings appear above the cards on mobile. Event covers are 56px, card padding is 8px, text wraps without line-clamp and card buttons have 44px minimum hit areas. Desktop and shared cards outside Home keep their previous layout. Header and bottom navigation are unchanged.
 
 Local mock-browser checks at 360/390/430px confirm both feed beginnings above the bottom panel, including long text; 1440px remains in the desktop grid. See `docs/home-compact-2026-11-15.md` and its committed 360/1440px screenshots for dimensions and validation.
+
+## 23. Uniform mobile cards and deterministic rail start (2026-11-15)
+
+This supersedes the unbounded wrapping in the initial compact release above. Mobile Afisha cards are 236px high; personal cards are 296px. Both reserve two-line title/description slots even when description is empty. Covers use a fixed square; footer counts/actions remain visible, with participant mini-avatars omitted on mobile to keep its size stable. Desktop keeps its previous layout.
+
+Rails are explicitly LTR with normal array order. On mount and the first demo→server transition, a layout effect disables snap briefly and resets scroll offsets before restoring snap. Filter keys also reset the appropriate rail; pagination appends do not. Local touch tests verify right-to-left swipes reveal following cards and the first card/next-card peek are correct at 360/390/430px. See `docs/home-carousel-2026-11-15.md` for causes, validation and screenshots.
