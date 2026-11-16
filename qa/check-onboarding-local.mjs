@@ -312,10 +312,13 @@ try {
   }
   for (const width of [360, 1440]) {
     const context = await contextFor(width, 'home')
-    await context.route('**/rest/v1/rpc/poruch_ingest_feed', route => route.fulfill({ json: [0, 1].map(index => ({
+    const posterRequests = []
+    await context.route('https://posters.example.test/**', route => { posterRequests.push(route.request().url()); return route.fulfill({ status: 404, body: '' }) })
+    await context.route('**/rest/v1/rpc/poruch_ingest_feed', route => route.fulfill({ json: [0, 1, 2].map(index => ({
       id: `external-${index}`, title: `Концерт · ${index}`, starts_at: '2099-01-01T18:00:00Z',
       place: 'Міська зала', address: 'вул. Миру, 1', city: 'Київ', category: 'music', latitude: null, longitude: null,
-      price_from: 200, currency: 'UAH', source_url: `https://tickets.example.test/event/${index}`, cover_url: null,
+      price_from: 200, currency: 'UAH', source_url: `https://tickets.example.test/event/${index}`,
+      cover_url: index === 2 ? `${base}/poruch-logo.png` : `https://posters.example.test/${index === 0 ? 'disabled' : 'broken'}.jpg`, use_source_images: index !== 0,
       description: 'Короткі факти про подію', source_name: 'Міська афіша', partner_params: 'utm_source=poruch',
     })) }))
     const page = await context.newPage()
@@ -323,14 +326,18 @@ try {
     await page.locator('.home-public-card').first().waitFor()
     await page.waitForFunction(() => !document.querySelector('[role="status"]'))
     const cards = page.locator('.home-public-card')
-    assert.equal(await cards.count(), 2)
+    assert.equal(await cards.count(), 3)
     assert.equal(await cards.locator('button').count(), 0)
-    assert.equal(await cards.getByText('Купити квиток', { exact: true }).count(), 2)
+    assert.equal(await cards.getByText('Купити квиток', { exact: true }).count(), 3)
+    await page.waitForFunction(() => { const images = document.querySelectorAll('.home-public-card img'); return images.length === 1 && images[0].complete && images[0].naturalWidth > 0 })
+    assert.deepEqual(posterRequests, ['https://posters.example.test/broken.jpg'])
+    assert.equal(await cards.nth(0).locator('img').count(), 0)
+    assert.equal(await cards.nth(1).locator('img').count(), 0)
     const links = await cards.locator('a').evaluateAll(items => items.map(item => ({ href: item.href, rel: item.rel })))
     assert.ok(links.every(link => new URL(link.href).searchParams.get('utm_source') === 'poruch' && link.rel.includes('noopener')))
-    if (width === 360) assert.equal(Math.round((await cards.first().boundingBox()).height), 236)
+    if (width === 360) for (const card of await cards.all()) assert.equal(Math.round((await card.boundingBox()).height), 236)
     await layout(page, `ingested-events-${width}`)
-    checks.push({ width, externalCards: 2, participationButtons: 0, partnerLinks: true })
+    checks.push({ width, externalCards: 3, participationButtons: 0, partnerLinks: true, sourceImages: 'consent, loaded and failed verified', disabledPosterRequests: 0 })
     await context.close()
   }
   await fs.writeFile(`${outDir}/${process.env.CHECK_INGEST_ONLY ? 'ingest-result' : 'result'}.json`, JSON.stringify(checks, null, 2))

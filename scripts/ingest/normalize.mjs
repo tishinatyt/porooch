@@ -7,6 +7,7 @@ export function dedupHash(event) {
   return hash([normalizedKey(event.title), event.starts_at, normalizedKey(event.place || event.address), normalizedKey(event.city)].join('|'))
 }
 export function httpUrl(value, base) {
+  if (typeof value !== 'string' || !value.trim()) return null
   try { const url = new URL(value, base); return ['https:', 'http:'].includes(url.protocol) && !url.username && !url.password ? url.href : null } catch { return null }
 }
 export function kyivDate(value) {
@@ -64,7 +65,7 @@ export function parseSchemaEvents(html, source, stats = {}) {
     const prices = offers.map(offer => ({ price: Number(offer.lowPrice ?? offer.price), currency: string(offer.priceCurrency, 3).toUpperCase() })).filter(p => Number.isFinite(p.price) && p.price >= 0 && p.currency)
     const currency = prices.find(p => p.currency === 'UAH')?.currency ?? prices[0]?.currency ?? null
     const price_from = currency ? Math.min(...prices.filter(p => p.currency === currency).map(p => p.price)) : null
-    const image = list(node.image)[0], cover_url = image ? httpUrl(typeof image === 'object' ? image.url || image.contentUrl : image, source.url) : null
+    const cover_url = list(node.image).map(resolve).map(image => httpUrl(image && typeof image === 'object' ? image.url || image.contentUrl || image['@id'] : image, source.url)).find(Boolean) ?? null
     const geo = resolve(location.geo) ?? {}, lat = Number(geo.latitude), lng = Number(geo.longitude)
     const holder = dom.window.document.createElement('div'); holder.innerHTML = typeof node.description === 'string' ? node.description : ''
     const description = string(holder.textContent, 200)

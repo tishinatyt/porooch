@@ -41,6 +41,15 @@ test('dedup ignores punctuation and source ids, while rescheduling keeps identit
   const [moved] = parseSchemaEvents(html({ ...original, startDate: '2099-01-03T18:00Z', eventStatus: 'https://schema.org/EventCancelled' }), source)
   assert.equal(first.external_id, moved.external_id); assert.notEqual(first.fingerprint, moved.fingerprint)
 })
+
+test('JSON-LD image accepts ImageObject references and finds a valid URL after null or unsafe entries', () => {
+  const [row] = parseSchemaEvents(html({ '@graph': [
+    { '@id': '#poster', '@type': 'ImageObject', contentUrl: '/poster.jpg' },
+    { '@type': 'MusicEvent', name: 'Концерт', startDate: '2099-01-01T18:00Z', location: { name: 'Зала' }, image: [null, 'javascript:alert(1)', { '@id': '#poster' }] },
+  ] }), source)
+  assert.equal(row.cover_url, 'https://example.test/poster.jpg')
+  assert.equal(row.raw_data.image, row.cover_url)
+})
 test('Kyiv wall-clock parsing has seasonal offsets and rejects nonexistent dates/times', () => {
   assert.equal(kyivDate('2026-07-01T19:00'), '2026-07-01T16:00:00.000Z')
   assert.equal(kyivDate('2026-01-01T19:00'), '2026-01-01T17:00:00.000Z')

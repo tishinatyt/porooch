@@ -6,6 +6,8 @@ const dom = new JSDOM('<!doctype html><div id="app"></div>', { url: 'http://loca
 for (const key of ['window', 'document', 'navigator', 'HTMLElement', 'Event', 'MouseEvent']) Object.defineProperty(globalThis, key, { value: dom.window[key as keyof typeof dom.window], configurable: true })
 Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', { value: true, configurable: true })
 const calls: { name: string; args?: any }[] = []
+let legacySchema = false
+const writeError = (payload: any) => legacySchema && Object.hasOwn(payload, 'use_source_images') ? { code: 'PGRST204', message: 'use_source_images column missing' } : null
 const sources = [{ id: 'source-one', name: 'Міський театр', city: 'Чернігів', url: 'https://example.test/events', type: 'schema_org', default_category: 'theatre', enabled: true, partner_params: '', last_run_at: null, last_result: 'ok', last_found: 2, last_changed: 1, run_count: 1 }]
 let pending = [{ id: 'event-one', title: 'Вистава', city: 'Чернігів', starts_at: '2099-01-01T18:00Z', place: 'Театр', address: 'Центр', source_url: 'https://example.test/play', source: { name: 'Міський театр' }, fingerprint: 'version-one', event_status: 'EventScheduled' }]
 let rpcResponse: (name: string, args: any) => Promise<any> = async () => ({ data: 1, error: null })
@@ -16,9 +18,9 @@ mock.module('../src/lib/supabase.ts', { namedExports: { supabase: {
     const q: any = {
       select: () => q, order: () => q, eq: (key: string, value: any) => { filters.push([key, value]); return q },
       range: async () => { calls.push({ name: `list:${table}`, args: filters }); return { data: table === 'event_sources' ? sources : pending, count: pending.length, error: null } },
-      insert: async (payload: any) => { calls.push({ name: 'insert', args: payload }); return { error: null } },
-      update: (payload: any) => { calls.push({ name: 'update', args: payload }); return q },
-      then: (resolve: any) => Promise.resolve({ error: null }).then(resolve),
+      insert: async (payload: any) => { calls.push({ name: 'insert', args: payload }); return { error: writeError(payload) } },
+      update: (payload: any) => { calls.push({ name: 'update', args: payload }); q.payload = payload; return q },
+      then: (resolve: any) => Promise.resolve({ error: q.payload ? writeError(q.payload) : null }).then(resolve),
     }; return q
   },
 } } })
@@ -26,7 +28,7 @@ const { createRoot } = await import('react-dom/client')
 const { AdminIngest } = await import('../src/components/admin/AdminIngest.tsx')
 const { default: ExternalEventCard } = await import('../src/components/home/ExternalEventCard.tsx')
 const { useIngestedFeed } = await import('../src/hooks/useIngestedFeed.ts')
-const { asExternalEvent, externalUrl, distanceFrom } = await import('../src/lib/ingestedEvents.ts')
+const { asExternalEvent, externalUrl, distanceFrom, sourceImageUrl, missingImagesColumn } = await import('../src/lib/ingestedEvents.ts')
 const container = document.getElementById('app')!
 const external = { id: 'external', title: 'Концерт', starts_at: '2099-01-01T18:00Z', place: 'Зала', address: 'Центр', city: 'Чернігів', category: 'music', latitude: null, longitude: null, price_from: 200, currency: 'UAH', cover_url: null, source_url: 'https://example.test/tickets?seat=1', source_name: 'Квитки', partner_params: 'utm_source=poruch', description: 'Факти' }
 async function click(text: string) { await act(async () => { const button = [...container.querySelectorAll('button')].find(item => item.textContent === text); assert.ok(button, text); button.click() }) }
@@ -101,4 +103,69 @@ test('external feed A→B→A ignores obsolete responses; failed external querie
     await act(async () => requests[3].resolve({ error: { message: 'offline' } }))
     assert.equal(container.textContent, 'error')
   } finally { rpcResponse = async () => ({ data: 1, error: null }); await act(async () => root.unmount()) }
+})
+
+test('source images require explicit consent; failed posters fall back to the existing category illustration', async () => {
+  const root = createRoot(container)
+  const poster = 'https://example.test/poster.jpg'
+  try {
+    for (const flag of [undefined, false]) {
+      const event = asExternalEvent({ ...external, cover_url: poster, use_source_images: flag })!
+      assert.equal(event.cover_photo_url, null)
+      await act(async () => root.render(<ExternalEventCard event={event} />))
+      assert.equal(container.querySelector('img'), null)
+      assert.ok(container.querySelector('svg'))
+    }
+    const event = asExternalEvent({ ...external, cover_url: poster, use_source_images: true })!
+    await act(async () => root.render(<ExternalEventCard event={event} />))
+    assert.equal(container.querySelector('img')?.src, poster)
+    await act(async () => container.querySelector('img')!.dispatchEvent(new Event('error')))
+    assert.equal(container.querySelector('img'), null)
+    assert.ok(container.querySelector('svg'))
+    assert.equal(sourceImageUrl('javascript:alert(1)', true), null)
+    assert.equal(missingImagesColumn({ code: 'PGRST204', message: 'use_source_images' }), true)
+    assert.equal(missingImagesColumn({ code: '500', message: 'use_source_images' }), false)
+  } finally { await act(async () => root.unmount()) }
+})
+
+test('moderation thumbnails use the same source consent and failed-image fallback as the feed', async () => {
+  const root = createRoot(container), previousPending = pending
+  pending = [{ ...pending[0], source_id: sources[0].id, category: 'theatre', cover_url: 'https://example.test/poster.jpg' }] as any
+  try {
+    await act(async () => root.render(<AdminIngest key="disabled" mode="moderation" />))
+    assert.equal(container.querySelector('article img'), null)
+    ;(sources[0] as any).use_source_images = true
+    await act(async () => root.render(<AdminIngest key="enabled" mode="moderation" />))
+    assert.equal(container.querySelector<HTMLImageElement>('article img')?.src, 'https://example.test/poster.jpg')
+    await act(async () => container.querySelector('article img')!.dispatchEvent(new Event('error')))
+    assert.equal(container.querySelector('article img'), null)
+    assert.ok(container.querySelector('article svg'))
+  } finally { delete (sources[0] as any).use_source_images; pending = previousPending; await act(async () => root.unmount()) }
+})
+
+test('before the SQL, default-off source saves retry without the column; enabling images reports the required migration', async () => {
+  const root = createRoot(container); legacySchema = true; calls.length = 0
+  await act(async () => root.render(<AdminIngest mode="sources" />))
+  async function fill() {
+    const values = ['Новий театр', 'https://example.test/new', 'Ніжин', '']
+    await act(async () => [...container.querySelectorAll<HTMLInputElement>('form input:not([type="checkbox"])')].forEach((input, index) => {
+      Object.getOwnPropertyDescriptor(dom.window.HTMLInputElement.prototype, 'value')!.set!.call(input, values[index]); input.dispatchEvent(new Event('input', { bubbles: true }))
+    }))
+  }
+  async function submit() { await act(async () => container.querySelector('form')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))) }
+  try {
+    await fill(); await submit()
+    const writes = calls.filter(call => call.name === 'insert')
+    assert.equal(writes.length, 2)
+    assert.equal(writes[0].args.use_source_images, false)
+    assert.equal(Object.hasOwn(writes[1].args, 'use_source_images'), false)
+    assert.equal(container.querySelector('[role="alert"]'), null)
+    calls.length = 0
+    await fill()
+    const label = [...container.querySelectorAll('label')].find(item => item.textContent?.includes('Показувати афіші джерела'))!
+    await act(async () => label.querySelector<HTMLInputElement>('input')!.click())
+    await submit()
+    assert.equal(calls.filter(call => call.name === 'insert').length, 1)
+    assert.match(container.querySelector('[role="alert"]')!.textContent!, /event-sources-images.sql/)
+  } finally { legacySchema = false; await act(async () => root.unmount()) }
 })
