@@ -128,7 +128,7 @@ try {
     }, `${type}-events-carousel`)
     await cdp.detach()
   }
-  for (const width of [360, 390, 430, 1440]) {
+  for (const width of process.env.CHECK_INGEST_ONLY ? [] : [360, 390, 430, 1440]) {
     const guest = await contextFor(width)
     const page = await guest.newPage()
     await page.goto(base)
@@ -310,7 +310,30 @@ try {
     await home.close()
     checks.push({ width, guestMessageCount: 1, organizerCards: 0, newProfileDestination: '/', existingLoginDestination: '/create', subsequentHomeDestination: '/', filtersHeight: categoryBox.height, publicRailTop: publicBox.y, personalRailTop: personalBox.y, compact: width < 640 })
   }
-  await fs.writeFile(`${outDir}/result.json`, JSON.stringify(checks, null, 2))
+  for (const width of [360, 1440]) {
+    const context = await contextFor(width, 'home')
+    await context.route('**/rest/v1/rpc/poruch_ingest_feed', route => route.fulfill({ json: [0, 1].map(index => ({
+      id: `external-${index}`, title: `Концерт · ${index}`, starts_at: '2099-01-01T18:00:00Z',
+      place: 'Міська зала', address: 'вул. Миру, 1', city: 'Київ', category: 'music', latitude: null, longitude: null,
+      price_from: 200, currency: 'UAH', source_url: `https://tickets.example.test/event/${index}`, cover_url: null,
+      description: 'Короткі факти про подію', source_name: 'Міська афіша', partner_params: 'utm_source=poruch',
+    })) }))
+    const page = await context.newPage()
+    await page.goto(base)
+    await page.locator('.home-public-card').first().waitFor()
+    await page.waitForFunction(() => !document.querySelector('[role="status"]'))
+    const cards = page.locator('.home-public-card')
+    assert.equal(await cards.count(), 2)
+    assert.equal(await cards.locator('button').count(), 0)
+    assert.equal(await cards.getByText('Купити квиток', { exact: true }).count(), 2)
+    const links = await cards.locator('a').evaluateAll(items => items.map(item => ({ href: item.href, rel: item.rel })))
+    assert.ok(links.every(link => new URL(link.href).searchParams.get('utm_source') === 'poruch' && link.rel.includes('noopener')))
+    if (width === 360) assert.equal(Math.round((await cards.first().boundingBox()).height), 236)
+    await layout(page, `ingested-events-${width}`)
+    checks.push({ width, externalCards: 2, participationButtons: 0, partnerLinks: true })
+    await context.close()
+  }
+  await fs.writeFile(`${outDir}/${process.env.CHECK_INGEST_ONLY ? 'ingest-result' : 'result'}.json`, JSON.stringify(checks, null, 2))
   console.log(JSON.stringify(checks, null, 2))
 } finally {
   if (browser) await browser.close()

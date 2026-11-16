@@ -1,0 +1,11 @@
+<!doctype html><html><head>
+<script type="application/ld+json">{ invalid block }</script>
+<script type="application/ld+json">
+{"@context":"https://schema.org","@graph":[
+  {"@id":"#venue","@type":"Place","name":"Палац культури","address":{"@type":"PostalAddress","streetAddress":"вул. Миру, 1","addressLocality":"Чернігів","addressCountry":"UA"},"geo":{"latitude":51.49,"longitude":31.29}},
+  {"@id":"https://example.test/events/one","@type":["Thing","MusicEvent"],"name":"Концерт «Весна»","startDate":"2099-05-01T19:00:00+03:00","endDate":"2099-05-01T21:00:00+03:00","location":{"@id":"#venue"},"image":[{"url":"/cover.jpg"}],"url":"/events/one","offers":[{"price":500,"priceCurrency":"UAH"},{"price":300,"priceCurrency":"UAH"}],"description":"<p>Короткий факт про концерт.</p>"},
+  {"@type":"ItemList","itemListElement":[{"item":{"@type":"https://schema.org/ScreeningEvent","name":"Кіно","startDate":"2099-01-02T18:00","location":{"name":"Кінотеатр","address":"вул. Кіно, 2"},"url":"/events/cinema","eventStatus":"https://schema.org/EventRescheduled","previousStartDate":"2099-01-01T18:00"}}]},
+  {"@type":"TheaterEvent","name":"Foreign event","startDate":"2099-05-01T19:00:00Z","location":{"name":"Abroad","address":{"addressCountry":"PL"}}},
+  {"@type":"TheaterEvent","name":"Invalid date","startDate":"2099-02-31T19:00:00Z","location":{"name":"Theatre"}}
+]}
+</script></head><body></body></html>

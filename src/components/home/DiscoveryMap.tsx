@@ -4,6 +4,7 @@ import type { LayerGroup, Map as LeafletMap } from 'leaflet'
 import type { Coords } from '@/lib/geo'
 import type { PublicEventData } from '@/components/home/types'
 import { eventCategoryLabel } from '@/components/home/eventLabels'
+import { ingestText } from '@/lib/ingestText'
 
 interface DiscoveryMapProps {
   events: PublicEventData[]
@@ -141,11 +142,16 @@ export default function DiscoveryMap({ events, center }: DiscoveryMapProps) {
         const distance = event.distance_km == null ? '' : ` · ${event.distance_km.toFixed(1)} км`
         appendText(popup, 'mt-1 text-xs text-brand-ink-muted', `${event.participant_count}/${event.max_participants} учасників${distance}`)
 
-        const detailsButton = document.createElement('button')
-        detailsButton.type = 'button'
+        const detailsButton = document.createElement(event.external ? 'a' : 'button')
+        if (detailsButton instanceof HTMLAnchorElement && event.external) {
+          detailsButton.href = event.external.url
+          detailsButton.target = '_blank'
+          detailsButton.rel = 'sponsored noopener noreferrer'
+          appendText(popup, 'mt-1 text-xs font-bold', `${ingestText.source}: ${event.external.sourceName}`)
+        }
         detailsButton.className = 'mt-3 min-h-10 rounded-lg bg-brand-accent px-3 text-[11px] font-extrabold text-white'
-        detailsButton.textContent = 'Детальніше'
-        detailsButton.addEventListener('click', () => navigate(`/event/${event.id}`))
+        detailsButton.textContent = event.external && event.external.priceFrom != null && event.external.priceFrom > 0 ? ingestText.ticket : ingestText.details
+        if (!event.external) detailsButton.addEventListener('click', () => navigate(`/event/${event.id}`))
         popup.appendChild(detailsButton)
 
         leaflet.marker(position).addTo(markerLayer).bindPopup(popup, { closeButton: false, maxWidth: 260 })

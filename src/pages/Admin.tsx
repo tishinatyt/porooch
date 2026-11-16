@@ -1,3 +1,4 @@
+import AdminWorkspace from '@/components/admin/AdminIngest'
 import { eventFeedText } from '@/lib/eventFeedText'
 import { appOrigin } from '@/lib/appUrl'
 import { useEffect, useRef, useState, type FormEvent } from 'react'
@@ -45,7 +46,7 @@ export default function Admin() {
     <header className="border-b border-brand-border bg-white"><div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-4 sm:px-6"><Link to="/" aria-label="Poruch — головна"><BrandLogo className="w-28" /></Link><Link to="/" className="text-sm font-bold text-brand-accent">До платформи →</Link></div></header>
     <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-9">
       <div className="mb-6 flex flex-wrap items-end justify-between gap-3"><div><p className="mb-1 text-xs font-bold uppercase tracking-widest text-brand-accent">Керування спільнотою</p><h1 className="text-3xl font-extrabold tracking-tight">Адміністрування ПОРУЧ</h1></div>{isAdmin && <span className="rounded-full border border-brand-accent/20 bg-brand-accent-soft px-3 py-2 text-xs font-bold text-brand-accent">{supaUser?.email}</span>}</div>
-      {loading ? <p role="status">Перевіряємо доступ…</p> : isAdmin ? <AdminDashboard key={supaUser?.id} /> : <section className="mx-auto max-w-lg rounded-2xl border border-brand-border bg-white p-6 sm:p-8">
+      {loading ? <p role="status">Перевіряємо доступ…</p> : isAdmin ? <AdminWorkspace key={supaUser?.id}><AdminDashboard /></AdminWorkspace> : <section className="mx-auto max-w-lg rounded-2xl border border-brand-border bg-white p-6 sm:p-8">
         <Icon name="userCheck" className="mb-4 h-9 w-9 text-brand-accent" />
         <h2 className="text-xl font-extrabold">{error ? 'Не вдалося перевірити доступ' : 'Вхід адміністратора'}</h2>
         <p className="mt-3 text-sm leading-6 text-brand-ink-soft">Цей розділ доступний лише підтвердженому Google-акаунту <strong>dr12071980@gmail.com</strong>.</p>

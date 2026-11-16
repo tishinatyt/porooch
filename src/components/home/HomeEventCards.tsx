@@ -1,3 +1,4 @@
+import ExternalEventCard from './ExternalEventCard'
 import { eventFeedText } from '@/lib/eventFeedText'
 import { useNavigate } from 'react-router-dom'
 import EventMedia from '@/components/EventMedia'
@@ -88,6 +89,7 @@ export function PersonalEventCard({ event, management = false, isOrganizer = fal
 
 export function PublicEventCard({ event, isNew = false, isOrganizer = false }: { event: PublicEventData; isNew?: boolean; isOrganizer?: boolean }) {
   const navigate = useNavigate()
+  if (event.external) return <ExternalEventCard event={event} />
   const participantUsers = event.participants ?? (event.organizer ? [{ id: event.organizer.id, name: event.organizer.name, avatar_url: event.organizer.avatar_url }] : [])
   const openEvent = () => navigate(`/event/${event.id}`)
   const isFull = event.participant_count >= event.max_participants

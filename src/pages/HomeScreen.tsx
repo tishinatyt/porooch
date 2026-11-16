@@ -1,3 +1,6 @@
+import { distanceFrom } from '@/lib/ingestedEvents'
+import { useIngestedFeed } from '@/hooks/useIngestedFeed'
+import { ingestText } from '@/lib/ingestText'
 import { eventFeedText } from '@/lib/eventFeedText'
 import { lazy, Suspense, useMemo, useState, useEffect, useCallback, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
@@ -111,6 +114,7 @@ export default function HomeScreen() {
   const [publicPage, setPublicPage] = useState(1)
   const [personalPage, setPersonalPage] = useState(1)
   const [radiusKm, setRadiusKm] = useState(5)
+  const externalFeed = useIngestedFeed(city.name, selectedCategory, searchQuery, publicPage * PAGE_SIZE)
   const [viewMode, setViewMode] = useState<'feed' | 'map'>('feed')
   // The selected city controls the UI immediately, independently of network latency.
   const discoveryCenter = useMemo(() => ({ lat: city.lat, lng: city.lng }), [city.lat, city.lng])
@@ -327,16 +331,18 @@ export default function HomeScreen() {
     .map((event) => ({ ...event, pending_request_count: pendingRequestCountByEvent[event.id] ?? 0 }))
     .map(asPersonalEvent)
 
+  const externalEvents = externalFeed.rows.map(event => ({ ...event, distance_km: distanceFrom(event, city.lat, city.lng) })).filter(event => event.distance_km === null || event.distance_km <= radiusKm)
+
   const realPublic = eligibleDiscovery
     .filter((event) => event.event_type === 'public')
     .filter((e) => selectedCategory === 'all' || e.category === selectedCategory)
 
-  const mapEvents = [...eligibleDiscovery, ...cityDemos.filter(event => matchesSearch(event, searchQuery))].filter((event) =>
+  const mapEvents = [...externalEvents, ...eligibleDiscovery, ...cityDemos.filter(event => matchesSearch(event, searchQuery))].filter((event) =>
     selectedCategory === 'all' || event.category === selectedCategory,
   )
 
   const demoFallbacks = cityDemos.filter(event => event.event_type === 'public' && (selectedCategory === 'all' || event.category === selectedCategory) && matchesSearch(event, searchQuery))
-  const filteredPublic = [...realPublic, ...demoFallbacks]
+  const filteredPublic = [...realPublic, ...externalEvents, ...demoFallbacks].sort(sortDiscovery)
     .map((event) => ({ ...event, pending_request_count: pendingRequestCountByEvent[event.id] ?? 0 }))
 
   useEffect(() => { setPublicPage(1); setPersonalPage(1) }, [radiusKm, searchQuery])
@@ -344,7 +350,7 @@ export default function HomeScreen() {
   const shownPersonal = personalEvents.slice(0, personalPage * PAGE_SIZE)
   const hasMorePersonal = personalEvents.length > personalPage * PAGE_SIZE
   const shownPublic = filteredPublic.slice(0, publicPage * PAGE_SIZE)
-  const hasMorePublic = filteredPublic.length > publicPage * PAGE_SIZE
+  const hasMorePublic = filteredPublic.length > publicPage * PAGE_SIZE || externalFeed.more
 
   useEffect(() => {
     if (!import.meta.env?.DEV || loadingDiscovery) return
@@ -386,6 +392,7 @@ export default function HomeScreen() {
             {(['feed', 'map'] as const).map((mode) => <button key={mode} type="button" aria-pressed={viewMode === mode} onClick={() => setViewMode(mode)} className={`h-8 rounded-lg px-3 text-[11px] font-extrabold transition ${viewMode === mode ? 'bg-brand-accent text-white shadow-sm' : 'text-brand-ink-muted hover:bg-brand-accent-soft hover:text-brand-accent'}`}>{mode === 'feed' ? 'Стрічка' : 'Карта'}</button>)}
           </div>
         </div>
+        {externalFeed.error && <p className="mb-2 text-xs text-brand-ink-muted">{ingestText.externalError} <button type="button" className="min-h-11 px-2 underline" onClick={externalFeed.retry}>{ingestText.refresh}</button></p>}
         {loadingDiscovery && <p role="status" className="mb-2 text-xs text-brand-ink-muted">Оновлюємо події: {city.name}…</p>}
         {discoveryError && <p role="alert" className="mb-2 rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-900">Не вдалося завантажити події. Спробуйте ще раз. <button type="button" onClick={() => void fetchDiscoveryEvents()} className="font-bold underline">Повторити</button></p>}
 
@@ -395,7 +402,7 @@ export default function HomeScreen() {
             {!loadingDiscovery && shownPublic.length === 0 && <div className="rounded-2xl border border-dashed border-brand-border-strong bg-white px-4 py-6 text-center lg:flex-1"><p className="text-sm font-bold text-brand-ink">{discoveryError ? 'Не вдалося завантажити події.' : eventFeedText.public.empty}</p>{!discoveryError && selectedCategory !== 'all' && <p className="mt-1.5 text-xs text-brand-ink-muted">Спробуйте іншу категорію або збільшіть радіус.</p>}</div>}
             {shownPublic.length > 0 && <HomeCarousel key={`${city.id}:${selectedCategory}:${radiusKm}:${searchQuery}`} resetKey={loadedCityId === city.id ? 'loaded' : 'pending'} id="public-events-carousel" label={eventFeedText.public.title} showScrollControls onReachEnd={hasMorePublic ? () => setPublicPage(page => page + 1) : undefined} className="gap-3.5 lg:space-y-2">{shownPublic.map((event) => <div role="listitem" key={event.id} className="w-[88%] flex-none snap-start [scroll-snap-stop:always] min-[420px]:w-[86%] sm:w-[46%] md:w-[44%] lg:w-auto"><PublicEventCard event={event} isNew={event.id === newEventId} isOrganizer={Boolean(supaUser?.id && (event.organizer_id ?? event.organizer?.id) === supaUser.id)} /></div>)}</HomeCarousel>}
 
-            {hasMorePublic && <button type="button" onClick={() => setPublicPage((page) => page + 1)} className="home-feed-more mt-4 w-full rounded-xl border border-brand-border bg-white py-3 text-sm font-bold text-brand-ink-soft transition hover:border-brand-border-strong hover:bg-brand-surface-muted">{eventFeedText.public.more} ({filteredPublic.length - shownPublic.length})</button>}
+            {hasMorePublic && <button type="button" onClick={() => setPublicPage((page) => page + 1)} className="home-feed-more mt-4 w-full rounded-xl border border-brand-border bg-white py-3 text-sm font-bold text-brand-ink-soft transition hover:border-brand-border-strong hover:bg-brand-surface-muted">{eventFeedText.public.more} {externalFeed.more ? '' : `(${filteredPublic.length - shownPublic.length})`}</button>}
             <div className="home-feed-heading -mx-2 mt-1 flex-none rounded-b-[23px] border-t border-[#dfcec4] bg-white/28 px-3 py-2 sm:-mx-3 lg:-mx-2.5 xl:flex xl:min-h-11 xl:items-center xl:gap-2">
               <div className="flex items-center gap-1.5">
                 <h2 id="public-feed-title" className="whitespace-nowrap text-sm font-extrabold tracking-[-0.02em] text-brand-ink">{eventFeedText.public.title}</h2>

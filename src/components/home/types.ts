@@ -41,6 +41,7 @@ export interface PersonalEventData extends VideoFields {
 }
 
 export interface PublicEventData extends VideoFields {
+  external?: { sourceName: string; url: string; priceFrom: number | null; currency: string | null }
   id: string
   title: string
   category: string
