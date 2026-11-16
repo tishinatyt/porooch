@@ -7,6 +7,9 @@ export const ingestText = {
   changed: 'Подія вже змінилася або її не можна опублікувати. Оновіть список і перевірте ще раз.',
   saved: 'Зміни збережено', refresh: 'Оновити', previous: 'Назад', next: 'Далі',
   name: 'Назва', type: 'Тип джерела', url: 'URL сторінки', category: 'Категорія за замовчуванням',
+  eventCategory: 'Категорія події',
+  categoryHint: 'Зміна категорії збережеться під час публікації.',
+  categoryMigration: 'Для зміни категорії виконайте SQL ingested-event-category.sql, потім повторіть публікацію.',
   partner: 'Партнерські параметри (наприклад, utm_source=poruch)',
   add: 'Додати джерело', edit: 'Редагувати', save: 'Зберегти', cancel: 'Скасувати',
   enabled: 'Увімкнено', enable: 'Увімкнути', disable: 'Вимкнути',
@@ -18,3 +21,7 @@ export const ingestText = {
   details: 'Детальніше', ticket: 'Купити квиток', from: 'від',
   externalError: 'Події з зовнішніх джерел тимчасово недоступні.',
 } as const
+
+export const ingestStatusLabels: Record<string, string> = {
+  EventCancelled: 'Скасовано', EventPostponed: 'Перенесено', EventRescheduled: 'Нова дата',
+}

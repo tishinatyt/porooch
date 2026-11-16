@@ -1,3 +1,6 @@
+import { normalizeEventTitle } from '@/lib/eventTitle'
+import { formatIngestedDate as date } from '@/lib/ingestedPresentation'
+import IngestedStatusBadge from './IngestedStatusBadge'
 import EventMedia from '@/components/EventMedia'
 import { sourceImageUrl, missingImagesColumn } from '@/lib/ingestedEvents'
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react'
@@ -11,7 +14,6 @@ type Pending = { source_id?: string; category?: string; cover_url?: string | nul
 const field = 'min-h-11 min-w-0 rounded-xl border border-brand-border bg-white px-3 text-sm'
 const button = 'min-h-11 rounded-xl border border-brand-border bg-white px-3 text-sm font-bold disabled:opacity-40'
 const blank = { id: '', name: '', type: 'schema_org', url: '', city: '', default_category: 'other', partner_params: '', enabled: false, use_source_images: false }
-function date(value: string | null) { return value ? new Date(value).toLocaleString('uk-UA', { timeZone: 'Europe/Kyiv' }) : '—' }
 
 export default function AdminWorkspace({ children }: { children: ReactNode }) {
   const [section, setSection] = useState<'platform' | 'moderation' | 'sources'>('platform')
@@ -21,11 +23,12 @@ export default function AdminWorkspace({ children }: { children: ReactNode }) {
 export function AdminIngest({ mode }: { mode: 'moderation' | 'sources' }) {
   const [sources, setSources] = useState<Source[]>([]), [rows, setRows] = useState<Pending[]>([])
   const [city, setCity] = useState(''), [source, setSource] = useState(''), [page, setPage] = useState(0), [total, setTotal] = useState(0)
+  const [categories, setCategories] = useState<Record<string, string>>({})
   const [selected, setSelected] = useState<Set<string>>(new Set()), [revision, setRevision] = useState(0)
   const [form, setForm] = useState(blank), [busy, setBusy] = useState(false), [loading, setLoading] = useState(true), [error, setError] = useState(''), [notice, setNotice] = useState('')
   useEffect(() => {
     let cancelled = false
-    setLoading(true); setRows([]); setSelected(new Set()); setError('')
+    setLoading(true); setRows([]); setSelected(new Set()); setCategories({}); setError('')
     void (async () => {
       try {
         const all: Source[] = []
@@ -44,7 +47,7 @@ export function AdminIngest({ mode }: { mode: 'moderation' | 'sources' }) {
           const result = await query.order('starts_at').order('id').range(page * 25, page * 25 + 24)
           if (result.error) throw result.error
           if (cancelled) return
-          setRows((result.data ?? []) as unknown as Pending[]); setTotal(result.count ?? 0)
+          setRows(((result.data ?? []) as unknown as Pending[]).map(row => ({ ...row, title: normalizeEventTitle(row.title) }))); setTotal(result.count ?? 0)
         }
       } catch { if (!cancelled) setError(t.failed) }
       finally { if (!cancelled) setLoading(false) }
@@ -56,10 +59,11 @@ export function AdminIngest({ mode }: { mode: 'moderation' | 'sources' }) {
     setBusy(true); setError(''); setNotice('')
     try {
       const versions = Object.fromEntries(rows.filter(row => ids.includes(row.id)).map(row => [row.id, row.fingerprint]))
-      const result = await supabase.rpc('poruch_ingest_moderate', { p_ids: ids, p_status: status, p_versions: versions })
+      const edits = Object.fromEntries(rows.filter(row => ids.includes(row.id) && categories[row.id] && categories[row.id] !== (row.category ?? sources.find(source => source.id === row.source_id)?.default_category ?? 'other')).map(row => [row.id, categories[row.id]]))
+      const result = await supabase.rpc('poruch_ingest_moderate', { p_ids: ids, p_status: status, p_versions: versions, ...(status === 'approved' && Object.keys(edits).length ? { p_categories: edits } : {}) })
       if (result.error) throw result.error
       setNotice(t.saved); setSelected(new Set()); setRevision(v => v + 1)
-    } catch { setError(t.changed) } finally { setBusy(false) }
+    } catch (error) { setError((error as { code?: string }).code === 'PGRST202' ? t.categoryMigration : t.changed) } finally { setBusy(false) }
   }
   async function save(event: FormEvent) {
     event.preventDefault(); if (busy) return
@@ -95,7 +99,7 @@ export function AdminIngest({ mode }: { mode: 'moderation' | 'sources' }) {
     {mode === 'moderation' ? <>
       <div className="flex flex-wrap items-center gap-2"><label className="flex min-h-11 items-center gap-2"><input type="checkbox" checked={rows.length > 0 && selected.size === rows.length} onChange={e => setSelected(new Set(e.target.checked ? rows.map(row => row.id) : []))} />{t.selectAll}</label>{(['approved', 'rejected'] as const).map(status => <button type="button" className={button} key={status} disabled={busy || !selected.size} onClick={() => void moderate([...selected], status)}>{status === 'approved' ? t.publish : t.reject} ({selected.size})</button>)}</div>
       {!loading && !error && !rows.length && <p>{t.empty}</p>}
-      {rows.map(row => <article key={row.id} className="rounded-2xl border bg-white p-4"><div className="float-right ml-3 h-16 w-16 overflow-hidden rounded-xl"><EventMedia category={row.category ?? sourceById.get(row.source_id ?? '')?.default_category ?? 'other'} coverUrl={sourceImageUrl(row.cover_url, sourceById.get(row.source_id ?? '')?.use_source_images)} compactFallback className="h-full w-full" /></div><label className="flex min-h-11 items-center gap-2 font-bold"><input type="checkbox" checked={selected.has(row.id)} onChange={e => setSelected(old => { const next = new Set(old); if (e.target.checked) next.add(row.id); else next.delete(row.id); return next })} />{row.title}</label><p>{date(row.starts_at)} · {row.city}</p><p>{row.place} · {row.address}</p><p>{t.source}: {row.source?.name} · {row.event_status}</p><a className="inline-flex min-h-11 items-center break-all text-brand-accent underline" href={row.source_url} target="_blank" rel="noopener noreferrer">{t.details}</a><div className="flex gap-2"><button className={button} disabled={busy} onClick={() => void moderate([row.id], 'approved')}>{t.publish}</button><button className={button} disabled={busy} onClick={() => void moderate([row.id], 'rejected')}>{t.reject}</button></div></article>)}
+      {rows.map(row => <article key={row.id} className="rounded-2xl border bg-white p-4"><div className="float-right ml-3 h-16 w-16 overflow-hidden rounded-xl"><EventMedia category={categories[row.id] ?? row.category ?? sourceById.get(row.source_id ?? '')?.default_category ?? 'other'} coverUrl={sourceImageUrl(row.cover_url, sourceById.get(row.source_id ?? '')?.use_source_images)} compactFallback className="h-full w-full" /></div><label className="flex min-h-11 items-center gap-2 font-bold"><input type="checkbox" checked={selected.has(row.id)} onChange={e => setSelected(old => { const next = new Set(old); if (e.target.checked) next.add(row.id); else next.delete(row.id); return next })} />{row.title}</label><p>{date(row.starts_at)} · {row.city}</p><p>{row.place} · {row.address}</p><p className="flex flex-wrap items-center gap-2">{t.source}: {row.source?.name}<IngestedStatusBadge status={row.event_status} /></p><label className="my-2 flex flex-wrap items-center gap-2 text-sm font-bold">{t.eventCategory}<select aria-label={`${t.eventCategory}: ${row.title}`} className={field} disabled={busy} value={categories[row.id] ?? row.category ?? sourceById.get(row.source_id ?? '')?.default_category ?? 'other'} onChange={e => setCategories(old => ({ ...old, [row.id]: e.target.value }))}>{row.category && !EVENT_CATEGORY_LABELS[row.category] && <option value={row.category}>{row.category}</option>}{Object.entries(EVENT_CATEGORY_LABELS).map(([id, name]) => <option value={id} key={id}>{name}</option>)}</select></label><p className="text-xs text-brand-ink-muted">{t.categoryHint}</p><a className="inline-flex min-h-11 items-center break-all text-brand-accent underline" href={row.source_url} target="_blank" rel="noopener noreferrer">{t.details}</a><div className="flex gap-2"><button className={button} disabled={busy} onClick={() => void moderate([row.id], 'approved')}>{t.publish}</button><button className={button} disabled={busy} onClick={() => void moderate([row.id], 'rejected')}>{t.reject}</button></div></article>)}
     </> : <>
       <form onSubmit={event => void save(event)} className="grid gap-3 rounded-2xl border bg-white p-4 sm:grid-cols-2">
         {(['name', 'url', 'city', 'partner_params'] as const).map(key => <label key={key} className="grid gap-1 text-sm font-bold">{key === 'partner_params' ? t.partner : t[key]}<input className={field} required={key !== 'partner_params'} maxLength={key === 'url' ? 2000 : key === 'partner_params' ? 500 : key === 'city' ? 120 : 200} list={key === 'city' ? 'ingest-cities' : undefined} type={key === 'url' ? 'url' : 'text'} value={form[key]} onChange={e => setForm(old => ({ ...old, [key]: e.target.value }))} /></label>)}

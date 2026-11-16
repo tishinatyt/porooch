@@ -5,6 +5,7 @@ import type { Coords } from '@/lib/geo'
 import type { PublicEventData } from '@/components/home/types'
 import { eventCategoryLabel } from '@/components/home/eventLabels'
 import { ingestText } from '@/lib/ingestText'
+import { formatIngestedDate, ingestedStatusLabel } from '@/lib/ingestedPresentation'
 
 interface DiscoveryMapProps {
   events: PublicEventData[]
@@ -138,7 +139,9 @@ export default function DiscoveryMap({ events, center }: DiscoveryMapProps) {
         if (event.isDemo) appendText(popup, 'mb-1 text-xs font-bold text-amber-800', 'Тестова подія · умовне місце')
         appendText(popup, 'text-sm font-extrabold leading-5', event.title)
         appendText(popup, 'mt-1 text-[11px] font-bold text-brand-accent', eventCategoryLabel(event.category))
-        appendText(popup, 'mt-2 text-xs text-brand-ink-soft', dateFormatter.format(new Date(event.event_datetime)))
+        appendText(popup, 'mt-2 text-xs text-brand-ink-soft', event.external ? formatIngestedDate(event.event_datetime) : dateFormatter.format(new Date(event.event_datetime)))
+        const status = ingestedStatusLabel(event.external?.status)
+        if (status) appendText(popup, 'mt-1 rounded-lg bg-amber-50 px-2 py-1 text-xs font-bold text-amber-900', status)
         const distance = event.distance_km == null ? '' : ` · ${event.distance_km.toFixed(1)} км`
         appendText(popup, 'mt-1 text-xs text-brand-ink-muted', `${event.participant_count}/${event.max_participants} учасників${distance}`)
 

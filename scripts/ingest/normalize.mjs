@@ -1,8 +1,9 @@
 import { createHash } from 'node:crypto'
 import { JSDOM } from 'jsdom'
+import { normalizeEventTitle } from '../../src/lib/eventTitle.ts'
 
 const hash = value => createHash('sha256').update(value).digest('hex')
-export const normalizedKey = value => String(value ?? '').normalize('NFKC').toLocaleLowerCase('uk-UA').replace(/[^\p{L}\p{N}]/gu, '')
+export const normalizedKey = value => normalizeEventTitle(String(value ?? '')).normalize('NFKC').toLocaleLowerCase('uk-UA').replace(/[^\p{L}\p{N}]/gu, '')
 export function dedupHash(event) {
   return hash([normalizedKey(event.title), event.starts_at, normalizedKey(event.place || event.address), normalizedKey(event.city)].join('|'))
 }
@@ -55,7 +56,7 @@ export function parseSchemaEvents(html, source, stats = {}) {
     const location = resolve(list(node.location)[0]) ?? {}, address = resolve(location.address) ?? {}
     const country = typeof address.addressCountry === 'object' ? address.addressCountry.name : address.addressCountry
     if (country && !['ua', 'ukraine', 'україна', 'украина'].includes(String(country).toLowerCase())) continue
-    const title = string(node.name), starts_at = kyivDate(node.startDate), ends_at = kyivDate(node.endDate)
+    const title = normalizeEventTitle(node.name).slice(0, 300), starts_at = kyivDate(node.startDate), ends_at = kyivDate(node.endDate)
     const city = string(address.addressLocality || source.city, 120)
     const place = string(location.name), addressText = typeof address === 'string' ? string(address) : string([address.streetAddress, address.addressLocality].filter(Boolean).join(', '))
     if (!title || !starts_at || !city || (!place && !addressText) || (ends_at && ends_at < starts_at)) continue

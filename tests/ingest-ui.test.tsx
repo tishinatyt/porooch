@@ -169,3 +169,40 @@ test('before the SQL, default-off source saves retry without the column; enablin
     assert.match(container.querySelector('[role="alert"]')!.textContent!, /event-sources-images.sql/)
   } finally { legacySchema = false; await act(async () => root.unmount()) }
 })
+
+test('moderation renders old titles normalized, hides technical statuses, and formats time without seconds', async () => {
+  const root = createRoot(container), original = pending
+  try {
+    for (const [status, label] of [['EventScheduled', null], ['EventCancelled', 'Скасовано'], ['EventPostponed', 'Перенесено'], ['EventRescheduled', 'Нова дата']]) {
+      pending = [{ ...original[0], title: ' Не  п `яна ', starts_at: '2026-11-16T18:00:39Z', event_status: status }] as any
+      await act(async () => root.render(<AdminIngest key={status} mode="moderation" />))
+      const card = container.querySelector('article')!
+      assert.match(card.textContent!, /Не п’яна/)
+      assert.match(card.textContent!, /16\.11\.2026, 20:00/)
+      assert.doesNotMatch(card.textContent!, /EventScheduled|EventCancelled|EventPostponed|EventRescheduled|20:00:39/)
+      if (label) assert.ok(card.textContent!.includes(label))
+    }
+  } finally { pending = original; await act(async () => root.unmount()) }
+})
+
+test('category drafts preview immediately and bulk publication sends only changed categories with displayed versions', async () => {
+  const root = createRoot(container), original = pending; calls.length = 0
+  pending = [{ ...original[0], category: 'music' }, { ...original[0], id: 'event-two', title: 'Кіно', category: 'cinema', fingerprint: 'version-two' }] as any
+  await act(async () => root.render(<AdminIngest mode="moderation" />))
+  try {
+    const select = container.querySelector<HTMLSelectElement>('article select')!
+    assert.equal(select.value, 'music')
+    await act(async () => { select.value = 'theatre'; select.dispatchEvent(new Event('change', { bubbles: true })) })
+    assert.equal(select.value, 'theatre')
+    await act(async () => container.querySelector<HTMLInputElement>('input[type="checkbox"]')!.click())
+    await click('Опублікувати (2)')
+    assert.deepEqual(calls.find(call => call.name === 'poruch_ingest_moderate')?.args, {
+      p_ids: ['event-one', 'event-two'], p_status: 'approved', p_versions: { 'event-one': 'version-one', 'event-two': 'version-two' }, p_categories: { 'event-one': 'theatre' },
+    })
+    const current = container.querySelector<HTMLSelectElement>('article select')!
+    await act(async () => { current.value = 'food'; current.dispatchEvent(new Event('change', { bubbles: true })) })
+    rpcResponse = async () => ({ error: { code: 'PGRST202', message: 'p_categories RPC not found' } })
+    await click('Опублікувати')
+    assert.match(container.querySelector('[role="alert"]')!.textContent!, /ingested-event-category.sql/)
+  } finally { pending = original; rpcResponse = async () => ({ data: 1, error: null }); await act(async () => root.unmount()) }
+})

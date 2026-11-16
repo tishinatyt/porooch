@@ -2,6 +2,8 @@ import EventMedia from '@/components/EventMedia'
 import type { PublicEventData } from './types'
 import { eventCategoryLabel } from './eventLabels'
 import { ingestText as t } from '@/lib/ingestText'
+import { formatIngestedDate } from '@/lib/ingestedPresentation'
+import IngestedStatusBadge from '@/components/admin/IngestedStatusBadge'
 
 export default function ExternalEventCard({ event }: { event: PublicEventData }) {
   const external = event.external!
@@ -10,10 +12,11 @@ export default function ExternalEventCard({ event }: { event: PublicEventData })
     <div className="flex min-w-0 gap-3 lg:gap-2.5">
       <div className="min-w-0 flex-1">
         <span className="rounded-lg border bg-brand-accent-soft px-2 py-0.5 text-[10px] font-bold text-brand-accent">{eventCategoryLabel(event.category)}</span>
+        <IngestedStatusBadge status={external.status} />
         <a href={external.url} target="_blank" rel="sponsored noopener noreferrer" className="home-card-details mt-1 block min-h-11">
           <h3 title={event.title} className="line-clamp-2 text-[18px] font-extrabold leading-[1.16] tracking-[-0.025em]">{event.title}</h3>
           <p className="home-card-description hidden" title={event.description}>{event.description}</p>
-          <p className="home-card-meta mt-1 text-[11px] text-brand-ink-muted">{new Date(event.event_datetime).toLocaleString('uk-UA', { timeZone: 'Europe/Kyiv', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</p>
+          <p className="home-card-meta mt-1 text-[11px] text-brand-ink-muted">{formatIngestedDate(event.event_datetime)}</p>
           <p className="home-card-meta truncate text-[11px] text-brand-ink-muted" title={event.address_text}>{event.address_text}</p>
         </a>
       </div>
