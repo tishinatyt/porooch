@@ -171,7 +171,7 @@ export default function DiscoveryMap({ events, center }: DiscoveryMapProps) {
 
   return (
     <div className="relative min-h-[430px] flex-1 overflow-hidden rounded-2xl border border-brand-border bg-brand-surface-muted lg:min-h-0">
-      <div ref={containerRef} role="region" className="absolute inset-0 z-0" aria-label="Карта подій поруч" />
+      <div ref={containerRef} role="region" className="absolute inset-0 z-0" aria-label="Карта подій" />
       {markerCount === 0 && <div className="pointer-events-none absolute inset-x-4 top-4 z-[400] mx-auto max-w-sm rounded-xl border border-brand-border bg-white/95 px-4 py-3 text-center text-xs font-bold text-brand-ink-soft shadow-card">Для вибраних подій немає координат на карті</div>}
     </div>
   )

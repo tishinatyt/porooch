@@ -1,3 +1,4 @@
+import { eventFeedText } from '@/lib/eventFeedText'
 import type { PublicEventData } from './types'
 import { findCity, cityLabel, type UkrainianCity } from '../../lib/cities.ts'
 
@@ -11,7 +12,7 @@ export function getCityDemoEvents(city: UkrainianCity, now = new Date()): Public
     return {
       id: `demo-city-${city.id}-${type}`,
       title: type === 'personal' ? `Кава та знайомство · ${city.name}` : `Відкрита прогулянка містом · ${city.name}`,
-      description: `Тестова ${type === 'personal' ? 'особиста' : 'публічна'} подія для міста ${cityLabel(city)}. Це приклад оформлення: дата, місце та кількість місць умовні. Реальна зустріч не запланована. Створіть власну подію, щоб запросити учасників і відкрити чат.`,
+      description: `Тестова ${eventFeedText[type].badge.toLocaleLowerCase('uk-UA')} подія для міста ${cityLabel(city)}. Це приклад оформлення: дата, місце та кількість місць умовні. Реальна зустріч не запланована. Створіть власну подію, щоб запросити учасників і відкрити чат.`,
       category: type === 'personal' ? 'communication' : 'walk',
       address_text: `${cityLabel(city)} · умовне місце в центрі`,
       event_datetime: date.toISOString(),

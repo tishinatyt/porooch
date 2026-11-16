@@ -1,3 +1,4 @@
+import { eventFeedText } from '@/lib/eventFeedText'
 import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useEvent } from '@/hooks/useEvent'
@@ -256,7 +257,7 @@ export default function EventDetail() {
 
       <div className="mx-auto grid max-w-6xl grid-cols-1 items-start gap-7 px-4 py-5 sm:px-7 md:py-7 lg:grid-cols-[minmax(0,1fr)_340px] lg:px-8 xl:grid-cols-[minmax(0,1fr)_370px] xl:gap-9">
         <main className="min-w-0 space-y-5">
-          {demoEvent && <p className="rounded-xl bg-amber-100 px-4 py-2 text-sm font-bold text-amber-900">Тестова подія · {demoEvent.event_type === 'personal' ? 'Особиста' : 'Публічна'}</p>}
+          {demoEvent && <p className="rounded-xl bg-amber-100 px-4 py-2 text-sm font-bold text-amber-900">Тестова подія · {demoEvent.event_type === 'personal' ? eventFeedText.personal.badge : eventFeedText.public.badge}</p>}
           <OrganizerHeader id={event.organizer_id} name={organizerName} age={event.organizer?.age} city={event.organizer?.city} bio={event.organizer?.bio} interests={event.organizer?.interests} avatarUrl={event.organizer?.avatar_url ?? null} verified={event.organizer?.google_verified ?? false} />
           <div className="h-40 overflow-hidden rounded-2xl border border-brand-border shadow-card lg:hidden"><EventMedia category={event.category} coverUrl={event.cover_photo_url} alt={event.cover_photo_url ? event.title : ''} className="h-full w-full" /></div>
           <section>

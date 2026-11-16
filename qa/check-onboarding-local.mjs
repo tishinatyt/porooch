@@ -179,10 +179,20 @@ try {
     if (width < 640) await firstCards(homePage)
     const visibleCreates = () => homePage.locator('a[href="/create"]').evaluateAll(links => links.filter(link => link.getClientRects().length).map(link => link.textContent))
     assert.deepEqual(await visibleCreates(), ['Створити'])
+    for (const [id, title] of [['public-feed-title', 'Публічні події'], ['personal-feed-title', 'Особисті події']]) {
+      const heading = homePage.locator('#' + id)
+      assert.equal(await heading.textContent(), title)
+      const size = await heading.evaluate(el => {
+        const range = document.createRange(); range.selectNodeContents(el)
+        return { lines: range.getClientRects().length, width: el.scrollWidth, available: el.parentElement.clientWidth }
+      })
+      assert.equal(size.lines, 1, title + ': one line')
+      assert.ok(size.width <= size.available, title + ': fits container')
+    }
     const publicRail = homePage.locator('#public-events-carousel')
     const personalRail = homePage.locator('#personal-events-carousel')
     const publicBox = await publicRail.boundingBox(), personalBox = await personalRail.boundingBox()
-    const categoryBox = await homePage.locator('[aria-label="Категорії афіші"]').boundingBox()
+    const categoryBox = await homePage.locator('[aria-label="Категорії публічних подій"]').boundingBox()
     assert.ok(categoryBox.height <= 48, 'Filters must occupy just one row')
     assert.equal(await homePage.locator('.home-city-summary').count(), 0)
     assert.equal(await homePage.locator('.home-card-demo').count(), 0)
@@ -218,7 +228,7 @@ try {
       assert.equal(cardMetrics.padding, '8px')
       const smallTargets = await homePage.locator('#public-events-carousel > [role="listitem"]:first-child button, #personal-events-carousel > [role="listitem"]:first-child button').evaluateAll(buttons => buttons.filter(button => { const r = button.getBoundingClientRect(); return r.width < 44 || r.height < 44 }).map(button => button.getAttribute('aria-label') ?? button.textContent))
       assert.deepEqual(smallTargets, [], 'Every event-card button must have a 44px target')
-      const clippedChips = await homePage.locator('[aria-label="Категорії афіші"] button').evaluateAll(buttons => buttons.filter(button => button.scrollWidth > button.clientWidth + 1).map(button => button.textContent))
+      const clippedChips = await homePage.locator('[aria-label="Категорії публічних подій"] button').evaluateAll(buttons => buttons.filter(button => button.scrollWidth > button.clientWidth + 1).map(button => button.textContent))
       assert.deepEqual(clippedChips, [])
       await uniformCards(homePage)
       for (const type of ['public', 'personal']) {
@@ -258,20 +268,20 @@ try {
       await homePage.evaluate(() => window.scrollTo(0, 0))
     }
     const beforePersonal = await personalRail.textContent()
-    await homePage.locator('[aria-label="Категорії афіші"]').getByRole('button', { name: 'Кіно', exact: true }).click()
+    await homePage.locator('[aria-label="Категорії публічних подій"]').getByRole('button', { name: 'Кіно', exact: true }).click()
     if (width < 640) await homePage.waitForFunction(() => document.getElementById('public-events-carousel').scrollLeft === 0)
     assert.equal(await publicRail.locator(':scope > [role="listitem"]').count(), 10)
     assert.equal(await personalRail.textContent(), beforePersonal)
     assert.doesNotMatch(await publicRail.textContent(), /PUBLIC_FIXTURE_1\b/)
-    await homePage.locator('[aria-label="Категорії афіші"]').getByRole('button', { name: 'Усі', exact: true }).click()
+    await homePage.locator('[aria-label="Категорії публічних подій"]').getByRole('button', { name: 'Усі', exact: true }).click()
     const search = homePage.locator('input[type="search"]')
     await search.fill('PUBLIC_FIXTURE')
-    await homePage.getByText('Поки немає особистих подій поруч.', { exact: true }).waitFor()
+    await homePage.getByText('Поки немає особистих подій', { exact: true }).waitFor()
     await search.fill('PERSONAL_FIXTURE')
-    await homePage.getByText('Поки немає публічних подій поруч.', { exact: true }).waitFor()
+    await homePage.getByText('Поки немає публічних подій', { exact: true }).waitFor()
     await search.fill('NO_RESULTS')
-    await homePage.getByText('Поки немає особистих подій поруч.', { exact: true }).waitFor()
-    await homePage.getByText('Поки немає публічних подій поруч.', { exact: true }).waitFor()
+    await homePage.getByText('Поки немає особистих подій', { exact: true }).waitFor()
+    await homePage.getByText('Поки немає публічних подій', { exact: true }).waitFor()
     assert.deepEqual(await visibleCreates(), ['Створити'])
     if (width < 640) {
       // Long/empty descriptions, long titles and demo badges must share slots.

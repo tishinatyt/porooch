@@ -158,11 +158,13 @@ test('afisha comes first, top category filters affect only afisha, and no duplic
     assert.deepEqual([...container.querySelectorAll('section[aria-labelledby]')].map(s => s.getAttribute('aria-labelledby')), ['public-feed-title', 'personal-feed-title'])
     assert.equal(container.querySelectorAll('[aria-label="Категорії подій"]').length, 1)
     const toolbar = container.querySelector('.home-toolbar')!
-    assert.ok(toolbar.querySelector('[aria-label="Категорії афіші"]'))
+    assert.ok(toolbar.querySelector('[aria-label="Категорії публічних подій"]'))
     assert.ok(toolbar.querySelector('[aria-label="Режим перегляду подій"]'))
     assert.equal(container.querySelector('.home-city-summary'), null)
     assert.doesNotMatch(container.textContent!, /особисті та публічні події\. Приклади/)
-    const filters = container.querySelector('[aria-label="Категорії афіші"]')!
+    assert.equal(container.querySelector('#public-feed-title')?.textContent, 'Публічні події')
+    assert.equal(container.querySelector('#personal-feed-title')?.textContent, 'Особисті події')
+    const filters = container.querySelector('[aria-label="Категорії публічних подій"]')!
     assert.ok(filters.compareDocumentPosition(rail('public')) & dom.window.Node.DOCUMENT_POSITION_FOLLOWING)
     const before = rail('personal').textContent
     await click('Кіно')
@@ -180,8 +182,8 @@ test('demo-disabled home and map show only real data and honest empty states', a
   await mount()
   try {
     assert.equal(container.querySelector('.home-card-demo'), null)
-    assert.match(container.textContent!, /Поки немає публічних подій поруч/)
-    assert.match(container.textContent!, /Поки немає особистих подій поруч/)
+    assert.match(container.textContent!, /Поки немає публічних подій/)
+    assert.match(container.textContent!, /Поки немає особистих подій/)
     assert.doesNotMatch(container.textContent!, /Кава та знайомство|Відкрита прогулянка містом/)
     await click('Карта')
     assert.equal(container.querySelector('[data-testid="map"]')!.textContent, '')
@@ -230,14 +232,14 @@ test('global and personal empty states work independently without adding create 
       await act(async () => { Object.getOwnPropertyDescriptor(dom.window.HTMLInputElement.prototype, 'value')!.set!.call(search, value); search.dispatchEvent(new Event('input', { bubbles: true })) })
     }
     await find('PUBLIC_FIXTURE')
-    assert.match(container.textContent!, /Поки немає особистих подій поруч/)
+    assert.match(container.textContent!, /Поки немає особистих подій/)
     assert.ok(rail('public'))
     await find('PERSONAL_FIXTURE')
-    assert.match(container.textContent!, /Поки немає публічних подій поруч/)
+    assert.match(container.textContent!, /Поки немає публічних подій/)
     assert.ok(rail('personal'))
     await find('NO_RESULTS')
-    assert.match(container.textContent!, /Поки немає особистих подій поруч/)
-    assert.match(container.textContent!, /Поки немає публічних подій поруч/)
+    assert.match(container.textContent!, /Поки немає особистих подій/)
+    assert.match(container.textContent!, /Поки немає публічних подій/)
     assert.equal(container.querySelectorAll('a[href^="/create"]').length, 0)
   } finally { resetFixtures(); await act(async () => root.unmount()) }
 })

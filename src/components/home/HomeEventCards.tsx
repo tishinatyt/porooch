@@ -1,3 +1,4 @@
+import { eventFeedText } from '@/lib/eventFeedText'
 import { useNavigate } from 'react-router-dom'
 import EventMedia from '@/components/EventMedia'
 import { Icon } from '@/components/icons'
@@ -57,7 +58,7 @@ export function PersonalEventCard({ event, management = false, isOrganizer = fal
           <p className="truncate text-sm font-bold text-brand-ink sm:text-[15px]">{event.organizer?.name ?? 'Організатор'}{event.organizer?.age ? `, ${event.organizer.age}` : ''}</p>
           <p className="mt-0.5 text-[10px] font-medium text-brand-ink-muted">{event.isDemo ? 'Приклад особистої зустрічі' : 'Запрошує на особисту зустріч'}</p>
         </div>
-        {event.video_path ? <div className="relative h-8 w-11 flex-none"><div className="absolute inset-x-0 -top-1.5 h-11"><VideoInvitePlayer compact fields={event} /></div></div> : <span className="rounded-full border border-violet-200 bg-violet-100 px-2 py-0.5 text-[10px] font-bold text-violet-800">Особиста</span>}
+        {event.video_path ? <div className="relative h-8 w-11 flex-none"><div className="absolute inset-x-0 -top-1.5 h-11"><VideoInvitePlayer compact fields={event} /></div></div> : <span className="rounded-full border border-violet-200 bg-violet-100 px-2 py-0.5 text-[10px] font-bold text-violet-800">{eventFeedText.personal.badge}</span>}
       </div>
 
       <button type="button" onClick={() => navigate(`/event/${event.eventId}`)} className="home-card-details block w-full text-left">

@@ -1,3 +1,4 @@
+import { eventFeedText } from '@/lib/eventFeedText'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
@@ -447,8 +448,8 @@ export default function CreateEvent() {
             <SectionCard number="1" title="Яку подію ви створюєте?" description="Тип описує формат зустрічі, а не її видимість.">
               <div className="grid gap-2.5 sm:grid-cols-2">
                 {([
-                  { value: 'personal' as const, title: 'Особиста подія', text: 'Зустріч із людьми поруч — кава, прогулянка, спорт або спільні інтереси.', icon: 'user' as const },
-                  { value: 'public' as const, title: 'Громадська подія', text: 'Подія для ширшої аудиторії — кіно, театр, бар, концерт, спорт та інше.', icon: 'calendar' as const },
+                  { value: 'personal' as const, title: eventFeedText.personal.singular, text: 'Зустріч із людьми поруч — кава, прогулянка, спорт або спільні інтереси.', icon: 'user' as const },
+                  { value: 'public' as const, title: eventFeedText.public.singular, text: 'Подія для ширшої аудиторії — кіно, театр, бар, концерт, спорт та інше.', icon: 'calendar' as const },
                 ]).map((option) => {
                   const selected = form.event_type === option.value
                   return (
