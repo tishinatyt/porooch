@@ -6,7 +6,7 @@ export async function discover(urls, crawler = createCrawler()) {
     try {
       const page = await crawler.get(url)
       const stats = {}
-      const events = page.allowed ? parseSchemaEvents(page.text, { url: page.url, city: 'Не вказано', default_category: 'other' }, stats) : []
+      const events = page.allowed ? parseSchemaEvents(page.text, { url: page.url, city: 'Не вказано', default_category: 'other' }, stats).filter(event => event.title && (event.place || event.address)) : []
       results.push({ url, allowed: page.allowed, eventMarkup: (stats.markupCount ?? 0) > 0, markupEvents: stats.markupCount ?? 0, events: events.length, reason: page.reason ?? null })
     } catch (error) { results.push({ url, allowed: null, eventMarkup: false, events: 0, reason: /^[a-z_0-9]+$/.test(error.message) ? error.message : 'request_failed' }) }
   }

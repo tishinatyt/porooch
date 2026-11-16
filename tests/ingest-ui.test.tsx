@@ -26,6 +26,7 @@ mock.module('../src/lib/supabase.ts', { namedExports: { supabase: {
 } } })
 const { createRoot } = await import('react-dom/client')
 const { AdminIngest } = await import('../src/components/admin/AdminIngest.tsx')
+const { default: SourceListImport } = await import('../src/components/admin/SourceListImport.tsx')
 const { default: ExternalEventCard } = await import('../src/components/home/ExternalEventCard.tsx')
 const { useIngestedFeed } = await import('../src/hooks/useIngestedFeed.ts')
 const { asExternalEvent, externalUrl, distanceFrom, sourceImageUrl, missingImagesColumn } = await import('../src/lib/ingestedEvents.ts')
@@ -33,6 +34,32 @@ const container = document.getElementById('app')!
 const external = { id: 'external', title: 'Концерт', starts_at: '2099-01-01T18:00Z', place: 'Зала', address: 'Центр', city: 'Чернігів', category: 'music', latitude: null, longitude: null, price_from: 200, currency: 'UAH', cover_url: null, source_url: 'https://example.test/tickets?seat=1', source_name: 'Квитки', partner_params: 'utm_source=poruch', description: 'Факти' }
 async function click(text: string) { await act(async () => { const button = [...container.querySelectorAll('button')].find(item => item.textContent === text); assert.ok(button, text); button.click() }) }
 after(() => dom.window.close())
+
+test('source list import previews duplicates before writing, then submits uniform consent and reports counts', async () => {
+  const root = createRoot(container); calls.length = 0; let saved = 0
+  rpcResponse = async () => ({ data: { created: 1, skipped: 2 }, error: null })
+  try {
+    await act(async () => root.render(<SourceListImport urls={['https://example.test/events']} onSaved={() => saved++} />))
+    const row = { city: 'Київ', section: 'Концерти', url: 'https://example.test/new', default_category: 'music' }
+    await act(async () => {
+      const input = container.querySelector('textarea')!
+      Object.getOwnPropertyDescriptor(dom.window.HTMLTextAreaElement.prototype, 'value')!.set!.call(input, JSON.stringify([{ ...row, url: 'https://example.test/events/' }, row, row]))
+      input.dispatchEvent(new Event('input', { bubbles: true }))
+    })
+    await click('Переглянути список')
+    assert.equal(container.querySelectorAll('tbody tr').length, 3)
+    assert.equal(calls.length, 0)
+    await act(async () => container.querySelector<HTMLInputElement>('input[type="checkbox"]')!.click())
+    await click('Підтвердити імпорт')
+    const request = calls.find(call => call.name === 'poruch_import_sources')!.args
+    assert.equal(request.p_rows.length, 3)
+    assert.equal(request.p_use_images, true)
+    assert.equal(request.p_enabled, true)
+    assert.equal(request.p_rows.some((item: any) => item.auto_publish), false)
+    assert.equal(saved, 1)
+    assert.match(container.querySelector('[role="status"]')!.textContent!, /1.*2/)
+  } finally { rpcResponse = async () => ({ data: 1, error: null }); await act(async () => root.unmount()) }
+})
 
 test('moderation is pending-only with city/source filters; single and batch actions carry displayed fingerprints', async () => {
   const root = createRoot(container); calls.length = 0
@@ -162,7 +189,7 @@ test('before the SQL, default-off source saves retry without the column; enablin
     assert.equal(container.querySelector('[role="alert"]'), null)
     calls.length = 0
     await fill()
-    const label = [...container.querySelectorAll('label')].find(item => item.textContent?.includes('Показувати афіші джерела'))!
+    const label = [...container.querySelectorAll('form label')].find(item => item.textContent?.includes('Показувати афіші джерела'))!
     await act(async () => label.querySelector<HTMLInputElement>('input')!.click())
     await submit()
     assert.equal(calls.filter(call => call.name === 'insert').length, 1)

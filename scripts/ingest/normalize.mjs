@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto'
 import { JSDOM } from 'jsdom'
 import { normalizeEventTitle } from '../../src/lib/eventTitle.ts'
+import { findCity } from '../../src/lib/cities.ts'
 
 const hash = value => createHash('sha256').update(value).digest('hex')
 export const normalizedKey = value => normalizeEventTitle(String(value ?? '')).normalize('NFKC').toLocaleLowerCase('uk-UA').replace(/[^\p{L}\p{N}]/gu, '')
@@ -57,9 +58,10 @@ export function parseSchemaEvents(html, source, stats = {}) {
     const country = typeof address.addressCountry === 'object' ? address.addressCountry.name : address.addressCountry
     if (country && !['ua', 'ukraine', 'україна', 'украина'].includes(String(country).toLowerCase())) continue
     const title = normalizeEventTitle(node.name).slice(0, 300), starts_at = kyivDate(node.startDate), ends_at = kyivDate(node.endDate)
-    const city = string(address.addressLocality || source.city, 120)
+    const locality = string(address.addressLocality || source.city, 120)
+    const city = findCity(locality)?.name ?? locality
     const place = string(location.name), addressText = typeof address === 'string' ? string(address) : string([address.streetAddress, address.addressLocality].filter(Boolean).join(', '))
-    if (!title || !starts_at || !city || (!place && !addressText) || (ends_at && ends_at < starts_at)) continue
+    if (!title || !starts_at || !city || (ends_at && ends_at < starts_at)) continue
     const source_url = httpUrl(node.url || node['@id'] || source.url, source.url)
     if (!source_url) continue
     const offers = list(node.offers).map(resolve).flatMap(offer => list(offer.offers).length ? list(offer.offers) : [offer])

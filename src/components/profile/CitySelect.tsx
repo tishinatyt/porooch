@@ -1,17 +1,18 @@
 import { useId, useState } from 'react'
-import { cityLabel, findCity, searchCities } from '@/lib/cities'
+import { cityLabel, findCity, searchCities, normalizeCitySearch, type UkrainianCity } from '@/lib/cities'
 
 interface CitySelectProps {
   value: string
   onChange: (value: string) => void
   className?: string
   required?: boolean
+  cities?: UkrainianCity[]
 }
-export function CitySelect({ value, onChange, className, required = false }: CitySelectProps) {
+export function CitySelect({ value, onChange, className, required = false, cities }: CitySelectProps) {
   const [query, setQuery] = useState('')
   const id = useId()
-  const selected = findCity(value)
-  const matches = searchCities(query)
+  const selected = cities?.find(city => city.id === value || city.name === value) ?? findCity(value)
+  const matches = cities ? cities.filter(city => [city.name, ...city.aliases].some(name => normalizeCitySearch(name).includes(normalizeCitySearch(query)))) : searchCities(query)
   const choices = selected && !matches.some(city => city.id === selected.id) ? [selected, ...matches] : matches
   const inputClass = className ?? 'h-11 w-full rounded-xl border border-brand-border bg-white px-3 text-sm outline-none focus:border-brand-accent'
   return (

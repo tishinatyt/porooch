@@ -60,7 +60,7 @@ export const OBLAST_CENTER_COORDINATES: Record<UkrainianOblastCenter, CityCoordi
 }
 
 // Discovery uses the same 24 oblast centres as the existing profile selector.
-export interface UkrainianCity extends CityCoordinates { id: string; name: string; aliases: string[] }
+export interface UkrainianCity extends CityCoordinates { id: string; name: string; aliases: string[]; centerAvailable?: boolean }
 const CITY_IDS: Record<UkrainianOblastCenter, string> = {
   "Вінниця": "UA05020030010063857",
   "Дніпро": "UA12020010010037010",
@@ -129,7 +129,7 @@ export function findCity(value: string | null | undefined): UkrainianCity | null
   if (!value) return null
   const exact = byId.get(value) ?? UKRAINIAN_CITIES.find(city => cityLabel(city) === value)
   if (exact) return exact
-  return UKRAINIAN_CITIES.find(city => normalizeCitySearch(city.name) === normalizeCitySearch(value)) ?? null
+  return UKRAINIAN_CITIES.find(city => [city.name, ...city.aliases].some(name => normalizeCitySearch(name) === normalizeCitySearch(value))) ?? null
 }
 export function getCityCoordinates(value: string | null | undefined): CityCoordinates | null {
   const city = findCity(value)
@@ -138,4 +138,14 @@ export function getCityCoordinates(value: string | null | undefined): CityCoordi
 export const CITY_STORAGE_KEY = 'poruch:discovery-city'
 export function readSelectedCity(storage: Pick<Storage, 'getItem'>): UkrainianCity | null {
   try { return findCity(storage.getItem(CITY_STORAGE_KEY)) } catch { return null }
+}
+
+export function mergePublishedCities(rows: { name: string; latitude: number | null; longitude: number | null }[]): UkrainianCity[] {
+  const cities = [...UKRAINIAN_CITIES]
+  for (const row of rows) {
+    if (typeof row.name !== 'string' || !row.name.trim() || row.name.length > 120 || cities.some(city => normalizeCitySearch(city.name) === normalizeCitySearch(row.name))) continue
+    const valid = typeof row.latitude === 'number' && Number.isFinite(row.latitude) && Math.abs(row.latitude) <= 90 && typeof row.longitude === 'number' && Number.isFinite(row.longitude) && Math.abs(row.longitude) <= 180
+    cities.push({ id: `published:${row.name}`, name: row.name, aliases: [], lat: valid ? row.latitude! : 0, lng: valid ? row.longitude! : 0, centerAvailable: valid })
+  }
+  return cities
 }

@@ -1,11 +1,11 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import { useDiscoveryCity } from '@/contexts/DiscoveryCityContext'
-import { cityLabel, findCity, UKRAINIAN_CITIES } from '@/lib/cities'
+import { cityLabel } from '@/lib/cities'
 import { CitySelect } from '@/components/profile/CitySelect'
 import { Icon } from '@/components/icons'
 
 export default function DiscoveryCityPicker() {
-  const { city, selectCity } = useDiscoveryCity()
+  const { city, cities, selectCity } = useDiscoveryCity()
   const [open, setOpen] = useState(false)
   const wrapper = useRef<HTMLDivElement>(null)
   const button = useRef<HTMLButtonElement>(null)
@@ -25,8 +25,8 @@ export default function DiscoveryCityPicker() {
     </button>
     {open && <div id={id} className="absolute left-0 top-full z-50 mt-2 w-[min(320px,calc(100vw-48px))] rounded-2xl border border-brand-border bg-white p-4 shadow-xl">
       <p className="mb-3 text-sm font-extrabold">Оберіть місто</p>
-      <CitySelect value={cityLabel(city)} onChange={value => { const next = findCity(value); if (next) { selectCity(next.id); setOpen(false); button.current?.focus() } }} />
-      <p className="mt-3 text-[10px] leading-4 text-brand-ink-muted">{UKRAINIAN_CITIES.length} обласні центри. Радіус рахується від центру вибраного міста.</p>
+      <CitySelect cities={cities} value={cityLabel(city)} onChange={value => { selectCity(value); setOpen(false); button.current?.focus() }} />
+      <p className="mt-3 text-[10px] leading-4 text-brand-ink-muted">{cities.length} міст. Радіус рахується від центру вибраного міста.</p>
     </div>}
   </div>
 }

@@ -42,7 +42,7 @@ jobs:
           path: .cache/venue-geocodes.json
           key: ${{ runner.os }}-poruch-geocodes-v1-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: ${{ runner.os }}-poruch-geocodes-v1-
-      - name: Collect or backfill (no automatic publication)
+      - name: Collect or backfill (publication follows source settings)
         run: node scripts/ingest/run.mjs
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}

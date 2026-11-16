@@ -131,6 +131,7 @@ export default function HomeScreen() {
 
   const fetchDiscoveryEvents = useCallback(async () => {
     if (!supaUser) return
+    if (city.centerAvailable === false) { setAllDiscoveryEvents([]); setMembershipsReady(true); setLoadedCityId(city.id); setLoadingDiscovery(false); setDiscoveryError(false); return }
     const requestId = ++discoveryRequestId.current
     setLoadingDiscovery(true)
     // Keep the last complete snapshot visible during same-city realtime refreshes.
@@ -332,7 +333,7 @@ export default function HomeScreen() {
     .map((event) => ({ ...event, pending_request_count: pendingRequestCountByEvent[event.id] ?? 0 }))
     .map(asPersonalEvent)
 
-  const externalEvents = externalFeed.rows.map(event => ({ ...event, distance_km: distanceFrom(event, city.lat, city.lng) })).filter(event => event.distance_km === null || event.distance_km <= radiusKm)
+  const externalEvents = externalFeed.rows.map(event => ({ ...event, distance_km: city.centerAvailable === false ? null : distanceFrom(event, city.lat, city.lng) })).filter(event => event.distance_km === null || event.distance_km <= radiusKm)
 
   const realPublic = eligibleDiscovery
     .filter((event) => event.event_type === 'public')
@@ -433,7 +434,7 @@ export default function HomeScreen() {
               {!loadingDiscovery && <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-brand-accent-soft px-1.5 text-[10px] font-bold tabular-nums text-brand-accent">{mapEvents.filter(hasMapCoordinates).length}</span>}
             </div>
           </div>
-          <Suspense fallback={<div className="min-h-[430px] flex-1 animate-pulse rounded-2xl bg-brand-surface-muted lg:min-h-0" />}><DiscoveryMap events={mapEvents} center={discoveryCenter} /></Suspense>
+          {city.centerAvailable === false ? <p className="p-4 text-sm">{ingestText.centerUnavailable}</p> : <Suspense fallback={<div className="min-h-[430px] flex-1 animate-pulse rounded-2xl bg-brand-surface-muted lg:min-h-0" />}><DiscoveryMap events={mapEvents} center={discoveryCenter} /></Suspense>}
         </section>}
       </div>
     </div>

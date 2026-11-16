@@ -1,0 +1,751 @@
+[
+  {
+    "city": "Київ",
+    "section": "Усі події",
+    "url": "https://kyiv.karabas.com/",
+    "default_category": "other",
+    "valid_events": 207
+  },
+  {
+    "city": "Київ",
+    "section": "Концерти",
+    "url": "https://kyiv.karabas.com/concerts/",
+    "default_category": "music",
+    "valid_events": 20
+  },
+  {
+    "city": "Київ",
+    "section": "Театри",
+    "url": "https://kyiv.karabas.com/theatres/",
+    "default_category": "theatre",
+    "valid_events": 20
+  },
+  {
+    "city": "Київ",
+    "section": "Дітям",
+    "url": "https://kyiv.karabas.com/child/",
+    "default_category": "other",
+    "valid_events": 20
+  },
+  {
+    "city": "Київ",
+    "section": "Stand-up",
+    "url": "https://kyiv.karabas.com/stand-up/",
+    "default_category": "theatre",
+    "valid_events": 20
+  },
+  {
+    "city": "Львів",
+    "section": "Усі події",
+    "url": "https://lviv.karabas.com/",
+    "default_category": "other",
+    "valid_events": 74
+  },
+  {
+    "city": "Львів",
+    "section": "Концерти",
+    "url": "https://lviv.karabas.com/concerts/",
+    "default_category": "music",
+    "valid_events": 20
+  },
+  {
+    "city": "Львів",
+    "section": "Театри",
+    "url": "https://lviv.karabas.com/theatres/",
+    "default_category": "theatre",
+    "valid_events": 20
+  },
+  {
+    "city": "Львів",
+    "section": "Дітям",
+    "url": "https://lviv.karabas.com/child/",
+    "default_category": "other",
+    "valid_events": 15
+  },
+  {
+    "city": "Львів",
+    "section": "Stand-up",
+    "url": "https://lviv.karabas.com/stand-up/",
+    "default_category": "theatre",
+    "valid_events": 20
+  },
+  {
+    "city": "Львів",
+    "section": "Фестивалі",
+    "url": "https://lviv.karabas.com/festivals/",
+    "default_category": "music",
+    "valid_events": 1
+  },
+  {
+    "city": "Харків",
+    "section": "Усі події",
+    "url": "https://kharkiv.karabas.com/",
+    "default_category": "other",
+    "valid_events": 72
+  },
+  {
+    "city": "Харків",
+    "section": "Концерти",
+    "url": "https://kharkiv.karabas.com/concerts/",
+    "default_category": "music",
+    "valid_events": 20
+  },
+  {
+    "city": "Харків",
+    "section": "Театри",
+    "url": "https://kharkiv.karabas.com/theatres/",
+    "default_category": "theatre",
+    "valid_events": 20
+  },
+  {
+    "city": "Харків",
+    "section": "Дітям",
+    "url": "https://kharkiv.karabas.com/child/",
+    "default_category": "other",
+    "valid_events": 20
+  },
+  {
+    "city": "Харків",
+    "section": "Stand-up",
+    "url": "https://kharkiv.karabas.com/stand-up/",
+    "default_category": "theatre",
+    "valid_events": 6
+  },
+  {
+    "city": "Одеса",
+    "section": "Усі події",
+    "url": "https://odesa.karabas.com/",
+    "default_category": "other",
+    "valid_events": 157
+  },
+  {
+    "city": "Одеса",
+    "section": "Концерти",
+    "url": "https://odesa.karabas.com/concerts/",
+    "default_category": "music",
+    "valid_events": 20
+  },
+  {
+    "city": "Одеса",
+    "section": "Театри",
+    "url": "https://odesa.karabas.com/theatres/",
+    "default_category": "theatre",
+    "valid_events": 20
+  },
+  {
+    "city": "Одеса",
+    "section": "Дітям",
+    "url": "https://odesa.karabas.com/child/",
+    "default_category": "other",
+    "valid_events": 20
+  },
+  {
+    "city": "Одеса",
+    "section": "Stand-up",
+    "url": "https://odesa.karabas.com/stand-up/",
+    "default_category": "theatre",
+    "valid_events": 9
+  },
+  {
+    "city": "Дніпро",
+    "section": "Усі події",
+    "url": "https://dnipro.karabas.com/",
+    "default_category": "other",
+    "valid_events": 125
+  },
+  {
+    "city": "Дніпро",
+    "section": "Концерти",
+    "url": "https://dnipro.karabas.com/concerts/",
+    "default_category": "music",
+    "valid_events": 20
+  },
+  {
+    "city": "Дніпро",
+    "section": "Театри",
+    "url": "https://dnipro.karabas.com/theatres/",
+    "default_category": "theatre",
+    "valid_events": 20
+  },
+  {
+    "city": "Дніпро",
+    "section": "Дітям",
+    "url": "https://dnipro.karabas.com/child/",
+    "default_category": "other",
+    "valid_events": 20
+  },
+  {
+    "city": "Дніпро",
+    "section": "Stand-up",
+    "url": "https://dnipro.karabas.com/stand-up/",
+    "default_category": "theatre",
+    "valid_events": 7
+  },
+  {
+    "city": "Запоріжжя",
+    "section": "Усі події",
+    "url": "https://zaporizhzhia.karabas.com/",
+    "default_category": "other",
+    "valid_events": 34
+  },
+  {
+    "city": "Запоріжжя",
+    "section": "Концерти",
+    "url": "https://zaporizhzhia.karabas.com/concerts/",
+    "default_category": "music",
+    "valid_events": 20
+  },
+  {
+    "city": "Запоріжжя",
+    "section": "Театри",
+    "url": "https://zaporizhzhia.karabas.com/theatres/",
+    "default_category": "theatre",
+    "valid_events": 20
+  },
+  {
+    "city": "Запоріжжя",
+    "section": "Дітям",
+    "url": "https://zaporizhzhia.karabas.com/child/",
+    "default_category": "other",
+    "valid_events": 11
+  },
+  {
+    "city": "Запоріжжя",
+    "section": "Stand-up",
+    "url": "https://zaporizhzhia.karabas.com/stand-up/",
+    "default_category": "theatre",
+    "valid_events": 7
+  },
+  {
+    "city": "Вінниця",
+    "section": "Усі події",
+    "url": "https://vinnytsia.karabas.com/",
+    "default_category": "other",
+    "valid_events": 130
+  },
+  {
+    "city": "Вінниця",
+    "section": "Концерти",
+    "url": "https://vinnytsia.karabas.com/concerts/",
+    "default_category": "music",
+    "valid_events": 20
+  },
+  {
+    "city": "Вінниця",
+    "section": "Театри",
+    "url": "https://vinnytsia.karabas.com/theatres/",
+    "default_category": "theatre",
+    "valid_events": 20
+  },
+  {
+    "city": "Вінниця",
+    "section": "Дітям",
+    "url": "https://vinnytsia.karabas.com/child/",
+    "default_category": "other",
+    "valid_events": 20
+  },
+  {
+    "city": "Вінниця",
+    "section": "Stand-up",
+    "url": "https://vinnytsia.karabas.com/stand-up/",
+    "default_category": "theatre",
+    "valid_events": 7
+  },
+  {
+    "city": "Полтава",
+    "section": "Усі події",
+    "url": "https://poltava.karabas.com/",
+    "default_category": "other",
+    "valid_events": 37
+  },
+  {
+    "city": "Полтава",
+    "section": "Концерти",
+    "url": "https://poltava.karabas.com/concerts/",
+    "default_category": "music",
+    "valid_events": 20
+  },
+  {
+    "city": "Полтава",
+    "section": "Театри",
+    "url": "https://poltava.karabas.com/theatres/",
+    "default_category": "theatre",
+    "valid_events": 20
+  },
+  {
+    "city": "Полтава",
+    "section": "Дітям",
+    "url": "https://poltava.karabas.com/child/",
+    "default_category": "other",
+    "valid_events": 4
+  },
+  {
+    "city": "Полтава",
+    "section": "Stand-up",
+    "url": "https://poltava.karabas.com/stand-up/",
+    "default_category": "theatre",
+    "valid_events": 4
+  },
+  {
+    "city": "Черкаси",
+    "section": "Усі події",
+    "url": "https://cherkasy.karabas.com/",
+    "default_category": "other",
+    "valid_events": 50
+  },
+  {
+    "city": "Черкаси",
+    "section": "Концерти",
+    "url": "https://cherkasy.karabas.com/concerts/",
+    "default_category": "music",
+    "valid_events": 20
+  },
+  {
+    "city": "Черкаси",
+    "section": "Театри",
+    "url": "https://cherkasy.karabas.com/theatres/",
+    "default_category": "theatre",
+    "valid_events": 20
+  },
+  {
+    "city": "Черкаси",
+    "section": "Дітям",
+    "url": "https://cherkasy.karabas.com/child/",
+    "default_category": "other",
+    "valid_events": 7
+  },
+  {
+    "city": "Черкаси",
+    "section": "Stand-up",
+    "url": "https://cherkasy.karabas.com/stand-up/",
+    "default_category": "theatre",
+    "valid_events": 4
+  },
+  {
+    "city": "Суми",
+    "section": "Усі події",
+    "url": "https://sumy.karabas.com/",
+    "default_category": "other",
+    "valid_events": 34
+  },
+  {
+    "city": "Суми",
+    "section": "Концерти",
+    "url": "https://sumy.karabas.com/concerts/",
+    "default_category": "music",
+    "valid_events": 13
+  },
+  {
+    "city": "Суми",
+    "section": "Театри",
+    "url": "https://sumy.karabas.com/theatres/",
+    "default_category": "theatre",
+    "valid_events": 20
+  },
+  {
+    "city": "Суми",
+    "section": "Дітям",
+    "url": "https://sumy.karabas.com/child/",
+    "default_category": "other",
+    "valid_events": 3
+  },
+  {
+    "city": "Суми",
+    "section": "Stand-up",
+    "url": "https://sumy.karabas.com/stand-up/",
+    "default_category": "theatre",
+    "valid_events": 5
+  },
+  {
+    "city": "Житомир",
+    "section": "Усі події",
+    "url": "https://zhytomyr.karabas.com/",
+    "default_category": "other",
+    "valid_events": 39
+  },
+  {
+    "city": "Житомир",
+    "section": "Концерти",
+    "url": "https://zhytomyr.karabas.com/concerts/",
+    "default_category": "music",
+    "valid_events": 20
+  },
+  {
+    "city": "Житомир",
+    "section": "Театри",
+    "url": "https://zhytomyr.karabas.com/theatres/",
+    "default_category": "theatre",
+    "valid_events": 17
+  },
+  {
+    "city": "Житомир",
+    "section": "Дітям",
+    "url": "https://zhytomyr.karabas.com/child/",
+    "default_category": "other",
+    "valid_events": 3
+  },
+  {
+    "city": "Житомир",
+    "section": "Stand-up",
+    "url": "https://zhytomyr.karabas.com/stand-up/",
+    "default_category": "theatre",
+    "valid_events": 4
+  },
+  {
+    "city": "Рівне",
+    "section": "Усі події",
+    "url": "https://rivne.karabas.com/",
+    "default_category": "other",
+    "valid_events": 47
+  },
+  {
+    "city": "Рівне",
+    "section": "Концерти",
+    "url": "https://rivne.karabas.com/concerts/",
+    "default_category": "music",
+    "valid_events": 20
+  },
+  {
+    "city": "Рівне",
+    "section": "Театри",
+    "url": "https://rivne.karabas.com/theatres/",
+    "default_category": "theatre",
+    "valid_events": 20
+  },
+  {
+    "city": "Рівне",
+    "section": "Дітям",
+    "url": "https://rivne.karabas.com/child/",
+    "default_category": "other",
+    "valid_events": 8
+  },
+  {
+    "city": "Рівне",
+    "section": "Stand-up",
+    "url": "https://rivne.karabas.com/stand-up/",
+    "default_category": "theatre",
+    "valid_events": 6
+  },
+  {
+    "city": "Луцьк",
+    "section": "Усі події",
+    "url": "https://lutsk.karabas.com/",
+    "default_category": "other",
+    "valid_events": 43
+  },
+  {
+    "city": "Луцьк",
+    "section": "Концерти",
+    "url": "https://lutsk.karabas.com/concerts/",
+    "default_category": "music",
+    "valid_events": 20
+  },
+  {
+    "city": "Луцьк",
+    "section": "Театри",
+    "url": "https://lutsk.karabas.com/theatres/",
+    "default_category": "theatre",
+    "valid_events": 16
+  },
+  {
+    "city": "Луцьк",
+    "section": "Дітям",
+    "url": "https://lutsk.karabas.com/child/",
+    "default_category": "other",
+    "valid_events": 3
+  },
+  {
+    "city": "Луцьк",
+    "section": "Stand-up",
+    "url": "https://lutsk.karabas.com/stand-up/",
+    "default_category": "theatre",
+    "valid_events": 5
+  },
+  {
+    "city": "Тернопіль",
+    "section": "Усі події",
+    "url": "https://ternopil.karabas.com/",
+    "default_category": "other",
+    "valid_events": 69
+  },
+  {
+    "city": "Тернопіль",
+    "section": "Концерти",
+    "url": "https://ternopil.karabas.com/concerts/",
+    "default_category": "music",
+    "valid_events": 20
+  },
+  {
+    "city": "Тернопіль",
+    "section": "Театри",
+    "url": "https://ternopil.karabas.com/theatres/",
+    "default_category": "theatre",
+    "valid_events": 20
+  },
+  {
+    "city": "Тернопіль",
+    "section": "Дітям",
+    "url": "https://ternopil.karabas.com/child/",
+    "default_category": "other",
+    "valid_events": 11
+  },
+  {
+    "city": "Тернопіль",
+    "section": "Stand-up",
+    "url": "https://ternopil.karabas.com/stand-up/",
+    "default_category": "theatre",
+    "valid_events": 5
+  },
+  {
+    "city": "Івано-Франківськ",
+    "section": "Усі події",
+    "url": "https://ivano-frankivsk.karabas.com/",
+    "default_category": "other",
+    "valid_events": 71
+  },
+  {
+    "city": "Івано-Франківськ",
+    "section": "Концерти",
+    "url": "https://ivano-frankivsk.karabas.com/concerts/",
+    "default_category": "music",
+    "valid_events": 20
+  },
+  {
+    "city": "Івано-Франківськ",
+    "section": "Театри",
+    "url": "https://ivano-frankivsk.karabas.com/theatres/",
+    "default_category": "theatre",
+    "valid_events": 20
+  },
+  {
+    "city": "Івано-Франківськ",
+    "section": "Дітям",
+    "url": "https://ivano-frankivsk.karabas.com/child/",
+    "default_category": "other",
+    "valid_events": 20
+  },
+  {
+    "city": "Івано-Франківськ",
+    "section": "Stand-up",
+    "url": "https://ivano-frankivsk.karabas.com/stand-up/",
+    "default_category": "theatre",
+    "valid_events": 12
+  },
+  {
+    "city": "Ужгород",
+    "section": "Усі події",
+    "url": "https://uzhhorod.karabas.com/",
+    "default_category": "other",
+    "valid_events": 33
+  },
+  {
+    "city": "Ужгород",
+    "section": "Концерти",
+    "url": "https://uzhhorod.karabas.com/concerts/",
+    "default_category": "music",
+    "valid_events": 20
+  },
+  {
+    "city": "Ужгород",
+    "section": "Театри",
+    "url": "https://uzhhorod.karabas.com/theatres/",
+    "default_category": "theatre",
+    "valid_events": 11
+  },
+  {
+    "city": "Ужгород",
+    "section": "Дітям",
+    "url": "https://uzhhorod.karabas.com/child/",
+    "default_category": "other",
+    "valid_events": 7
+  },
+  {
+    "city": "Ужгород",
+    "section": "Stand-up",
+    "url": "https://uzhhorod.karabas.com/stand-up/",
+    "default_category": "theatre",
+    "valid_events": 3
+  },
+  {
+    "city": "Чернівці",
+    "section": "Усі події",
+    "url": "https://chernivtsi.karabas.com/",
+    "default_category": "other",
+    "valid_events": 95
+  },
+  {
+    "city": "Чернівці",
+    "section": "Концерти",
+    "url": "https://chernivtsi.karabas.com/concerts/",
+    "default_category": "music",
+    "valid_events": 20
+  },
+  {
+    "city": "Чернівці",
+    "section": "Театри",
+    "url": "https://chernivtsi.karabas.com/theatres/",
+    "default_category": "theatre",
+    "valid_events": 14
+  },
+  {
+    "city": "Чернівці",
+    "section": "Дітям",
+    "url": "https://chernivtsi.karabas.com/child/",
+    "default_category": "other",
+    "valid_events": 5
+  },
+  {
+    "city": "Чернівці",
+    "section": "Stand-up",
+    "url": "https://chernivtsi.karabas.com/stand-up/",
+    "default_category": "theatre",
+    "valid_events": 3
+  },
+  {
+    "city": "Чернівці",
+    "section": "Фестивалі",
+    "url": "https://chernivtsi.karabas.com/festivals/",
+    "default_category": "music",
+    "valid_events": 6
+  },
+  {
+    "city": "Хмельницький",
+    "section": "Усі події",
+    "url": "https://khmelnytskyi.karabas.com/",
+    "default_category": "other",
+    "valid_events": 74
+  },
+  {
+    "city": "Хмельницький",
+    "section": "Концерти",
+    "url": "https://khmelnytskyi.karabas.com/concerts/",
+    "default_category": "music",
+    "valid_events": 20
+  },
+  {
+    "city": "Хмельницький",
+    "section": "Театри",
+    "url": "https://khmelnytskyi.karabas.com/theatres/",
+    "default_category": "theatre",
+    "valid_events": 20
+  },
+  {
+    "city": "Хмельницький",
+    "section": "Дітям",
+    "url": "https://khmelnytskyi.karabas.com/child/",
+    "default_category": "other",
+    "valid_events": 10
+  },
+  {
+    "city": "Хмельницький",
+    "section": "Stand-up",
+    "url": "https://khmelnytskyi.karabas.com/stand-up/",
+    "default_category": "theatre",
+    "valid_events": 6
+  },
+  {
+    "city": "Кропивницький",
+    "section": "Усі події",
+    "url": "https://kropyvnytskyi.karabas.com/",
+    "default_category": "other",
+    "valid_events": 89
+  },
+  {
+    "city": "Кропивницький",
+    "section": "Концерти",
+    "url": "https://kropyvnytskyi.karabas.com/concerts/",
+    "default_category": "music",
+    "valid_events": 20
+  },
+  {
+    "city": "Кропивницький",
+    "section": "Театри",
+    "url": "https://kropyvnytskyi.karabas.com/theatres/",
+    "default_category": "theatre",
+    "valid_events": 20
+  },
+  {
+    "city": "Кропивницький",
+    "section": "Дітям",
+    "url": "https://kropyvnytskyi.karabas.com/child/",
+    "default_category": "other",
+    "valid_events": 20
+  },
+  {
+    "city": "Кропивницький",
+    "section": "Stand-up",
+    "url": "https://kropyvnytskyi.karabas.com/stand-up/",
+    "default_category": "theatre",
+    "valid_events": 2
+  },
+  {
+    "city": "Миколаїв",
+    "section": "Усі події",
+    "url": "https://mykolaiv.karabas.com/",
+    "default_category": "other",
+    "valid_events": 30
+  },
+  {
+    "city": "Миколаїв",
+    "section": "Концерти",
+    "url": "https://mykolaiv.karabas.com/concerts/",
+    "default_category": "music",
+    "valid_events": 20
+  },
+  {
+    "city": "Миколаїв",
+    "section": "Театри",
+    "url": "https://mykolaiv.karabas.com/theatres/",
+    "default_category": "theatre",
+    "valid_events": 12
+  },
+  {
+    "city": "Миколаїв",
+    "section": "Дітям",
+    "url": "https://mykolaiv.karabas.com/child/",
+    "default_category": "other",
+    "valid_events": 4
+  },
+  {
+    "city": "Миколаїв",
+    "section": "Stand-up",
+    "url": "https://mykolaiv.karabas.com/stand-up/",
+    "default_category": "theatre",
+    "valid_events": 4
+  },
+  {
+    "city": "Чернігів",
+    "section": "Усі події",
+    "url": "https://chernihiv.karabas.com/",
+    "default_category": "other",
+    "valid_events": 30
+  },
+  {
+    "city": "Чернігів",
+    "section": "Концерти",
+    "url": "https://chernihiv.karabas.com/concerts/",
+    "default_category": "music",
+    "valid_events": 17
+  },
+  {
+    "city": "Чернігів",
+    "section": "Театри",
+    "url": "https://chernihiv.karabas.com/theatres/",
+    "default_category": "theatre",
+    "valid_events": 20
+  },
+  {
+    "city": "Чернігів",
+    "section": "Дітям",
+    "url": "https://chernihiv.karabas.com/child/",
+    "default_category": "other",
+    "valid_events": 10
+  },
+  {
+    "city": "Чернігів",
+    "section": "Stand-up",
+    "url": "https://chernihiv.karabas.com/stand-up/",
+    "default_category": "theatre",
+    "valid_events": 4
+  }
+]

@@ -15,13 +15,21 @@ export const ingestText = {
   enabled: 'Увімкнено', enable: 'Увімкнути', disable: 'Вимкнути',
   sourceImages: 'Показувати афіші джерела (лише за згодою джерела)',
   imagesMigration: 'Для афіш джерела спочатку виконайте SQL event-sources-images.sql. Без нього доступні обкладинки категорій.',
-  moderationRequired: 'Публікація лише після модерації. Автопублікацію вимкнено.',
+  moderationRequired: 'Автопублікація працює лише після перевірок. Інші події надходять на модерацію.',
   invalid: 'Укажіть назву, місто та HTTPS-адресу без логіна й пароля.',
   lastRun: 'Останній запуск', result: 'Результат', counters: 'Знайдено / змінено',
   details: 'Детальніше', ticket: 'Купити квиток', from: 'від',
   externalError: 'Події з зовнішніх джерел тимчасово недоступні.',
   noCoordinates: 'без координат',
   externalMarker: 'З джерел', nativeMarker: 'Події користувачів', venueEvents: 'Події в цьому місці',
+  importList: 'Імпорт списком', importJson: 'JSON списку джерел', importPreview: 'Переглянути список', importConfirm: 'Підтвердити імпорт',
+  importInvalid: 'Некоректний JSON. Потрібен список із city, section, url, default_category (до 1000 рядків).',
+  importSection: 'Розділ', importCreated: 'Створено', importSkipped: 'Пропущено', importNew: 'Нове джерело',
+  importAutoOff: 'Імпорт створює джерела без автопублікації. Увімкніть її окремо після перевірки.',
+  scalingMigration: 'Не вдалося зберегти. Перевірте доступ і застосування SQL event-source-scaling.sql.',
+  autoPublish: 'Автопублікація', autoOn: 'Увімкнути автопублікацію', autoOff: 'Вимкнути автопублікацію', autoSelected: 'Автопублікація для обраних',
+  sourceSelect: 'Обрати джерело', untitled: 'Подія без назви', centerUnavailable: 'Центр міста ще не визначено. Події доступні у стрічці.',
+  importSelectAll: 'Обрати всі джерела за фільтром',
 } as const
 
 export const ingestStatusLabels: Record<string, string> = {
