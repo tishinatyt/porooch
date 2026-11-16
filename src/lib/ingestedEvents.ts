@@ -26,7 +26,7 @@ export function asExternalEvent(row: IngestedRow): PublicEventData | null {
     cover_photo_url: sourceImageUrl(row.cover_url, row.use_source_images), description: row.description, min_age: 0, max_age: 120, gender_filter: 'any',
     max_participants: 0, participant_count: 0, distance_km: null, organizer: null, event_type: 'public',
     location_lat: row.latitude, location_lng: row.longitude,
-    external: { sourceName: row.source_name, url, priceFrom: row.price_from, currency: row.currency, status: row.event_status },
+    external: { sourceName: row.source_name, url, priceFrom: row.price_from, currency: row.currency, status: row.event_status, venueName: row.place, venueAddress: row.address, city: row.city },
   }
 }
 

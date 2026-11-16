@@ -2,7 +2,8 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import { normalizeEventTitle } from '../src/lib/eventTitle.ts'
-import { formatIngestedDate, ingestedStatusLabel } from '../src/lib/ingestedPresentation.ts'
+import { formatIngestedDate, formatIngestedCardDate, formatIngestedPrice, ingestedStatusLabel } from '../src/lib/ingestedPresentation.ts'
+import { groupMapVenues } from '../src/lib/mapVenues.ts'
 import { parseSchemaEvents, dedupHash } from '../scripts/ingest/normalize.mjs'
 import { asExternalEvent } from '../src/lib/ingestedEvents.ts'
 
@@ -46,4 +47,26 @@ test('category SQL copies match and extend the reviewed-version API without repl
   assert.match(sql, /n := poruch_private.ingest_moderate\(p_ids,p_status,p_versions\)/)
   assert.match(sql, /category=p_categories->>e.id::text/)
   assert.doesNotMatch(sql, /tow_leads|svoya_/)
+})
+
+test('card date matches native cards and prices use Ukrainian hryvnia labels', () => {
+  assert.equal(formatIngestedCardDate('2026-11-18T18:00:39Z'), 'ср, 18 лист., 20:00')
+  assert.equal(formatIngestedPrice(590, 'UAH'), 'від 590 грн')
+  assert.equal(formatIngestedPrice(590, 'uah'), 'від 590 грн')
+  assert.equal(formatIngestedPrice(0, 'UAH'), 'від 0 грн')
+  assert.equal(formatIngestedPrice(null, 'UAH'), '')
+  assert.equal(formatIngestedPrice(10, 'EUR'), 'від 10 EUR')
+})
+
+test('map groups co-located events into one venue, keeps native markers distinct and omits only missing coordinates', () => {
+  const source = { id: 'one', title: 'Подія', starts_at: '2099-01-01T18:00Z', source_url: 'https://example.test', source_name: 'Джерело', place: 'Зала', city: 'Київ', category: 'music', latitude: 50.45, longitude: 30.52 }
+  const one = asExternalEvent(source as any)!, two = { ...one, id: 'two' }, absent = { ...one, id: 'absent', location_lat: null }
+  const native = { ...one, id: 'native', external: undefined, location_lat: 50.451 }
+  const groups = groupMapVenues([one, two, absent, native])
+  assert.equal(groups.length, 2)
+  assert.equal(groups[0].events.length, 2)
+  assert.equal(groups[0].kind, 'external')
+  assert.equal(groups[1].kind, 'native')
+  assert.equal(groupMapVenues([one, { ...two, location_lat: 50.4501, location_lng: 30.5201 }]).length, 1, 'same venue remains grouped when provider coordinates differ slightly')
+  assert.equal(groupMapVenues([one, { ...native, location_lat: one.location_lat }])[0].kind, 'mixed')
 })

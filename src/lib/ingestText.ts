@@ -20,6 +20,8 @@ export const ingestText = {
   lastRun: 'Останній запуск', result: 'Результат', counters: 'Знайдено / змінено',
   details: 'Детальніше', ticket: 'Купити квиток', from: 'від',
   externalError: 'Події з зовнішніх джерел тимчасово недоступні.',
+  noCoordinates: 'без координат',
+  externalMarker: 'З джерел', nativeMarker: 'Події користувачів', venueEvents: 'Події в цьому місці',
 } as const
 
 export const ingestStatusLabels: Record<string, string> = {

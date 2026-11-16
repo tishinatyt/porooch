@@ -312,6 +312,7 @@ try {
   }
   for (const width of [360, 1440]) {
     const context = await contextFor(width, 'home')
+    context.setFixtureRows([{ id: 'native-map-fixture', event_type: 'personal', title: 'Особиста зустріч на карті', description: '', category: 'walk', address_text: 'Київ', event_datetime: '2099-01-01T15:00:00Z', created_at: '2026-01-01T00:00:00Z', min_age: 18, max_age: 99, gender_filter: 'any', distance_km: 1, max_participants: 10, participant_count: 0, organizer_id: 'another-fixture-user', organizer: null, location_lat: 50.447, location_lng: 30.524 }])
     const posterRequests = []
     await context.route('https://posters.example.test/**', route => { posterRequests.push(route.request().url()); return route.fulfill({ status: 404, body: '' }) })
     await context.route('**/rest/v1/rpc/poruch_ingest_feed', route => route.fulfill({ json: [0, 1, 2].map(index => ({
@@ -337,7 +338,34 @@ try {
     assert.ok(links.every(link => new URL(link.href).searchParams.get('utm_source') === 'poruch' && link.rel.includes('noopener')))
     if (width === 360) for (const card of await cards.all()) assert.equal(Math.round((await card.boundingBox()).height), 236)
     await layout(page, `ingested-events-${width}`)
-    checks.push({ width, externalCards: 3, participationButtons: 0, partnerLinks: true, sourceImages: 'consent, loaded and failed verified', disabledPosterRequests: 0 })
+    const mapRows = Array.from({ length: 101 }, (_, index) => ({
+      id: `map-external-${index}`, title: `Подія в залі · ${index}`, starts_at: '2099-01-01T18:00:00Z',
+      place: index === 100 ? 'Друга зала' : 'Спільна зала', address: 'вул. Миру, 1', city: 'Київ', category: 'music',
+      latitude: index < 2 ? 50.4505 : index === 100 ? 50.454 : null,
+      longitude: index < 2 ? 30.5235 : index === 100 ? 30.526 : null,
+      price_from: 590, currency: 'UAH', source_url: `https://tickets.example.test/event/${index}`, cover_url: `${base}/poruch-logo.png`, use_source_images: true,
+      description: 'Факти', source_name: 'Джерело', partner_params: 'utm_source=poruch',
+    }))
+    const mapOffsets = []
+    await context.route('**/rest/v1/rpc/poruch_ingest_feed', route => {
+      const args = route.request().postDataJSON(); mapOffsets.push(args.p_offset)
+      return route.fulfill({ json: mapRows.slice(args.p_offset, args.p_offset + args.p_limit) })
+    })
+    await page.getByRole('group', { name: 'Режим перегляду подій' }).getByRole('button', { name: 'Карта', exact: true }).click()
+    await page.waitForFunction(() => document.querySelectorAll('.poruch-marker-external').length === 2 && document.querySelectorAll('.poruch-marker-native').length === 1)
+    assert.ok(mapOffsets.includes(100), 'map must request the second RPC batch')
+    await page.locator('.poruch-marker-external').first().click()
+    await page.locator('.leaflet-popup-content article').first().waitFor()
+    assert.equal(await page.locator('.leaflet-popup-content article').count(), 2)
+    assert.equal(await page.locator('.leaflet-popup-content').getByRole('link', { name: 'Купити квиток', exact: true }).count(), 2)
+    assert.equal(await page.locator('.leaflet-popup-content').getByText('від 590 грн', { exact: true }).count(), 2)
+    assert.equal(await page.locator('.leaflet-popup-content img').count(), 2)
+    await page.waitForTimeout(600) // Leaflet auto-pan/fade must settle before visual inspection.
+    await layout(page, `ingested-map-${width}`)
+    await page.locator('.leaflet-popup-close-button').click()
+    await page.locator('.poruch-marker-native').click()
+    await page.locator('.leaflet-popup-content').getByRole('button', { name: 'Детальніше', exact: true }).waitFor()
+    checks.push({ width, externalCards: 3, participationButtons: 0, partnerLinks: true, sourceImages: 'consent, loaded and failed verified', disabledPosterRequests: 0, externalVenueMarkers: 2, nativeMarkers: 1, sharedVenueEvents: 2, secondMapBatch: true })
     await context.close()
   }
   await fs.writeFile(`${outDir}/${process.env.CHECK_INGEST_ONLY ? 'ingest-result' : 'result'}.json`, JSON.stringify(checks, null, 2))

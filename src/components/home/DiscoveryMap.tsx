@@ -1,48 +1,17 @@
+import 'leaflet/dist/leaflet.css'
+import { createPortal } from 'react-dom'
+import { groupMapVenues, hasMapCoordinates, type MapVenue } from '@/lib/mapVenues'
+import MapVenuePopup from './MapVenuePopup'
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { LayerGroup, Map as LeafletMap } from 'leaflet'
 import type { Coords } from '@/lib/geo'
 import type { PublicEventData } from '@/components/home/types'
-import { eventCategoryLabel } from '@/components/home/eventLabels'
 import { ingestText } from '@/lib/ingestText'
-import { formatIngestedDate, ingestedStatusLabel } from '@/lib/ingestedPresentation'
 
 interface DiscoveryMapProps {
   events: PublicEventData[]
   center: Coords
-}
-
-const dateFormatter = new Intl.DateTimeFormat('uk-UA', {
-  day: 'numeric',
-  month: 'short',
-  hour: '2-digit',
-  minute: '2-digit',
-})
-
-function hasValidCoordinates(event: PublicEventData) {
-  return typeof event.location_lat === 'number'
-    && Number.isFinite(event.location_lat)
-    && event.location_lat >= -90
-    && event.location_lat <= 90
-    && typeof event.location_lng === 'number'
-    && Number.isFinite(event.location_lng)
-    && event.location_lng >= -180
-    && event.location_lng <= 180
-}
-
-function injectLeafletCss() {
-  if (document.querySelector('link[href*="leaflet.css"]')) return
-  const link = document.createElement('link')
-  link.rel = 'stylesheet'
-  link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css'
-  document.head.appendChild(link)
-}
-
-function appendText(parent: HTMLElement, className: string, text: string) {
-  const element = document.createElement('p')
-  element.className = className
-  element.textContent = text
-  parent.appendChild(element)
 }
 
 export default function DiscoveryMap({ events, center }: DiscoveryMapProps) {
@@ -52,23 +21,16 @@ export default function DiscoveryMap({ events, center }: DiscoveryMapProps) {
   const markersRef = useRef<LayerGroup | null>(null)
   const lastBoundsKeyRef = useRef<string | null>(null)
   const [mapReady, setMapReady] = useState(false)
+  const [activePopup, setActivePopup] = useState<{ element: HTMLElement; venue: MapVenue; update: () => void } | null>(null)
+  useEffect(() => { activePopup?.update() }, [activePopup])
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return
     let cancelled = false
     setMapReady(false)
-    injectLeafletCss()
 
     void import('leaflet').then((leaflet) => {
       if (cancelled || !containerRef.current || mapRef.current) return
-
-      // Keep the same bundler-safe default marker configuration as EventMap.
-      delete (leaflet.Icon.Default.prototype as typeof leaflet.Icon.Default.prototype & { _getIconUrl?: unknown })._getIconUrl
-      leaflet.Icon.Default.mergeOptions({
-        iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
-        iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
-        shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
-      })
 
       const map = leaflet.map(containerRef.current, {
         center: [center.lat, center.lng],
@@ -76,6 +38,7 @@ export default function DiscoveryMap({ events, center }: DiscoveryMapProps) {
         zoomControl: true,
         scrollWheelZoom: false,
       })
+      map.zoomControl.setPosition('bottomright')
 
       leaflet.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 19,
@@ -127,41 +90,24 @@ export default function DiscoveryMap({ events, center }: DiscoveryMapProps) {
       if (cancelled || !map || !markerLayer) return
 
       markerLayer.clearLayers()
-      const visibleEvents = events.filter(hasValidCoordinates)
+      const venues = groupMapVenues(events)
       const bounds: [number, number][] = []
-
-      for (const event of visibleEvents) {
-        const position: [number, number] = [event.location_lat!, event.location_lng!]
-        bounds.push(position)
-
-        const popup = document.createElement('div')
-        popup.className = 'min-w-48 text-brand-ink'
-        if (event.isDemo) appendText(popup, 'mb-1 text-xs font-bold text-amber-800', 'Тестова подія · умовне місце')
-        appendText(popup, 'text-sm font-extrabold leading-5', event.title)
-        appendText(popup, 'mt-1 text-[11px] font-bold text-brand-accent', eventCategoryLabel(event.category))
-        appendText(popup, 'mt-2 text-xs text-brand-ink-soft', event.external ? formatIngestedDate(event.event_datetime) : dateFormatter.format(new Date(event.event_datetime)))
-        const status = ingestedStatusLabel(event.external?.status)
-        if (status) appendText(popup, 'mt-1 rounded-lg bg-amber-50 px-2 py-1 text-xs font-bold text-amber-900', status)
-        const distance = event.distance_km == null ? '' : ` · ${event.distance_km.toFixed(1)} км`
-        appendText(popup, 'mt-1 text-xs text-brand-ink-muted', `${event.participant_count}/${event.max_participants} учасників${distance}`)
-
-        const detailsButton = document.createElement(event.external ? 'a' : 'button')
-        if (detailsButton instanceof HTMLAnchorElement && event.external) {
-          detailsButton.href = event.external.url
-          detailsButton.target = '_blank'
-          detailsButton.rel = 'sponsored noopener noreferrer'
-          appendText(popup, 'mt-1 text-xs font-bold', `${ingestText.source}: ${event.external.sourceName}`)
-        }
-        detailsButton.className = 'mt-3 min-h-10 rounded-lg bg-brand-accent px-3 text-[11px] font-extrabold text-white'
-        detailsButton.textContent = event.external && event.external.priceFrom != null && event.external.priceFrom > 0 ? ingestText.ticket : ingestText.details
-        if (!event.external) detailsButton.addEventListener('click', () => navigate(`/event/${event.id}`))
-        popup.appendChild(detailsButton)
-
-        leaflet.marker(position).addTo(markerLayer).bindPopup(popup, { closeButton: false, maxWidth: 260 })
+      setActivePopup(null)
+      for (const venue of venues) {
+        bounds.push(venue.position)
+        const element = document.createElement('div')
+        const popup = leaflet.popup({ maxWidth: 340, minWidth: 240, maxHeight: 390 }).setContent(element)
+        const icon = leaflet.divIcon({
+          className: 'poruch-venue-marker', iconSize: [40, 40], iconAnchor: [20, 40], popupAnchor: [0, -40],
+          html: '<span class="poruch-marker-' + venue.kind + '"><b aria-hidden="true">' + (venue.kind === 'native' ? '&#9679;' : '&#127903;') + '</b>' + (venue.events.length > 1 ? '<small>' + venue.events.length + '</small>' : '') + '</span>',
+        })
+        const marker = leaflet.marker(venue.position, { icon, title: venue.name, alt: venue.kind === 'native' ? ingestText.nativeMarker : ingestText.externalMarker }).addTo(markerLayer).bindPopup(popup)
+        marker.on('popupopen', () => setActivePopup({ element, venue, update: () => popup.update() }))
+        marker.on('popupclose', () => setActivePopup(current => current?.element === element ? null : current))
       }
 
-      const markerKey = visibleEvents
-        .map((event) => `${event.id}:${event.location_lat}:${event.location_lng}`)
+      const markerKey = venues
+        .map(venue => venue.key)
         .sort()
         .join('|')
       const boundsKey = `${center.lat}:${center.lng}|${markerKey}`
@@ -176,10 +122,12 @@ export default function DiscoveryMap({ events, center }: DiscoveryMapProps) {
     return () => { cancelled = true }
   }, [center.lat, center.lng, events, mapReady, navigate])
 
-  const markerCount = events.filter(hasValidCoordinates).length
+  const markerCount = events.filter(hasMapCoordinates).length
 
   return (
     <div className="relative min-h-[430px] flex-1 overflow-hidden rounded-2xl border border-brand-border bg-brand-surface-muted lg:min-h-0">
+      {activePopup && createPortal(<MapVenuePopup venue={activePopup.venue} onOpen={id => navigate(`/event/${id}`)} />, activePopup.element)}
+      <div className="absolute bottom-6 left-2 z-[500] flex gap-3 rounded-lg bg-white/95 px-2 py-1 text-[10px] font-bold"><span className="text-violet-700">{ingestText.externalMarker}</span><span className="text-sky-700">{ingestText.nativeMarker}</span></div>
       <div ref={containerRef} role="region" className="absolute inset-0 z-0" aria-label="Карта подій" />
       {markerCount === 0 && <div className="pointer-events-none absolute inset-x-4 top-4 z-[400] mx-auto max-w-sm rounded-xl border border-brand-border bg-white/95 px-4 py-3 text-center text-xs font-bold text-brand-ink-soft shadow-card">Для вибраних подій немає координат на карті</div>}
     </div>

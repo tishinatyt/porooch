@@ -179,6 +179,7 @@ test('moderation renders old titles normalized, hides technical statuses, and fo
       const card = container.querySelector('article')!
       assert.match(card.textContent!, /Не п’яна/)
       assert.match(card.textContent!, /16\.11\.2026, 20:00/)
+      assert.match(card.textContent!, /без координат/)
       assert.doesNotMatch(card.textContent!, /EventScheduled|EventCancelled|EventPostponed|EventRescheduled|20:00:39/)
       if (label) assert.ok(card.textContent!.includes(label))
     }
@@ -205,4 +206,18 @@ test('category drafts preview immediately and bulk publication sends only change
     await click('Опублікувати')
     assert.match(container.querySelector('[role="alert"]')!.textContent!, /ingested-event-category.sql/)
   } finally { pending = original; rpcResponse = async () => ({ data: 1, error: null }); await act(async () => root.unmount()) }
+})
+
+test('map mode fetches external events beyond the feed first page and all RPC batches', async () => {
+  const root = createRoot(container), pages: number[] = []
+  rpcResponse = async (_name, args) => {
+    pages.push(args.p_offset)
+    return { data: Array.from({ length: 101 }, (_, index) => ({ ...external, id: String(index), title: `Event ${index}` })).slice(args.p_offset, args.p_offset + args.p_limit), error: null }
+  }
+  function MapProbe() { const feed = useIngestedFeed('Київ', 'all', '', Infinity); return <p>{feed.rows.length}:{feed.rows.at(-1)?.title}</p> }
+  try {
+    await act(async () => root.render(<MapProbe />))
+    assert.equal(container.textContent, '101:Event 100')
+    assert.deepEqual(pages, [0, 100])
+  } finally { rpcResponse = async () => ({ data: 1, error: null }); await act(async () => root.unmount()) }
 })

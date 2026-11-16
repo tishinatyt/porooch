@@ -1,3 +1,4 @@
+import { hasMapCoordinates } from '@/lib/mapVenues'
 import { distanceFrom } from '@/lib/ingestedEvents'
 import { useIngestedFeed } from '@/hooks/useIngestedFeed'
 import { ingestText } from '@/lib/ingestText'
@@ -114,8 +115,8 @@ export default function HomeScreen() {
   const [publicPage, setPublicPage] = useState(1)
   const [personalPage, setPersonalPage] = useState(1)
   const [radiusKm, setRadiusKm] = useState(5)
-  const externalFeed = useIngestedFeed(city.name, selectedCategory, searchQuery, publicPage * PAGE_SIZE)
   const [viewMode, setViewMode] = useState<'feed' | 'map'>('feed')
+  const externalFeed = useIngestedFeed(city.name, selectedCategory, searchQuery, viewMode === 'map' ? Infinity : publicPage * PAGE_SIZE)
   // The selected city controls the UI immediately, independently of network latency.
   const discoveryCenter = useMemo(() => ({ lat: city.lat, lng: city.lng }), [city.lat, city.lng])
 
@@ -429,7 +430,7 @@ export default function HomeScreen() {
           <div className="mb-2 flex flex-none flex-col gap-2 px-1 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-2">
               <h1 className="text-sm font-extrabold tracking-[-0.02em] text-brand-ink">Події на карті</h1>
-              {!loadingDiscovery && <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-brand-accent-soft px-1.5 text-[10px] font-bold tabular-nums text-brand-accent">{mapEvents.length}</span>}
+              {!loadingDiscovery && <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-brand-accent-soft px-1.5 text-[10px] font-bold tabular-nums text-brand-accent">{mapEvents.filter(hasMapCoordinates).length}</span>}
             </div>
           </div>
           <Suspense fallback={<div className="min-h-[430px] flex-1 animate-pulse rounded-2xl bg-brand-surface-muted lg:min-h-0" />}><DiscoveryMap events={mapEvents} center={discoveryCenter} /></Suspense>

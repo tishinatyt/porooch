@@ -3,6 +3,13 @@ on:
   schedule:
     - cron: '17 4 * * *'
   workflow_dispatch:
+    inputs:
+      mode:
+        description: Collect source pages or backfill missing coordinates only
+        type: choice
+        options: [collect, backfill]
+        default: collect
+        required: true
 permissions:
   contents: read
 concurrency:
@@ -29,8 +36,23 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
-      - name: Collect facts (no automatic publication)
+      - name: Restore venue geocode fallback cache
+        uses: actions/cache/restore@v4
+        with:
+          path: .cache/venue-geocodes.json
+          key: ${{ runner.os }}-poruch-geocodes-v1-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: ${{ runner.os }}-poruch-geocodes-v1-
+      - name: Collect or backfill (no automatic publication)
         run: node scripts/ingest/run.mjs
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          INGEST_MODE: ${{ github.event_name == 'workflow_dispatch' && inputs.mode || 'collect' }}
+          NOMINATIM_URL: ${{ vars.NOMINATIM_URL }}
+          GEOCODE_MAX_REQUESTS: ${{ vars.GEOCODE_MAX_REQUESTS }}
+      - name: Save venue fallback cache even on partial failure
+        if: ${{ always() && hashFiles('.cache/venue-geocodes.json') != '' }}
+        uses: actions/cache/save@v4
+        with:
+          path: .cache/venue-geocodes.json
+          key: ${{ runner.os }}-poruch-geocodes-v1-${{ github.run_id }}-${{ github.run_attempt }}

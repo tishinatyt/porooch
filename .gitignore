@@ -13,6 +13,7 @@
 # testing
 /coverage
 /qa-artifacts/
+/.cache/
 
 # next.js
 /.next/
