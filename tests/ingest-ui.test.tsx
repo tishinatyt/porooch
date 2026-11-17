@@ -10,7 +10,7 @@ let legacySchema = false
 const writeError = (payload: any) => legacySchema && Object.hasOwn(payload, 'use_source_images') ? { code: 'PGRST204', message: 'use_source_images column missing' } : null
 const sources = [{ id: 'source-one', name: 'Міський театр', city: 'Чернігів', url: 'https://example.test/events', type: 'schema_org', default_category: 'theatre', enabled: true, partner_params: '', last_run_at: null, last_result: 'ok', last_found: 2, last_changed: 1, run_count: 1 }]
 let pending = [{ id: 'event-one', title: 'Вистава', city: 'Чернігів', starts_at: '2099-01-01T18:00Z', place: 'Театр', address: 'Центр', source_url: 'https://example.test/play', source: { name: 'Міський театр' }, fingerprint: 'version-one', event_status: 'EventScheduled' }]
-let rpcResponse: (name: string, args: any) => Promise<any> = async () => ({ data: 1, error: null })
+let rpcResponse: (name: string, args: any) => Promise<any> = async () => ({ data: { processed: 1, skipped: 0, done: true }, error: null })
 mock.module('../src/lib/supabase.ts', { namedExports: { supabase: {
   rpc: async (name: string, args: any) => { calls.push({ name, args }); return rpcResponse(name, args) },
   from: (table: string) => {
@@ -35,6 +35,35 @@ const external = { id: 'external', title: 'Концерт', starts_at: '2099-01-
 async function click(text: string) { await act(async () => { const button = [...container.querySelectorAll('button')].find(item => item.textContent === text); assert.ok(button, text); button.click() }) }
 after(() => dom.window.close())
 
+test('partial moderation reports counts and refreshes skipped rows; filtered actions confirm scope and preserve stored category', async () => {
+  const root = createRoot(container); calls.length = 0
+  const confirmations: string[] = []
+  dom.window.confirm = message => { confirmations.push(message); return true }
+  rpcResponse = async () => ({ data: { processed: 2, skipped: 1, done: true }, error: null })
+  try {
+    await act(async () => root.render(<AdminIngest mode="moderation" />))
+    await click('Опублікувати')
+    assert.match(container.textContent!, /Опубліковано: 2. Пропущено: 1/)
+    assert.ok(calls.filter(call => call.name === 'list:ingested_events').length >= 2)
+    assert.match(container.querySelector('article')!.textContent!, /Вистава/)
+    await act(async () => {
+      const city = container.querySelector<HTMLSelectElement>('select[aria-label="Місто"]')!
+      city.value = 'Чернігів'; city.dispatchEvent(new Event('change', { bubbles: true }))
+    })
+    await click('Опублікувати всі за фільтром (1)')
+    const args = calls.filter(call => call.name === 'poruch_moderation_batch').at(-1)!.args
+    assert.equal(args.p_city, 'Чернігів')
+    assert.equal(args.p_ids, undefined)
+    assert.equal(args.p_categories, undefined)
+    assert.match(confirmations[0], /1/)
+    await act(async () => {
+      const size = container.querySelector<HTMLSelectElement>('select[aria-label="Подій на сторінці"]')!
+      size.value = '100'; size.dispatchEvent(new Event('change', { bubbles: true }))
+    })
+    assert.match(container.textContent!, /Подій у черзі: 1/)
+  } finally { rpcResponse = async () => ({ data: { processed: 1, skipped: 0, done: true }, error: null }); await act(async () => root.unmount()) }
+})
+
 test('source list import previews duplicates before writing, then submits uniform consent and reports counts', async () => {
   const root = createRoot(container); calls.length = 0; let saved = 0
   rpcResponse = async () => ({ data: { created: 1, skipped: 2 }, error: null })
@@ -58,7 +87,7 @@ test('source list import previews duplicates before writing, then submits unifor
     assert.equal(request.p_rows.some((item: any) => item.auto_publish), false)
     assert.equal(saved, 1)
     assert.match(container.querySelector('[role="status"]')!.textContent!, /1.*2/)
-  } finally { rpcResponse = async () => ({ data: 1, error: null }); await act(async () => root.unmount()) }
+  } finally { rpcResponse = async () => ({ data: { processed: 1, skipped: 0, done: true }, error: null }); await act(async () => root.unmount()) }
 })
 
 test('moderation is pending-only with city/source filters; single and batch actions carry displayed fingerprints', async () => {
@@ -71,14 +100,14 @@ test('moderation is pending-only with city/source filters; single and batch acti
     for (const [label, value] of [['Місто', 'Чернігів'], ['Джерело', 'source-one']]) await act(async () => { const select = container.querySelector<HTMLSelectElement>(`select[aria-label="${label}"]`)!; select.value = value; select.dispatchEvent(new Event('change', { bubbles: true })) })
     assert.deepEqual(calls.filter(call => call.name === 'list:ingested_events').at(-1)?.args, [['status', 'pending'], ['city', 'Чернігів'], ['source_id', 'source-one']])
     await click('Опублікувати')
-    assert.deepEqual(calls.find(call => call.name === 'poruch_ingest_moderate')?.args, { p_ids: ['event-one'], p_status: 'approved', p_versions: { 'event-one': 'version-one' } })
+    assert.deepEqual(calls.find(call => call.name === 'poruch_moderation_batch')?.args, { p_ids: ['event-one'], p_status: 'approved', p_versions: { 'event-one': 'version-one' } })
     await act(async () => container.querySelector<HTMLInputElement>('input[type="checkbox"]')!.click())
     await click('Відхилити (1)')
-    assert.equal(calls.filter(call => call.name === 'poruch_ingest_moderate').at(-1)?.args.p_status, 'rejected')
+    assert.equal(calls.filter(call => call.name === 'poruch_moderation_batch').at(-1)?.args.p_status, 'rejected')
     rpcResponse = async () => ({ error: { message: 'event_changed' } })
     await click('Опублікувати')
-    assert.match(container.querySelector('[role="alert"]')!.textContent!, /вже змінилася/)
-  } finally { rpcResponse = async () => ({ data: 1, error: null }); await act(async () => root.unmount()) }
+    assert.match(container.querySelector('[role="alert"]')!.textContent!, /ingest-moderation-batch.sql/)
+  } finally { rpcResponse = async () => ({ data: { processed: 1, skipped: 0, done: true }, error: null }); await act(async () => root.unmount()) }
 })
 test('source editor accepts an arbitrary Ukrainian city, saves moderation-only configuration and can disable a source', async () => {
   const root = createRoot(container); calls.length = 0
@@ -129,7 +158,7 @@ test('external feed A→B→A ignores obsolete responses; failed external querie
     assert.equal(container.textContent, '')
     await act(async () => requests[3].resolve({ error: { message: 'offline' } }))
     assert.equal(container.textContent, 'error')
-  } finally { rpcResponse = async () => ({ data: 1, error: null }); await act(async () => root.unmount()) }
+  } finally { rpcResponse = async () => ({ data: { processed: 1, skipped: 0, done: true }, error: null }); await act(async () => root.unmount()) }
 })
 
 test('source images require explicit consent; failed posters fall back to the existing category illustration', async () => {
@@ -224,15 +253,15 @@ test('category drafts preview immediately and bulk publication sends only change
     assert.equal(select.value, 'theatre')
     await act(async () => container.querySelector<HTMLInputElement>('input[type="checkbox"]')!.click())
     await click('Опублікувати (2)')
-    assert.deepEqual(calls.find(call => call.name === 'poruch_ingest_moderate')?.args, {
+    assert.deepEqual(calls.find(call => call.name === 'poruch_moderation_batch')?.args, {
       p_ids: ['event-one', 'event-two'], p_status: 'approved', p_versions: { 'event-one': 'version-one', 'event-two': 'version-two' }, p_categories: { 'event-one': 'theatre' },
     })
     const current = container.querySelector<HTMLSelectElement>('article select')!
     await act(async () => { current.value = 'food'; current.dispatchEvent(new Event('change', { bubbles: true })) })
     rpcResponse = async () => ({ error: { code: 'PGRST202', message: 'p_categories RPC not found' } })
     await click('Опублікувати')
-    assert.match(container.querySelector('[role="alert"]')!.textContent!, /ingested-event-category.sql/)
-  } finally { pending = original; rpcResponse = async () => ({ data: 1, error: null }); await act(async () => root.unmount()) }
+    assert.match(container.querySelector('[role="alert"]')!.textContent!, /ingest-moderation-batch.sql/)
+  } finally { pending = original; rpcResponse = async () => ({ data: { processed: 1, skipped: 0, done: true }, error: null }); await act(async () => root.unmount()) }
 })
 
 test('map mode fetches external events beyond the feed first page and all RPC batches', async () => {
@@ -246,5 +275,5 @@ test('map mode fetches external events beyond the feed first page and all RPC ba
     await act(async () => root.render(<MapProbe />))
     assert.equal(container.textContent, '101:Event 100')
     assert.deepEqual(pages, [0, 100])
-  } finally { rpcResponse = async () => ({ data: 1, error: null }); await act(async () => root.unmount()) }
+  } finally { rpcResponse = async () => ({ data: { processed: 1, skipped: 0, done: true }, error: null }); await act(async () => root.unmount()) }
 })

@@ -1,4 +1,10 @@
 export const ingestText = {
+  publishFiltered: 'Опублікувати всі за фільтром', rejectFiltered: 'Відхилити всі за фільтром',
+  confirmFiltered: 'Підтвердити дію для подій за фільтром',
+  publishCollected: 'Опублікувати вже зібрані події цього джерела, що пройшли перевірку?',
+  published: 'Опубліковано', rejected: 'Відхилено', skipped: 'Пропущено',
+  skipReason: 'змінилися або не пройшли перевірку', queueTotal: 'Подій у черзі', pageSize: 'Подій на сторінці',
+  batchMigration: 'Не вдалося завершити дію. Перевірте доступ і застосування SQL ingest-moderation-batch.sql. Уже виконані порції збережено; список оновлено.',
   platform: 'Платформа', moderation: 'Афіша на модерації', sources: 'Джерела',
   publish: 'Опублікувати', reject: 'Відхилити', selectAll: 'Обрати всі на сторінці',
   city: 'Місто', allCities: 'Усі міста', source: 'Джерело', allSources: 'Усі джерела',
