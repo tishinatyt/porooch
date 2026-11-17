@@ -54,13 +54,13 @@ export function parseSchemaEvents(html, source, stats = {}) {
   for (const node of nodes) {
     const types = list(node['@type']).map(typeName)
     if (!types.some(type => /Event$/.test(type))) continue
-    const location = resolve(list(node.location)[0]) ?? {}, address = resolve(location.address) ?? {}
+    const location = resolve(list(node.location ?? node.venue)[0]) ?? {}, address = resolve(location.address) ?? {}
     const country = typeof address.addressCountry === 'object' ? address.addressCountry.name : address.addressCountry
     if (country && !['ua', 'ukraine', 'україна', 'украина'].includes(String(country).toLowerCase())) continue
     const title = normalizeEventTitle(node.name).slice(0, 300), starts_at = kyivDate(node.startDate), ends_at = kyivDate(node.endDate)
     const locality = string(address.addressLocality || source.city, 120)
     const city = findCity(locality)?.name ?? locality
-    const place = string(location.name), addressText = typeof address === 'string' ? string(address) : string([address.streetAddress, address.addressLocality].filter(Boolean).join(', '))
+    const place = string(typeof location === 'string' ? location : location.name), addressText = typeof address === 'string' ? string(address) : string([address.streetAddress, address.addressLocality].filter(Boolean).join(', '))
     if (!title || !starts_at || !city || (ends_at && ends_at < starts_at)) continue
     const source_url = httpUrl(node.url || node['@id'] || source.url, source.url)
     if (!source_url) continue

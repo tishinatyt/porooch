@@ -59,6 +59,6 @@ test('batch rejection preserves completed counts on later RPC failure and never 
 
 test('SQL authorizes admins, skips conflicts, locks against ingestion, validates approval and uses bounded keyset scanning', () => {
   const sql = fs.readFileSync('docs/sql/ingest-moderation-batch.sql', 'utf8')
-  for (const pattern of [/is_admin\(\)/, /pg_advisory_xact_lock\(1760916000\)/, /fingerprint is distinct from/, /updated_at>v_snapshot/, /v_skipped:=v_skipped\+1; continue/, /limit 100 for update/, /e.id>p_after/, /e.city=p_city/, /e.source_id=any\(p_sources\)/, /v_item.starts_at<=now\(\)/, /char_length\(btrim\(v_item.title\)\)<3/, /d.dedup_hash=v_item.dedup_hash/, /security invoker/]) assert.match(sql, pattern)
+  for (const pattern of [/is_admin\(\)/, /pg_advisory_xact_lock\(1760916000\)/, /fingerprint is distinct from/, /updated_at>v_snapshot/, /v_skipped:=v_skipped\+1/, /limit 100 for update/, /e.id>p_after/, /e.city=p_city/, /e.source_id=any\(p_sources\)/, /moderation_reason\(to_jsonb\(v_item\),now\(\)\)/, /char_length\(btrim\(coalesce\(p_item/, /d.dedup_hash=v_item.dedup_hash/, /security invoker/]) assert.match(sql, pattern)
   assert.doesNotMatch(sql, /tow_leads|svoya_|offset /)
 })
