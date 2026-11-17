@@ -3,33 +3,33 @@
 begin;
 
 create or replace function poruch_private.moderation_venue(p_item jsonb) returns text
-language sql immutable set search_path='' as $
+language sql immutable set search_path='' as $fn$
  select coalesce(nullif(btrim(p_item->>'place'),''),nullif(btrim(p_item->>'address'),''),
  nullif(btrim(p_item#>>'{raw_data,location,name}'),''),nullif(btrim(p_item#>>'{raw_data,venue,name}'),''),
  case when jsonb_typeof(p_item#>'{raw_data,venue}')='string' then nullif(btrim(p_item#>>'{raw_data,venue}'),'') end,
  nullif(btrim(p_item#>>'{raw_data,location,address,streetAddress}'),''),
  case when jsonb_typeof(p_item#>'{raw_data,location,address}')='string' then nullif(btrim(p_item#>>'{raw_data,location,address}'),'') end,
  case when jsonb_typeof(p_item#>'{raw_data,location}')='string' then nullif(btrim(p_item#>>'{raw_data,location}'),'') end,'');
-$;
+$fn$;
 create or replace function poruch_private.moderation_identity(p_item jsonb) returns text
-language sql immutable set search_path='' as $
+language sql immutable set search_path='' as $fn$
  select jsonb_build_array(regexp_replace(lower(coalesce(p_item->>'title','')),'[^[:alnum:]]','','g'),
  regexp_replace(lower(coalesce(p_item->>'city','')),'[^[:alnum:]]','','g'),
  regexp_replace(lower(poruch_private.moderation_venue(p_item)),'[^[:alnum:]]','','g'))::text;
-$;
+$fn$;
 create or replace function poruch_private.moderation_reason(p_item jsonb,p_now timestamptz) returns text
-language sql stable set search_path='' as $
+language sql stable set search_path='' as $fn$
  select case when (p_item->>'starts_at')::timestamptz is null or (p_item->>'starts_at')::timestamptz<=p_now then 'date'
  when char_length(btrim(coalesce(p_item->>'title','')))<3 then 'title'
  when poruch_private.moderation_venue(p_item)='' then 'venue'
  when p_item->>'event_status' in ('EventCancelled','EventPostponed') then 'event_status' else null end;
-$;
+$fn$;
 revoke all on function poruch_private.moderation_venue(jsonb),poruch_private.moderation_identity(jsonb),poruch_private.moderation_reason(jsonb,timestamptz) from public,anon,authenticated;
 
 create or replace function poruch_private.moderation_batch(
  p_status text,p_ids uuid[] default null,p_versions jsonb default '{}',p_categories jsonb default '{}',
  p_city text default '',p_sources uuid[] default null,p_after uuid default null,p_snapshot timestamptz default null
-) returns jsonb language plpgsql security definer set search_path='' as $$
+) returns jsonb language plpgsql security definer set search_path='' as $fn$
 declare v_item public.ingested_events; v_n integer:=0; v_skipped integer:=0; v_scanned integer:=0; v_last_id uuid:=p_after;
  v_snapshot timestamptz:=coalesce(p_snapshot,clock_timestamp()); v_category text; v_reason text; v_canonical uuid; v_reasons jsonb:='{}'; v_examples jsonb:='[]';
 begin
@@ -78,13 +78,13 @@ begin
   v_reasons:=v_reasons||jsonb_build_object('missing',cardinality(array(select distinct unnest(p_ids)))-v_scanned);
   v_skipped:=v_skipped+cardinality(array(select distinct unnest(p_ids)))-v_scanned; end if;
  return jsonb_build_object('processed',v_n,'skipped',v_skipped,'reasons',v_reasons,'examples',v_examples,'cursor',v_last_id,'snapshot',v_snapshot,'done',p_ids is not null or v_scanned<100);
-end $$;
+end $fn$;
 create or replace function public.poruch_moderation_batch(
  p_status text,p_ids uuid[] default null,p_versions jsonb default '{}',p_categories jsonb default '{}',
  p_city text default '',p_sources uuid[] default null,p_after uuid default null,p_snapshot timestamptz default null
-) returns jsonb language sql security invoker set search_path='' as $$
+) returns jsonb language sql security invoker set search_path='' as $fn$
  select poruch_private.moderation_batch(p_status,p_ids,p_versions,p_categories,p_city,p_sources,p_after,p_snapshot);
-$$;
+$fn$;
 revoke all on function poruch_private.moderation_batch(text,uuid[],jsonb,jsonb,text,uuid[],uuid,timestamptz),public.poruch_moderation_batch(text,uuid[],jsonb,jsonb,text,uuid[],uuid,timestamptz) from public,anon,authenticated;
 grant execute on function poruch_private.moderation_batch(text,uuid[],jsonb,jsonb,text,uuid[],uuid,timestamptz),public.poruch_moderation_batch(text,uuid[],jsonb,jsonb,text,uuid[],uuid,timestamptz) to authenticated;
 notify pgrst,'reload schema';

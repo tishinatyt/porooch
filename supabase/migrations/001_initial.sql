@@ -262,6 +262,6 @@ create policy "ad_cards_select" on public.ad_cards for select using (active = tr
 -- ============================================================
 
 insert into public.ad_cards (title, description, cta_url, active) values
-  ('Кав'ярня "Зернятко"', 'Найкраща кава в Чернігові. Знижка 10% для користувачів MeetNow!', 'https://example.com/zernyatko', true),
+  ('Кав''ярня "Зернятко"', 'Найкраща кава в Чернігові. Знижка 10% для користувачів MeetNow!', 'https://example.com/zernyatko', true),
   ('Квест-кімната "Лабіринт"', 'Пройди квест з новими знайомими. Бронювання онлайн.', 'https://example.com/labyrinth', true)
 on conflict do nothing;

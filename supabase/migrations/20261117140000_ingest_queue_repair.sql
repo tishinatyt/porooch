@@ -3,33 +3,33 @@ begin;
 
 
 create or replace function poruch_private.moderation_venue(p_item jsonb) returns text
-language sql immutable set search_path='' as $
+language sql immutable set search_path='' as $fn$
  select coalesce(nullif(btrim(p_item->>'place'),''),nullif(btrim(p_item->>'address'),''),
  nullif(btrim(p_item#>>'{raw_data,location,name}'),''),nullif(btrim(p_item#>>'{raw_data,venue,name}'),''),
  case when jsonb_typeof(p_item#>'{raw_data,venue}')='string' then nullif(btrim(p_item#>>'{raw_data,venue}'),'') end,
  nullif(btrim(p_item#>>'{raw_data,location,address,streetAddress}'),''),
  case when jsonb_typeof(p_item#>'{raw_data,location,address}')='string' then nullif(btrim(p_item#>>'{raw_data,location,address}'),'') end,
  case when jsonb_typeof(p_item#>'{raw_data,location}')='string' then nullif(btrim(p_item#>>'{raw_data,location}'),'') end,'');
-$;
+$fn$;
 create or replace function poruch_private.moderation_identity(p_item jsonb) returns text
-language sql immutable set search_path='' as $
+language sql immutable set search_path='' as $fn$
  select jsonb_build_array(regexp_replace(lower(coalesce(p_item->>'title','')),'[^[:alnum:]]','','g'),
  regexp_replace(lower(coalesce(p_item->>'city','')),'[^[:alnum:]]','','g'),
  regexp_replace(lower(poruch_private.moderation_venue(p_item)),'[^[:alnum:]]','','g'))::text;
-$;
+$fn$;
 create or replace function poruch_private.moderation_reason(p_item jsonb,p_now timestamptz) returns text
-language sql stable set search_path='' as $
+language sql stable set search_path='' as $fn$
  select case when (p_item->>'starts_at')::timestamptz is null or (p_item->>'starts_at')::timestamptz<=p_now then 'date'
  when char_length(btrim(coalesce(p_item->>'title','')))<3 then 'title'
  when poruch_private.moderation_venue(p_item)='' then 'venue'
  when p_item->>'event_status' in ('EventCancelled','EventPostponed') then 'event_status' else null end;
-$;
+$fn$;
 revoke all on function poruch_private.moderation_venue(jsonb),poruch_private.moderation_identity(jsonb),poruch_private.moderation_reason(jsonb,timestamptz) from public,anon,authenticated;
 
 create or replace function poruch_private.moderation_batch(
  p_status text,p_ids uuid[] default null,p_versions jsonb default '{}',p_categories jsonb default '{}',
  p_city text default '',p_sources uuid[] default null,p_after uuid default null,p_snapshot timestamptz default null
-) returns jsonb language plpgsql security definer set search_path='' as $
+) returns jsonb language plpgsql security definer set search_path='' as $fn$
 declare v_item public.ingested_events; v_n integer:=0; v_skipped integer:=0; v_scanned integer:=0; v_last_id uuid:=p_after;
  v_snapshot timestamptz:=coalesce(p_snapshot,clock_timestamp()); v_category text; v_reason text; v_canonical uuid; v_reasons jsonb:='{}'; v_examples jsonb:='[]';
 begin
@@ -78,38 +78,38 @@ begin
   v_reasons:=v_reasons||jsonb_build_object('missing',cardinality(array(select distinct unnest(p_ids)))-v_scanned);
   v_skipped:=v_skipped+cardinality(array(select distinct unnest(p_ids)))-v_scanned; end if;
  return jsonb_build_object('processed',v_n,'skipped',v_skipped,'reasons',v_reasons,'examples',v_examples,'cursor',v_last_id,'snapshot',v_snapshot,'done',p_ids is not null or v_scanned<100);
-end $;
+end $fn$;
 create or replace function public.poruch_moderation_batch(
  p_status text,p_ids uuid[] default null,p_versions jsonb default '{}',p_categories jsonb default '{}',
  p_city text default '',p_sources uuid[] default null,p_after uuid default null,p_snapshot timestamptz default null
-) returns jsonb language sql security invoker set search_path='' as $
+) returns jsonb language sql security invoker set search_path='' as $fn$
  select poruch_private.moderation_batch(p_status,p_ids,p_versions,p_categories,p_city,p_sources,p_after,p_snapshot);
-$;
+$fn$;
 revoke all on function poruch_private.moderation_batch(text,uuid[],jsonb,jsonb,text,uuid[],uuid,timestamptz),public.poruch_moderation_batch(text,uuid[],jsonb,jsonb,text,uuid[],uuid,timestamptz) from public,anon,authenticated;
 grant execute on function poruch_private.moderation_batch(text,uuid[],jsonb,jsonb,text,uuid[],uuid,timestamptz),public.poruch_moderation_batch(text,uuid[],jsonb,jsonb,text,uuid[],uuid,timestamptz) to authenticated;
 notify pgrst,'reload schema';
 
 
 create or replace function poruch_private.ingest_expire() returns void
-language sql security definer set search_path='' as $$
+language sql security definer set search_path='' as $fn$
  select pg_catalog.pg_advisory_xact_lock(1760916000);
  update public.ingested_events as e set status='expired',updated_at=now()
  where (e.status='pending' and e.starts_at<=now()) or (e.status='approved' and coalesce(e.ends_at,e.starts_at)<=now());
-$$;
+$fn$;
 create or replace function poruch_private.moderation_expire() returns void
-language plpgsql security definer set search_path='' as $$
+language plpgsql security definer set search_path='' as $fn$
 begin
  if not poruch_private.is_admin() then raise exception using errcode='42501',message='admin_required'; end if;
  perform poruch_private.ingest_expire();
-end $$;
-create or replace function public.poruch_moderation_expire() returns void language sql security invoker set search_path='' as $$ select poruch_private.moderation_expire(); $$;
+end $fn$;
+create or replace function public.poruch_moderation_expire() returns void language sql security invoker set search_path='' as $fn$ select poruch_private.moderation_expire(); $fn$;
 revoke all on function poruch_private.moderation_expire(),public.poruch_moderation_expire() from public,anon,authenticated;
 grant execute on function poruch_private.moderation_expire(),public.poruch_moderation_expire() to authenticated;
 
 -- This API cannot accidentally receive visible page IDs. Completion checks remaining IDs,
 -- rather than assuming that a short response means the entire queue is exhausted.
 create or replace function poruch_private.moderation_filter_batch(p_status text,p_city text default '',p_sources uuid[] default null,p_after uuid default null,p_snapshot timestamptz default null) returns jsonb
-language plpgsql security definer set search_path='' as $$
+language plpgsql security definer set search_path='' as $fn$
 declare v_result jsonb; v_cursor uuid; v_snapshot timestamptz;
 begin
  if not poruch_private.is_admin() then raise exception using errcode='42501',message='admin_required'; end if;
@@ -119,21 +119,21 @@ begin
  return v_result||jsonb_build_object('api_version',2,'mode','filter','done',not exists(
   select 1 from public.ingested_events e where e.status='pending' and (p_city='' or e.city=p_city)
    and (p_sources is null or e.source_id=any(p_sources)) and (v_cursor is null or e.id>v_cursor) and e.collected_at<=v_snapshot));
-end $$;
+end $fn$;
 create or replace function public.poruch_moderation_filter_batch(p_status text,p_city text default '',p_sources uuid[] default null,p_after uuid default null,p_snapshot timestamptz default null) returns jsonb
-language sql security invoker set search_path='' as $$ select poruch_private.moderation_filter_batch(p_status::text,p_city::text,p_sources::uuid[],p_after::uuid,p_snapshot::timestamptz); $$;
+language sql security invoker set search_path='' as $fn$ select poruch_private.moderation_filter_batch(p_status::text,p_city::text,p_sources::uuid[],p_after::uuid,p_snapshot::timestamptz); $fn$;
 revoke all on function poruch_private.moderation_filter_batch(text,text,uuid[],uuid,timestamptz),public.poruch_moderation_filter_batch(text,text,uuid[],uuid,timestamptz) from public,anon,authenticated;
 grant execute on function poruch_private.moderation_filter_batch(text,text,uuid[],uuid,timestamptz),public.poruch_moderation_filter_batch(text,text,uuid[],uuid,timestamptz) to authenticated;
 
 -- Identity intentionally excludes the venue: a short listing and a rich Event are one event.
 create index if not exists ingested_events_active_start_city on public.ingested_events(starts_at,city) where status in ('pending','approved');
 create or replace function poruch_private.moderation_identity(p_item jsonb) returns text
-language sql immutable set search_path='' as $$
+language sql immutable set search_path='' as $fn$
  select jsonb_build_array(regexp_replace(lower(coalesce(p_item->>'title','')),'[^[:alnum:]]','','g'),
  regexp_replace(lower(coalesce(p_item->>'city','')),'[^[:alnum:]]','','g'))::text;
-$$;
+$fn$;
 create or replace function poruch_private.ingest_repair(p_id uuid,p_fingerprint text,p_fields jsonb) returns jsonb
-language plpgsql security definer set search_path='' as $$
+language plpgsql security definer set search_path='' as $fn$
 declare v_result jsonb;
 begin
  perform pg_catalog.pg_advisory_xact_lock(1760916000);
@@ -145,13 +145,13 @@ begin
  cover_url=coalesce(nullif(e.cover_url,''),p_fields->>'cover_url'),updated_at=now()
  where e.id=p_id and e.fingerprint=p_fingerprint and e.status in ('pending','approved') returning to_jsonb(e) into v_result;
  return v_result;
-end $$;
-create or replace function public.poruch_ingest_repair(p_id uuid,p_fingerprint text,p_fields jsonb) returns jsonb language sql security invoker set search_path='' as $$ select poruch_private.ingest_repair(p_id,p_fingerprint,p_fields); $$;
+end $fn$;
+create or replace function public.poruch_ingest_repair(p_id uuid,p_fingerprint text,p_fields jsonb) returns jsonb language sql security invoker set search_path='' as $fn$ select poruch_private.ingest_repair(p_id,p_fingerprint,p_fields); $fn$;
 revoke all on function poruch_private.ingest_repair(uuid,text,jsonb),public.poruch_ingest_repair(uuid,text,jsonb) from public,anon,authenticated;
 grant execute on function poruch_private.ingest_repair(uuid,text,jsonb),public.poruch_ingest_repair(uuid,text,jsonb) to service_role;
 
 create or replace function poruch_private.ingest_merge_duplicates(p_after uuid default null) returns jsonb
-language plpgsql security definer set search_path='' as $$
+language plpgsql security definer set search_path='' as $fn$
 declare v_item public.ingested_events; v_best public.ingested_events; v_other public.ingested_events; v_last uuid:=p_after; v_scanned integer:=0; v_merged integer:=0;
 begin
  perform pg_catalog.pg_advisory_xact_lock(1760916000);
@@ -175,14 +175,14 @@ begin
   end loop;
  end loop;
  return jsonb_build_object('done',v_scanned<100,'cursor',v_last,'merged',v_merged);
-end $$;
-create or replace function public.poruch_ingest_merge_duplicates(p_after uuid default null) returns jsonb language sql security invoker set search_path='' as $$ select poruch_private.ingest_merge_duplicates(p_after); $$;
+end $fn$;
+create or replace function public.poruch_ingest_merge_duplicates(p_after uuid default null) returns jsonb language sql security invoker set search_path='' as $fn$ select poruch_private.ingest_merge_duplicates(p_after); $fn$;
 revoke all on function poruch_private.ingest_merge_duplicates(uuid),public.poruch_ingest_merge_duplicates(uuid) from public,anon,authenticated;
 grant execute on function poruch_private.ingest_merge_duplicates(uuid),public.poruch_ingest_merge_duplicates(uuid) to service_role;
 
 -- Retain the proven alias/version merger and fill missing facts rather than overwriting them.
 create or replace function poruch_private.ingest_item(p_source uuid,p_token uuid,p_item jsonb) returns text
-language plpgsql security definer set search_path='' as $$
+language plpgsql security definer set search_path='' as $fn$
 declare v_best public.ingested_events; v_result text; v_auto boolean;
 begin
  perform pg_catalog.pg_advisory_xact_lock(1760916000);
@@ -205,7 +205,7 @@ begin
   end if;
  end if;
  return v_result;
-end $$;
+end $fn$;
 revoke all on function poruch_private.ingest_item(uuid,uuid,jsonb) from public,anon,authenticated;
 grant execute on function poruch_private.ingest_item(uuid,uuid,jsonb) to service_role;
 notify pgrst,'reload schema';
