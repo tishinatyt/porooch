@@ -34,8 +34,9 @@ export async function runIngest(db, crawler = createCrawler(), { geocode = creat
           const batch = events.slice(index, index + 100).map(event => ({ ...event, auto_publish_eligible: canAutoPublish(event, source.auto_publish === true, false, now()) }))
           const results = await checked(db.rpc('poruch_ingest_batch', { p_source: source.id, p_token: token, p_items: batch }), controller.signal)
           controller.signal.throwIfAborted()
-          changed += (results ?? []).filter(row => !['unchanged','duplicate'].includes(row.result)).length
-          for (const event of batch) if ((event.latitude == null || event.longitude == null) && !candidates.has(event.dedup_hash)) candidates.set(event.dedup_hash, { ...event, source_id: source.id })
+          changed += (results ?? []).filter(row => !['unchanged','duplicate','hidden'].includes(row.result)).length
+          const hidden = new Set((results ?? []).filter(row=>row.result==='hidden').map(row=>row.external_id))
+          for (const event of batch) if (!hidden.has(event.external_id) && (event.latitude == null || event.longitude == null) && !candidates.has(event.dedup_hash)) candidates.set(event.dedup_hash, { ...event, source_id: source.id })
         }
       } catch (error) {
         outcome = controller.signal.aborted ? 'source_timeout' : ['scaling_migration_required','adapter_not_implemented', 'robots_disallow', 'robots_unavailable', 'request_timeout', 'response_too_large', 'redirect_limit', 'unsafe_url', 'unsafe_address', 'database_operation_failed'].includes(error.message) || /^http_\d{3}$/.test(error.message) ? error.message : 'source_failed'

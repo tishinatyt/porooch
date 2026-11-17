@@ -17,6 +17,7 @@ mock.module('../src/lib/supabase.ts', { namedExports: { supabase: {
     const filters: any[] = []
     const q: any = {
       select: () => q, order: () => q, eq: (key: string, value: any) => { filters.push([key, value]); return q },
+      ilike: (key:string,value:string)=>{filters.push([key,value]);return q},
       range: async (start: number, end: number) => { calls.push({ name: `list:${table}`, args: filters }); return { data: (table === 'event_sources' ? sources : pending).slice(start,end+1), count: pending.length, error: null } },
       insert: async (payload: any) => { calls.push({ name: 'insert', args: payload }); return { error: writeError(payload) } },
       update: (payload: any) => { calls.push({ name: 'update', args: payload }); q.payload = payload; return q },
@@ -26,14 +27,68 @@ mock.module('../src/lib/supabase.ts', { namedExports: { supabase: {
 } } })
 const { createRoot } = await import('react-dom/client')
 const { AdminIngest } = await import('../src/components/admin/AdminIngest.tsx')
+const { default: PublishedEvents } = await import('../src/components/admin/PublishedEvents.tsx')
 const { default: SourceListImport } = await import('../src/components/admin/SourceListImport.tsx')
 const { default: ExternalEventCard } = await import('../src/components/home/ExternalEventCard.tsx')
+const { default: MapVenuePopup } = await import('../src/components/home/MapVenuePopup.tsx')
+const { groupEventSessions } = await import('../src/lib/eventSessions.ts')
+const { groupMapVenues } = await import('../src/lib/mapVenues.ts')
 const { useIngestedFeed } = await import('../src/hooks/useIngestedFeed.ts')
 const { asExternalEvent, externalUrl, distanceFrom, sourceImageUrl, missingImagesColumn } = await import('../src/lib/ingestedEvents.ts')
 const container = document.getElementById('app')!
 const external = { id: 'external', title: 'Концерт', starts_at: '2099-01-01T18:00Z', place: 'Зала', address: 'Центр', city: 'Чернігів', category: 'music', latitude: null, longitude: null, price_from: 200, currency: 'UAH', cover_url: null, source_url: 'https://example.test/tickets?seat=1', source_name: 'Квитки', partner_params: 'utm_source=poruch', description: 'Факти' }
 async function click(text: string) { await act(async () => { const button = [...container.querySelectorAll('button')].find(item => item.textContent === text); assert.ok(button, text); button.click() }) }
 after(() => dom.window.close())
+
+test('session badge opens every date with its own ticket link; map popup contains the same complete list',async()=>{
+  const root=createRoot(container)
+  const dialogProto=dom.window.HTMLDialogElement.prototype as any
+  const oldShow=dialogProto.showModal
+  dialogProto.showModal=function(){this.setAttribute('open','')}
+  const events=[0,1,2].map(index=>asExternalEvent({...external,id:'session-'+index,latitude:50.45,longitude:30.52,starts_at:`2099-01-0${index+1}T18:00:00Z`,source_url:`https://example.test/tickets/day${index+1}`} )!)
+  const [group]=groupEventSessions(events)
+  try {
+    await act(async()=>root.render(<ExternalEventCard event={group}/>))
+    await click('ще 2 дат')
+    const dialog=document.querySelector('dialog')!
+    assert.ok(dialog.hasAttribute('open'))
+    assert.equal(dialog.querySelectorAll('li').length,3)
+    assert.deepEqual([...dialog.querySelectorAll<HTMLAnchorElement>('li a')].map(a=>a.href),events.map(event=>event.external!.url))
+    await act(async()=>dialog.querySelector<HTMLButtonElement>('button')!.click())
+    assert.equal(document.querySelector('dialog'),null)
+    await act(async()=>root.render(<MapVenuePopup venue={groupMapVenues([group])[0]} onOpen={()=>{throw Error('external sessions must not open native event details')}}/>))
+    assert.equal(container.querySelectorAll('article').length,1)
+    assert.equal(container.querySelectorAll('li a').length,3)
+  } finally {dialogProto.showModal=oldShow;await act(async()=>root.unmount())}
+})
+
+test('published admin filters, selected version checks, permanent hide confirmation and category actions across every page',async()=>{
+  const root=createRoot(container),original=pending
+  pending=[{...original[0],updated_at:'2026-11-17T12:00:00Z',category:'music',source_id:'source-one'}, {...original[0],id:'event-two',title:'Інша вистава',updated_at:'2026-11-17T12:01:00Z',category:'music',source_id:'source-one'}] as any
+  calls.length=0;const confirmations:string[]=[];dom.window.confirm=message=>{confirmations.push(message);return true}
+  rpcResponse=async()=>({data:{processed:1,skipped:1,done:true},error:null})
+  try {
+    await act(async()=>root.render(<PublishedEvents/>))
+    assert.deepEqual(calls.find(call=>call.name==='list:ingested_events')!.args,[['status','approved']])
+    for(const [label,value] of [['Місто','Чернігів'],['Джерело','source-one'],['Категорія події','music']]) await act(async()=>{const input=container.querySelector<HTMLSelectElement>(`select[aria-label="${label}"]`)!;input.value=value;input.dispatchEvent(new Event('change',{bubbles:true}))})
+    await act(async()=>{const input=container.querySelector<HTMLInputElement>('input[aria-label="Пошук за назвою"]')!;Object.getOwnPropertyDescriptor(dom.window.HTMLInputElement.prototype,'value')!.set!.call(input,'Show_');input.dispatchEvent(new Event('input',{bubbles:true}))})
+    assert.ok(calls.filter(call=>call.name==='list:ingested_events').at(-1)!.args.some(([key,value]:string[])=>key==='title'&&value==='%Show\\_%'))
+    await act(async()=>container.querySelector<HTMLInputElement>('input[type="checkbox"]')!.click())
+    await click('Зняти з публікації (2)')
+    const selected=calls.filter(call=>call.name==='poruch_published_batch').at(-1)!.args
+    assert.deepEqual(selected.p_ids,['event-one','event-two'])
+    assert.deepEqual(selected.p_versions,{'event-one':'2026-11-17T12:00:00Z','event-two':'2026-11-17T12:01:00Z'})
+    assert.match(container.textContent!,/Оброблено: 1. Пропущено: 1/)
+    await click('Приховати назавжди')
+    assert.equal(calls.filter(call=>call.name==='poruch_published_batch').at(-1)!.args.p_action,'hide')
+    assert.ok(confirmations.at(-1)!.includes('Приховати назавжди'))
+    let batch=0
+    rpcResponse=async(_name,args)=>{assert.equal(args.p_ids,undefined);assert.equal(args.p_city,'Чернігів');assert.equal(args.p_source,'source-one');assert.equal(args.p_filter_category,'music');return {data:{processed:1,skipped:0,cursor:'cursor',snapshot:'snapshot',done:++batch===2},error:null}}
+    await click('Змінити категорію за фільтром (2)')
+    assert.equal(batch,2)
+    assert.match(container.textContent!,/Оброблено: 2. Пропущено: 0/)
+  } finally {pending=original;rpcResponse=async()=>({data:{processed:1,skipped:0,done:true},error:null});await act(async()=>root.unmount())}
+})
 
 test('all-filter actions see total 270 despite 25 rendered rows and sum three stable cursor batches for approval and rejection', async () => {
   const root = createRoot(container), original = pending

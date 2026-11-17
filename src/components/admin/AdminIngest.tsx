@@ -1,6 +1,7 @@
 import { formatModerationDiagnostics } from '@/lib/moderationDiagnostics'
 import { runModerationBatches, moderationErrorMessage, type ModerationResult } from '@/lib/moderationBatch'
 import SourceListImport from './SourceListImport'
+import PublishedEvents from './PublishedEvents'
 import { normalizeEventTitle } from '@/lib/eventTitle'
 import { formatIngestedDate as date } from '@/lib/ingestedPresentation'
 import IngestedStatusBadge from './IngestedStatusBadge'
@@ -19,8 +20,8 @@ const button = 'min-h-11 rounded-xl border border-brand-border bg-white px-3 tex
 const blank = { id: '', name: '', type: 'schema_org', url: '', city: '', default_category: 'other', partner_params: '', enabled: false, use_source_images: false, auto_publish: false }
 
 export default function AdminWorkspace({ children }: { children: ReactNode }) {
-  const [section, setSection] = useState<'platform' | 'moderation' | 'sources'>('platform')
-  return <><nav aria-label={t.moderation} className="mb-5 flex flex-wrap gap-2">{(['platform', 'moderation', 'sources'] as const).map(tab => <button type="button" className={button} aria-pressed={section === tab} key={tab} onClick={() => setSection(tab)}>{t[tab]}</button>)}</nav>{section === 'platform' ? children : <AdminIngest key={section} mode={section} />}</>
+  const [section, setSection] = useState<'platform' | 'moderation' | 'published' | 'sources'>('platform')
+  return <><nav aria-label={t.moderation} className="mb-5 flex flex-wrap gap-2">{(['platform', 'moderation', 'published', 'sources'] as const).map(tab => <button type="button" className={button} aria-pressed={section === tab} key={tab} onClick={() => setSection(tab)}>{tab==='published'?t.publishedEvents:t[tab]}</button>)}</nav>{section === 'platform' ? children : section==='published'?<PublishedEvents/>:<AdminIngest key={section} mode={section} />}</>
 }
 
 export function AdminIngest({ mode }: { mode: 'moderation' | 'sources' }) {

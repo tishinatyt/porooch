@@ -1,4 +1,10 @@
 export const ingestText = {
+  emptyPublished: 'Немає опублікованих подій за цим фільтром',
+  moreDates: 'ще', datesWord: 'дат', sessionDates: 'Усі дати події', close: 'Закрити',
+  publishedEvents: 'Опубліковані', unpublish: 'Зняти з публікації', hideForever: 'Приховати назавжди',
+  changeCategory: 'Змінити категорію', searchTitle: 'Пошук за назвою', allCategories: 'Усі категорії',
+  filteredAction: 'за фільтром', confirmPublished: 'Підтвердити дію', processed: 'Оброблено',
+  publishedMigration: 'Перевірте доступ і застосування SQL published-events.sql.',
   noVenue: 'без місця', queueMigration: 'Перевірте застосування SQL ingest-queue-repair.sql.',
   publishFiltered: 'Опублікувати всі за фільтром', rejectFiltered: 'Відхилити всі за фільтром',
   confirmFiltered: 'Підтвердити дію для подій за фільтром',
