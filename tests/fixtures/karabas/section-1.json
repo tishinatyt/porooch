@@ -1,0 +1,91 @@
+[
+  {
+    "@type": "MusicEvent",
+    "@id": "https://kyiv.karabas.com/recalling-wunderkinder/",
+    "url": "https://kyiv.karabas.com/recalling-wunderkinder/",
+    "name": "Recalling Wunderkinder",
+    "startDate": "2026-11-17T20:00:00+02:00"
+  },
+  {
+    "@context": "https://schema.org",
+    "@id": "https://kyiv.karabas.com/recalling-wunderkinder/",
+    "@type": "MusicEvent",
+    "name": "Recalling Wunderkinder",
+    "description": "Kyiv Baroque Fest – 2026 Recalling Wunderkinder Національний будинок музики NotaBene Chamber Group Андрій Павлов, Максим Грінченко скрипка Ігор Завгородній альт Артем Полуденний віолончель Юрій Немировський кларнет Роман Лопатинський фортепіано Програма: І відділ Вольфґанґ Амадей Моцарт – Kegelstatt Trio для кларнета, альта і клавіру, KV 498 І. Menuetto – Trio Rondo: Allegretto Павел Шиманські – «Recalling a Serenade» для кларнета, двох скрипок, альта і віолончелі ІІ відділ Е. В. Корнґольд – Сюїта для двох скрипок, віолончелі і ліворучного фортепіано, оp.23 І. Präludium und Fuge (Kräftig und bestimmt) ІІ. Walzer (Nicht schnell, anmutig) ІІІ. Groteske (Möglichst rasch) IV. Lied (Schlicht und innig) V. Rondo – Finale (Variationen) Чекаємо на вас 17 листопада 2026 року. Початок о 18.00",
+    "image": {
+      "@type": "ImageObject",
+      "url": "https://images.karabas.com/external/018e50bb-71e5-7428-9b44-4f503fcfd169/events/01a1590a-2128-70ba-a5cd-34a866325b2f/2919350222_ImageBig639281027449760624.jpeg",
+      "width": 1200,
+      "height": 630
+    },
+    "url": "https://kyiv.karabas.com/recalling-wunderkinder/",
+    "startDate": "2026-11-17T20:00:00+02:00",
+    "endDate": "2026-11-18T00:00:00+02:00",
+    "eventAttendanceMode": "https://schema.org/OfflineEventAttendanceMode",
+    "eventStatus": "https://schema.org/EventScheduled",
+    "inLanguage": "uk",
+    "isAccessibleForFree": false,
+    "organizer": {
+      "@id": "https://karabas.com/#organization",
+      "@type": "Organization",
+      "name": "KARABAS"
+    },
+    "offers": {
+      "@type": "AggregateOffer",
+      "priceCurrency": "UAH",
+      "url": "https://kyiv.karabas.com/recalling-wunderkinder/order/",
+      "availability": "https://schema.org/InStock",
+      "shippingDetails": {
+        "@type": "OfferShippingDetails",
+        "shippingRate": {
+          "@type": "MonetaryAmount",
+          "value": 0,
+          "currency": "UAH"
+        },
+        "deliveryTime": {
+          "@type": "ShippingDeliveryTime",
+          "handlingTime": {
+            "@type": "QuantitativeValue",
+            "minValue": 0,
+            "maxValue": 0,
+            "unitCode": "MIN"
+          },
+          "transitTime": {
+            "@type": "QuantitativeValue",
+            "minValue": 0,
+            "maxValue": 5,
+            "unitCode": "MIN"
+          }
+        },
+        "shippingDestination": {
+          "@type": "DefinedRegion",
+          "addressCountry": "UA"
+        }
+      },
+      "seller": {
+        "@type": "Organization",
+        "name": "KARABAS",
+        "url": "https://karabas.com/"
+      },
+      "lowPrice": 250,
+      "highPrice": 600
+    },
+    "location": {
+      "@id": "https://kyiv.karabas.com/recalling-wunderkinder/#place",
+      "@type": "Place",
+      "name": "Національна філармонія України",
+      "address": {
+        "@type": "PostalAddress",
+        "@id": "https://kyiv.karabas.com/recalling-wunderkinder/#place#address",
+        "streetAddress": "Володимирський узвіз, 2",
+        "postalCode": "02000",
+        "addressLocality": "Київ",
+        "addressCountry": "UA"
+      }
+    },
+    "performer": {
+      "@type": "MusicGroup",
+      "name": "Recalling Wunderkinder"
+    }
+  }
+]

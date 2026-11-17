@@ -1,0 +1,86 @@
+[
+  {
+    "@type": "TheaterEvent",
+    "@id": "https://kyiv.karabas.com/svit-u-horikhoviy-shkaralupi-12/",
+    "url": "https://kyiv.karabas.com/svit-u-horikhoviy-shkaralupi-12/",
+    "name": "Світ у горіховій шкаралупі (Театр на Печерську)",
+    "startDate": "2026-11-17T19:00:00+02:00"
+  },
+  {
+    "@context": "https://schema.org",
+    "@id": "https://kyiv.karabas.com/svit-u-horikhoviy-shkaralupi-12/",
+    "@type": "TheaterEvent",
+    "name": "Світ у горіховій шкаралупі (Театр на Печерську)",
+    "description": "Вистава за бестселером одного з найвідоміших астрофізиків сучасності - Стівена Хокінга. Прикутий до інвалідного візка вчений веде нас до кордонів людського пізнання. Який наш Всесвіт? Чи є у нього початок? Що таке матерія? Звідки з'явилося життя? Чи ми є одні у Всесвіті? Про те як сміливість кількох вчених може перевернути наше уявлення про світ і відкрити нові незвідані горизонти, і про те, як неосвіченість тягне людство в морок невідання. Переможець Всеукраїнського театрального фестивалю-премії GRA в номінації \"Найкраща пошуково-експериментальна вистава\". Режисер: Дмитро Захоженко Актори: Ігор Рубашкін Григорій Бакланов Тата Зеленська Олександр Васін Андрій Попков ",
+    "image": {
+      "@type": "ImageObject",
+      "url": "https://images.karabas.com/external/018e50bb-71e5-7428-9b44-4f503fcfd169/events/01a0f7ca-dc0b-79be-a63a-8c9a8a055256/1403150800_ImageBig637466591811433259.jpeg",
+      "width": 1200,
+      "height": 630
+    },
+    "url": "https://kyiv.karabas.com/svit-u-horikhoviy-shkaralupi-12/",
+    "startDate": "2026-11-17T19:00:00+02:00",
+    "endDate": "2026-11-29T23:00:00+02:00",
+    "eventAttendanceMode": "https://schema.org/OfflineEventAttendanceMode",
+    "eventStatus": "https://schema.org/EventScheduled",
+    "inLanguage": "uk",
+    "isAccessibleForFree": false,
+    "organizer": {
+      "@id": "https://karabas.com/#organization",
+      "@type": "Organization",
+      "name": "KARABAS"
+    },
+    "offers": {
+      "@type": "Offer",
+      "priceCurrency": "UAH",
+      "url": "https://kyiv.karabas.com/svit-u-horikhoviy-shkaralupi-12/order/",
+      "availability": "https://schema.org/InStock",
+      "shippingDetails": {
+        "@type": "OfferShippingDetails",
+        "shippingRate": {
+          "@type": "MonetaryAmount",
+          "value": 0,
+          "currency": "UAH"
+        },
+        "deliveryTime": {
+          "@type": "ShippingDeliveryTime",
+          "handlingTime": {
+            "@type": "QuantitativeValue",
+            "minValue": 0,
+            "maxValue": 0,
+            "unitCode": "MIN"
+          },
+          "transitTime": {
+            "@type": "QuantitativeValue",
+            "minValue": 0,
+            "maxValue": 5,
+            "unitCode": "MIN"
+          }
+        },
+        "shippingDestination": {
+          "@type": "DefinedRegion",
+          "addressCountry": "UA"
+        }
+      },
+      "seller": {
+        "@type": "Organization",
+        "name": "KARABAS",
+        "url": "https://karabas.com/"
+      },
+      "price": 350
+    },
+    "location": {
+      "@id": "https://kyiv.karabas.com/svit-u-horikhoviy-shkaralupi-12/#place",
+      "@type": "Place",
+      "name": "Київський академічний театр на Печерську",
+      "address": {
+        "@type": "PostalAddress",
+        "@id": "https://kyiv.karabas.com/svit-u-horikhoviy-shkaralupi-12/#place#address",
+        "streetAddress": "Київ, вул.Немировича-Данченка, 5",
+        "postalCode": "02000",
+        "addressLocality": "Київ",
+        "addressCountry": "UA"
+      }
+    }
+  }
+]

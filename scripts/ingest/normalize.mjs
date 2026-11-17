@@ -6,7 +6,7 @@ import { findCity } from '../../src/lib/cities.ts'
 const hash = value => createHash('sha256').update(value).digest('hex')
 export const normalizedKey = value => normalizeEventTitle(String(value ?? '')).normalize('NFKC').toLocaleLowerCase('uk-UA').replace(/[^\p{L}\p{N}]/gu, '')
 export function dedupHash(event) {
-  return hash([normalizedKey(event.title), event.starts_at, normalizedKey(event.place || event.address), normalizedKey(event.city)].join('|'))
+  return hash([normalizedKey(event.title), event.starts_at, normalizedKey(event.city)].join('|'))
 }
 export function httpUrl(value, base) {
   if (typeof value !== 'string' || !value.trim()) return null
@@ -41,7 +41,7 @@ export function parseSchemaEvents(html, source, stats = {}) {
     if (!value || typeof value !== 'object' || seen.has(value) || depth > 30 || nodes.length > 20000) return
     seen.add(value)
     if (Array.isArray(value)) { value.forEach(item => walk(item, depth + 1)); return }
-    nodes.push(value); if (typeof value['@id'] === 'string' && Object.keys(value).length > 1) byId.set(value['@id'], value)
+    nodes.push(value); if (typeof value['@id'] === 'string' && Object.keys(value).length > 1) byId.set(value['@id'], { ...byId.get(value['@id']), ...value })
     Object.values(value).forEach(item => walk(item, depth + 1))
   }
   for (const script of dom.window.document.querySelectorAll('script[type]')) {
@@ -51,16 +51,20 @@ export function parseSchemaEvents(html, source, stats = {}) {
   const resolve = value => value && typeof value === 'object' && value['@id'] ? byId.get(value['@id']) ?? value : value
   stats.markupCount = nodes.filter(node => list(node['@type']).map(typeName).some(type => /Event$/.test(type))).length
   const events = [], keys = new Set()
-  for (const node of nodes) {
+  for (const rawNode of nodes) {
+    const node = resolve(rawNode)
     const types = list(node['@type']).map(typeName)
     if (!types.some(type => /Event$/.test(type))) continue
-    const location = resolve(list(node.location ?? node.venue)[0]) ?? {}, address = resolve(location.address) ?? {}
+    const parent = resolve(node.superEvent) ?? {}
+    const locations = [...list(node.location), ...list(node.venue), ...list(parent.location)].map(resolve)
+    const score = value => typeof value === 'string' ? (value.trim() ? 2 : 0) : (value?.name ? 4 : 0) + (value?.address ? 2 : 0) + (value?.geo ? 1 : 0)
+    const location = locations.sort((a,b) => score(b)-score(a))[0] ?? {}, address = resolve(location.address) ?? {}
     const country = typeof address.addressCountry === 'object' ? address.addressCountry.name : address.addressCountry
     if (country && !['ua', 'ukraine', 'україна', 'украина'].includes(String(country).toLowerCase())) continue
     const title = normalizeEventTitle(node.name).slice(0, 300), starts_at = kyivDate(node.startDate), ends_at = kyivDate(node.endDate)
     const locality = string(address.addressLocality || source.city, 120)
     const city = findCity(locality)?.name ?? locality
-    const place = string(typeof location === 'string' ? location : location.name), addressText = typeof address === 'string' ? string(address) : string([address.streetAddress, address.addressLocality].filter(Boolean).join(', '))
+    const place = string(typeof location === 'string' ? location : location.name), addressText = typeof address === 'string' ? string(address) : string([address.streetAddress].filter(Boolean).join(', '))
     if (!title || !starts_at || !city || (ends_at && ends_at < starts_at)) continue
     const source_url = httpUrl(node.url || node['@id'] || source.url, source.url)
     if (!source_url) continue
@@ -83,7 +87,7 @@ export function parseSchemaEvents(html, source, stats = {}) {
       price_from, currency, source_url, cover_url, description, event_status,
     }
     // Without a stable source id, use URL + name + venue (not date) so postponements update the same record.
-    if (!stableId) event.external_id = hash([source_url, normalizedKey(title), normalizedKey(place || addressText)].join('|'))
+    if (!stableId) event.external_id = hash([source_url, normalizedKey(title), normalizedKey(city)].join('|'))
     event.dedup_hash = dedupHash(event)
     event.fingerprint = hash(JSON.stringify(event))
     event.raw_data = { schema_types: types, name: title, startDate: string(node.startDate), endDate: string(node.endDate), previousStartDate: string(node.previousStartDate), eventStatus: event_status, description, location: { name: place, address: addressText, city, latitude: event.latitude, longitude: event.longitude }, offers: { price_from, currency }, url: source_url, image: cover_url }

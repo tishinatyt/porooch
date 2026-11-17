@@ -1,0 +1,87 @@
+[
+  {
+    "@type": "ComedyEvent",
+    "@id": "https://kyiv.karabas.com/improvizatsiya-z-hlyadachamy-alla-volkova-ta-anastasiya-tkachenko/",
+    "url": "https://kyiv.karabas.com/improvizatsiya-z-hlyadachamy-alla-volkova-ta-anastasiya-tkachenko/",
+    "name": "Імпровізація з глядачами. Алла Волкова та Анастасія Ткаченко",
+    "startDate": "2026-11-17T20:00:00+02:00"
+  },
+  {
+    "@context": "https://schema.org",
+    "@id": "https://kyiv.karabas.com/improvizatsiya-z-hlyadachamy-alla-volkova-ta-anastasiya-tkachenko/",
+    "@type": "ComedyEvent",
+    "name": "Імпровізація з глядачами. Алла Волкова та Анастасія Ткаченко",
+    "description": "Запрошуємо на гумористичне шоу “Імпровізація з глядачами” від найкращих українських комікес Алли Волкової та Анастасії Ткаченко. Це унікальний формат, у якому немає сценарію, є тільки дві талановиті артистки на сцені, запитання аудиторії та несподівані зміни обставин, які створюють неповторні комедійні сюжети. Таке шоу не можна пропускати! Дві зірки українського стендапу на одній сцені Алла Волкова прийшла у стендап у непростий період життя, спочатку сприймаючи гумор як своєрідне “рятівне коло”. Згодом сцена стала для неї місцем свободи, де можна говорити відверто, сміливо та без зайвих обмежень. Її стиль – це гострі, несподівані та часом провокативні жарти про стосунки, людей і незручні життєві ситуації. Анастасія Ткаченко – колишня зірка “Ліги Сміху”, постійна учасниця “Жіночого Кварталу” та комікеса, яка вміє знаходити смішне навіть у найнеочікуваніших ситуаціях. У її гуморі поєднуються гострота та доброзичливість, а здатність відчувати зал допомагає перетворювати звичайний виступ на живий діалог із публікою. Імпровізація з глядачами: шоу, яке більше не повториться Головна особливість шоу “Імпровізація з глядачами” – відсутність заздалегідь прописаного сценарію. Запитання глядачів, випадкові репліки, особисті історії комікес і реакції залу можуть стати відправною точкою для нового жарту або сценки. Тут глядачі не просто спостерігають за виступом – вони безпосередньо впливають на те, що відбувається на сцені. Алла Волкова та Анастасія Ткаченко реагуватимуть на ситуації тут і зараз, вигадуватимуть несподівані продовження та шукатимуть гумор там, де його, здавалося б, зовсім не було. Шоу “Імпровізація з глядачами” – це особлива історія, яка народиться лише один раз і більше ніколи не повториться. Тож підготуйтеся стати частиною шоу, і можливо, саме ваші слова стануть головним жартом цього незабутнього вечора.",
+    "image": {
+      "@type": "ImageObject",
+      "url": "https://images.karabas.com/external/018e50bb-71e5-7428-9b44-4f503fcfd169/events/019d61d4-2f85-720d-a24a-08e97de9f736/2787519946_ImageBig639110703192387534.jpeg",
+      "width": 1200,
+      "height": 630
+    },
+    "url": "https://kyiv.karabas.com/improvizatsiya-z-hlyadachamy-alla-volkova-ta-anastasiya-tkachenko/",
+    "startDate": "2026-11-17T20:00:00+02:00",
+    "endDate": "2026-11-18T00:00:00+02:00",
+    "eventAttendanceMode": "https://schema.org/OfflineEventAttendanceMode",
+    "eventStatus": "https://schema.org/EventScheduled",
+    "inLanguage": "uk",
+    "isAccessibleForFree": false,
+    "organizer": {
+      "@id": "https://karabas.com/#organization",
+      "@type": "Organization",
+      "name": "KARABAS"
+    },
+    "offers": {
+      "@type": "AggregateOffer",
+      "priceCurrency": "UAH",
+      "url": "https://kyiv.karabas.com/improvizatsiya-z-hlyadachamy-alla-volkova-ta-anastasiya-tkachenko/order/",
+      "availability": "https://schema.org/InStock",
+      "shippingDetails": {
+        "@type": "OfferShippingDetails",
+        "shippingRate": {
+          "@type": "MonetaryAmount",
+          "value": 0,
+          "currency": "UAH"
+        },
+        "deliveryTime": {
+          "@type": "ShippingDeliveryTime",
+          "handlingTime": {
+            "@type": "QuantitativeValue",
+            "minValue": 0,
+            "maxValue": 0,
+            "unitCode": "MIN"
+          },
+          "transitTime": {
+            "@type": "QuantitativeValue",
+            "minValue": 0,
+            "maxValue": 5,
+            "unitCode": "MIN"
+          }
+        },
+        "shippingDestination": {
+          "@type": "DefinedRegion",
+          "addressCountry": "UA"
+        }
+      },
+      "seller": {
+        "@type": "Organization",
+        "name": "KARABAS",
+        "url": "https://karabas.com/"
+      },
+      "lowPrice": 300,
+      "highPrice": 2500
+    },
+    "location": {
+      "@id": "https://kyiv.karabas.com/improvizatsiya-z-hlyadachamy-alla-volkova-ta-anastasiya-tkachenko/#place",
+      "@type": "Place",
+      "name": "Національний палац мистецтв «Україна»",
+      "address": {
+        "@type": "PostalAddress",
+        "@id": "https://kyiv.karabas.com/improvizatsiya-z-hlyadachamy-alla-volkova-ta-anastasiya-tkachenko/#place#address",
+        "streetAddress": "вул. В. Васильківська, 103",
+        "postalCode": "02000",
+        "addressLocality": "Київ",
+        "addressCountry": "UA"
+      }
+    }
+  }
+]

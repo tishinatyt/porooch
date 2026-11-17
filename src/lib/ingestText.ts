@@ -1,4 +1,5 @@
 export const ingestText = {
+  noVenue: 'без місця', queueMigration: 'Перевірте застосування SQL ingest-queue-repair.sql.',
   publishFiltered: 'Опублікувати всі за фільтром', rejectFiltered: 'Відхилити всі за фільтром',
   confirmFiltered: 'Підтвердити дію для подій за фільтром',
   publishCollected: 'Опублікувати вже зібрані події цього джерела, що пройшли перевірку?',

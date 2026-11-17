@@ -63,7 +63,7 @@ test('city centroids and invalid/foreign results do not place an event on the ma
 test('backfill uses keyset paging while rows leave the missing-coordinate set, never crawls sources, preserves approval and skips changed rows', async () => {
   const rows = Array.from({ length: 101 }, (_, index) => ({ ...venue, id: String(index + 1).padStart(3, '0'), fingerprint: 'original', status: 'approved' }))
   const tables: string[] = [], updates: any[] = []
-  const db = { from: (table: string) => {
+  const db = { rpc: async () => ({ data: { done: true }, error: null }), from: (table: string) => {
     tables.push(table); const filters: [string, any][] = []; let after = '', payload: any = null
     const q: any = {
       select: () => q, in: () => q, or: () => q, order: () => q, limit: () => q,

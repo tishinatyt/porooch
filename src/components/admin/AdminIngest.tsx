@@ -45,6 +45,8 @@ export function AdminIngest({ mode }: { mode: 'moderation' | 'sources' }) {
         }
         setSources(all)
         if (mode === 'moderation') {
+          const expired = await supabase.rpc('poruch_moderation_expire')
+          if (expired.error) throw expired.error
           let query = supabase.from('ingested_events').select('latitude,longitude,source_id,category,cover_url,id,title,starts_at,place,address,city,fingerprint,event_status,source_url,source:event_sources(name)', { count: 'exact' }).eq('status', 'pending')
           if (city) query = query.eq('city', city)
           if (source) query = query.eq('source_id', source)
@@ -54,7 +56,7 @@ export function AdminIngest({ mode }: { mode: 'moderation' | 'sources' }) {
           if (page > 0 && page * pageSize >= (result.count ?? 0)) { setPage(Math.max(0, Math.ceil((result.count ?? 0) / pageSize) - 1)); return }
           setRows(((result.data ?? []) as unknown as Pending[]).map(row => ({ ...row, title: normalizeEventTitle(row.title) }))); setTotal(result.count ?? 0)
         }
-      } catch { if (!cancelled) setError(t.failed) }
+      } catch (error) { if (!cancelled) setError(t.failed + ' ' + t.queueMigration + '\n' + moderationErrorMessage(error)) }
       finally { if (!cancelled) setLoading(false) }
     })()
     return () => { cancelled = true }
@@ -77,10 +79,10 @@ export function AdminIngest({ mode }: { mode: 'moderation' | 'sources' }) {
     if (!sourceIds && !window.confirm(t.confirmFiltered + ': ' + total + '. ' + (status === 'approved' ? t.publish : t.reject) + '?')) return
     setBusy(true); setError(''); setNotice('')
     try {
-      await runModerationBatches(args => supabase.rpc('poruch_moderation_batch', args), {
+      await runModerationBatches(args => supabase.rpc('poruch_moderation_filter_batch', args), {
         p_status: status, p_city: sourceIds ? '' : city, p_sources: sourceIds ?? (source ? [source] : null),
       }, result => setNotice(summary(status, result)))
-    } catch (error) { setError(t.batchMigration + '\n' + moderationErrorMessage(error)) }
+    } catch (error) { setError(t.batchMigration + ' ' + t.queueMigration + '\n' + moderationErrorMessage(error)) }
     finally { setSelected(new Set()); setRevision(v => v + 1); setBusy(false) }
   }
   async function offerCollected(ids: string[]) {

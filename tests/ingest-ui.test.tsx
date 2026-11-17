@@ -12,12 +12,12 @@ const sources = [{ id: 'source-one', name: 'Міський театр', city: '�
 let pending = [{ id: 'event-one', title: 'Вистава', city: 'Чернігів', starts_at: '2099-01-01T18:00Z', place: 'Театр', address: 'Центр', source_url: 'https://example.test/play', source: { name: 'Міський театр' }, fingerprint: 'version-one', event_status: 'EventScheduled' }]
 let rpcResponse: (name: string, args: any) => Promise<any> = async () => ({ data: { processed: 1, skipped: 0, done: true }, error: null })
 mock.module('../src/lib/supabase.ts', { namedExports: { supabase: {
-  rpc: async (name: string, args: any) => { calls.push({ name, args }); return rpcResponse(name, args) },
+  rpc: async (name: string, args: any) => { calls.push({ name, args }); return name === 'poruch_moderation_expire' ? { data: null, error: null } : rpcResponse(name, args) },
   from: (table: string) => {
     const filters: any[] = []
     const q: any = {
       select: () => q, order: () => q, eq: (key: string, value: any) => { filters.push([key, value]); return q },
-      range: async () => { calls.push({ name: `list:${table}`, args: filters }); return { data: table === 'event_sources' ? sources : pending, count: pending.length, error: null } },
+      range: async (start: number, end: number) => { calls.push({ name: `list:${table}`, args: filters }); return { data: (table === 'event_sources' ? sources : pending).slice(start,end+1), count: pending.length, error: null } },
       insert: async (payload: any) => { calls.push({ name: 'insert', args: payload }); return { error: writeError(payload) } },
       update: (payload: any) => { calls.push({ name: 'update', args: payload }); q.payload = payload; return q },
       then: (resolve: any) => Promise.resolve({ error: q.payload ? writeError(q.payload) : null }).then(resolve),
@@ -35,6 +35,31 @@ const external = { id: 'external', title: 'Концерт', starts_at: '2099-01-
 async function click(text: string) { await act(async () => { const button = [...container.querySelectorAll('button')].find(item => item.textContent === text); assert.ok(button, text); button.click() }) }
 after(() => dom.window.close())
 
+test('all-filter actions see total 270 despite 25 rendered rows and sum three stable cursor batches for approval and rejection', async () => {
+  const root = createRoot(container), original = pending
+  pending = Array.from({length:270},(_,i)=>({...original[0],id:'event-'+i,title:'Event '+i}))
+  dom.window.confirm = () => true
+  try {
+    for (const [status,label] of [['approved','Опублікувати'],['rejected','Відхилити']]) {
+      calls.length=0; let batch=0
+      rpcResponse=async(name,args)=> {
+        assert.equal(name,'poruch_moderation_filter_batch')
+        assert.equal(args.p_ids,undefined)
+        assert.equal(args.p_status,status)
+        if(batch>0) assert.equal(args.p_after,'cursor-'+batch)
+        batch++
+        return {data:{processed:batch===3?70:100,skipped:0,done:batch===3,cursor:'cursor-'+batch,snapshot:'snapshot'},error:null}
+      }
+      await act(async()=>root.render(<AdminIngest key={status} mode="moderation" />))
+      assert.ok(calls.findIndex(call=>call.name==='poruch_moderation_expire') < calls.findIndex(call=>call.name==='list:ingested_events'))
+      assert.equal(container.querySelectorAll('article').length,25)
+      await click(label+' всі за фільтром (270)')
+      assert.equal(batch,3)
+      assert.match(container.textContent!,/270. Пропущено: 0/)
+    }
+  } finally {pending=original;rpcResponse=async()=>({data:{processed:1,skipped:0,done:true},error:null});await act(async()=>root.unmount())}
+})
+
 test('partial moderation reports counts and refreshes skipped rows; filtered actions confirm scope and preserve stored category', async () => {
   const root = createRoot(container); calls.length = 0
   const confirmations: string[] = []
@@ -51,7 +76,7 @@ test('partial moderation reports counts and refreshes skipped rows; filtered act
       city.value = 'Чернігів'; city.dispatchEvent(new Event('change', { bubbles: true }))
     })
     await click('Опублікувати всі за фільтром (1)')
-    const args = calls.filter(call => call.name === 'poruch_moderation_batch').at(-1)!.args
+    const args = calls.filter(call => call.name === 'poruch_moderation_filter_batch').at(-1)!.args
     assert.equal(args.p_city, 'Чернігів')
     assert.equal(args.p_ids, undefined)
     assert.equal(args.p_categories, undefined)
