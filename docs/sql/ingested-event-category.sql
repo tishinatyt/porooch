@@ -1,7 +1,7 @@
 -- Apply after event_ingest; preferably after event_sources_images. No application is automatic.
 begin;
 -- Preserve the three-argument API. The new overload atomically reviews + saves category overrides.
-create function poruch_private.ingest_moderate(p_ids uuid[],p_status text,p_versions jsonb,p_categories jsonb) returns integer
+create or replace function poruch_private.ingest_moderate(p_ids uuid[],p_status text,p_versions jsonb,p_categories jsonb) returns integer
 language plpgsql security definer set search_path='' as $$
 declare n integer;
 begin
@@ -10,15 +10,15 @@ begin
   if exists(select 1 from jsonb_each_text(p_categories) c where
     c.key not in (select id::text from unnest(p_ids) id) or c.value is null or
     c.value not in ('cinema','theatre','bar','sport','music','food','games','walk','art','communication','other')) then raise exception 'invalid_categories'; end if;
-  n := poruch_private.ingest_moderate(p_ids,p_status,p_versions);
+  n := poruch_private.ingest_moderate(p_ids::uuid[],p_status::text,p_versions::jsonb);
   -- fingerprint/observations describe source facts. Keep them so the next identical crawl
   -- preserves a moderator's category; changed source facts still return the event to pending.
   update public.ingested_events e set category=p_categories->>e.id::text,updated_at=now()
     where e.id=any(p_ids) and p_categories ? e.id::text;
   return n;
 end $$;
-create function public.poruch_ingest_moderate(p_ids uuid[],p_status text,p_versions jsonb,p_categories jsonb) returns integer
-language sql security invoker set search_path='' as $$ select poruch_private.ingest_moderate(p_ids,p_status,p_versions,p_categories); $$;
+create or replace function public.poruch_ingest_moderate(p_ids uuid[],p_status text,p_versions jsonb,p_categories jsonb) returns integer
+language sql security invoker set search_path='' as $$ select poruch_private.ingest_moderate(p_ids::uuid[],p_status::text,p_versions::jsonb,p_categories::jsonb); $$;
 revoke all on function poruch_private.ingest_moderate(uuid[],text,jsonb,jsonb),public.poruch_ingest_moderate(uuid[],text,jsonb,jsonb) from public,anon,authenticated;
 grant execute on function poruch_private.ingest_moderate(uuid[],text,jsonb,jsonb),public.poruch_ingest_moderate(uuid[],text,jsonb,jsonb) to authenticated;
 

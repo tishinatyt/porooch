@@ -104,9 +104,10 @@ test('moderation is pending-only with city/source filters; single and batch acti
     await act(async () => container.querySelector<HTMLInputElement>('input[type="checkbox"]')!.click())
     await click('Відхилити (1)')
     assert.equal(calls.filter(call => call.name === 'poruch_moderation_batch').at(-1)?.args.p_status, 'rejected')
-    rpcResponse = async () => ({ error: { message: 'event_changed' } })
+    rpcResponse = async () => ({ error: { code: '42702', message: 'column reference "category" is ambiguous' } })
     await click('Опублікувати')
     assert.match(container.querySelector('[role="alert"]')!.textContent!, /ingest-moderation-batch.sql/)
+    assert.match(container.querySelector('[role="alert"]')!.textContent!, /column reference "category" is ambiguous/)
   } finally { rpcResponse = async () => ({ data: { processed: 1, skipped: 0, done: true }, error: null }); await act(async () => root.unmount()) }
 })
 test('source editor accepts an arbitrary Ukrainian city, saves moderation-only configuration and can disable a source', async () => {

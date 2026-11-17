@@ -1,4 +1,4 @@
-import { runModerationBatches } from '@/lib/moderationBatch'
+import { runModerationBatches, moderationErrorMessage } from '@/lib/moderationBatch'
 import SourceListImport from './SourceListImport'
 import { normalizeEventTitle } from '@/lib/eventTitle'
 import { formatIngestedDate as date } from '@/lib/ingestedPresentation'
@@ -67,7 +67,7 @@ export function AdminIngest({ mode }: { mode: 'moderation' | 'sources' }) {
       const result = await supabase.rpc('poruch_moderation_batch', { p_ids: ids, p_status: status, p_versions: versions, ...(status === 'approved' && Object.keys(edits).length ? { p_categories: edits } : {}) })
       if (result.error) throw result.error
       setNotice(summary(status, result.data)); setSelected(new Set()); setRevision(v => v + 1)
-    } catch (error) { setError(t.batchMigration); setRevision(v => v + 1) } finally { setBusy(false) }
+    } catch (error) { setError(t.batchMigration + '\n' + moderationErrorMessage(error)); setRevision(v => v + 1) } finally { setBusy(false) }
   }
   function summary(status: 'approved' | 'rejected', result: { processed: number; skipped: number }) {
     return (status === 'approved' ? t.published : t.rejected) + ': ' + result.processed + '. ' + t.skipped + ': ' + result.skipped + ' (' + t.skipReason + ')'
@@ -79,7 +79,7 @@ export function AdminIngest({ mode }: { mode: 'moderation' | 'sources' }) {
       await runModerationBatches(args => supabase.rpc('poruch_moderation_batch', args), {
         p_status: status, p_city: sourceIds ? '' : city, p_sources: sourceIds ?? (source ? [source] : null),
       }, result => setNotice(summary(status, result)))
-    } catch { setError(t.batchMigration) }
+    } catch (error) { setError(t.batchMigration + '\n' + moderationErrorMessage(error)) }
     finally { setSelected(new Set()); setRevision(v => v + 1); setBusy(false) }
   }
   async function offerCollected(ids: string[]) {
@@ -122,7 +122,7 @@ export function AdminIngest({ mode }: { mode: 'moderation' | 'sources' }) {
   return <section aria-label={t[mode]} className="space-y-4">
     <h2 className="text-xl font-extrabold">{t[mode]}</h2>
     <div className="flex flex-wrap gap-2"><select className={field} aria-label={t.city} disabled={busy} value={city} onChange={e => { setCity(e.target.value); setPage(0) }}><option value="">{t.allCities}</option>{cities.map(name => <option key={name}>{name}</option>)}</select>{mode === 'moderation' && <select className={field} aria-label={t.source} disabled={busy} value={source} onChange={e => { setSource(e.target.value); setPage(0) }}><option value="">{t.allSources}</option>{sources.map(item => <option value={item.id} key={item.id}>{item.name}</option>)}</select>}<button type="button" className={button} onClick={() => setRevision(v => v + 1)}>{t.refresh}</button></div>
-    {loading && <p role="status">{t.loading}</p>}{error && <p role="alert" className="text-red-700">{error}</p>}{notice && <p role="status">{notice}</p>}
+    {loading && <p role="status">{t.loading}</p>}{error && <p role="alert" className="whitespace-pre-wrap text-red-700">{error}</p>}{notice && <p role="status">{notice}</p>}
     {mode === 'moderation' ? <>
       <div className="flex flex-wrap items-center gap-2"><span>{t.queueTotal}: {total}</span><label>{t.pageSize} <select aria-label={t.pageSize} className={field} disabled={busy} value={pageSize} onChange={e => { setPageSize(Number(e.target.value)); setPage(0) }}>{[25,50,100].map(size => <option key={size} value={size}>{size}</option>)}</select></label>{(['approved','rejected'] as const).map(status => <button key={status} className={button} disabled={busy || loading || !total} onClick={() => void filtered(status)}>{status === 'approved' ? t.publishFiltered : t.rejectFiltered} ({total})</button>)}</div>
       <div className="flex flex-wrap items-center gap-2"><label className="flex min-h-11 items-center gap-2"><input type="checkbox" checked={rows.length > 0 && selected.size === rows.length} onChange={e => setSelected(new Set(e.target.checked ? rows.map(row => row.id) : []))} />{t.selectAll}</label>{(['approved', 'rejected'] as const).map(status => <button type="button" className={button} key={status} disabled={busy || !selected.size} onClick={() => void moderate([...selected], status)}>{status === 'approved' ? t.publish : t.reject} ({selected.size})</button>)}</div>

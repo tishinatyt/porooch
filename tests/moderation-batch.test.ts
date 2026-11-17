@@ -1,7 +1,34 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
-import { runModerationBatches } from '../src/lib/moderationBatch.ts'
+import { runModerationBatches, moderationErrorMessage } from '../src/lib/moderationBatch.ts'
+
+test('moderation SQL declarations cannot shadow table columns and migration matches manual SQL', () => {
+  const sql = fs.readFileSync('docs/sql/ingest-moderation-batch.sql', 'utf8')
+  assert.equal(sql, fs.readFileSync('supabase/migrations/20261117120000_ingest_moderation_batch.sql', 'utf8'))
+  const columns = new Set(['category','status','city','title','id','source_id','fingerprint','updated_at','collected_at','starts_at','place','address'])
+  for (const block of sql.matchAll(/declare\s+([\s\S]*?)\bbegin\b/gi)) {
+    for (const declaration of block[1].split(';').filter(value => value.trim())) {
+      const name = declaration.trim().split(/\s+/)[0]
+      assert.equal(columns.has(name), false, 'variable shadows column: ' + name)
+      assert.match(name, /^v_/)
+    }
+  }
+  assert.match(sql, /category=coalesce\(v_category,e.category\)/)
+  assert.match(sql, /where e.id=v_item.id/)
+  assert.doesNotMatch(sql, /v_item\.v_category/)
+  for (const path of ['docs/sql/ingested-event-category.sql', 'supabase/migrations/20261116110000_ingested_event_category.sql']) {
+    const legacy = fs.readFileSync(path, 'utf8')
+    assert.match(legacy, /ingest_moderate\(p_ids::uuid\[\],p_status::text,p_versions::jsonb\)/)
+    assert.doesNotMatch(legacy, /create function /i)
+  }
+})
+
+test('real database messages survive direct and wrapped moderation errors', () => {
+  const error = { code: '42702', message: 'column reference "category" is ambiguous' }
+  assert.equal(moderationErrorMessage(error), error.message)
+  assert.equal(moderationErrorMessage({ message: 'moderation_failed', cause: error }), error.message)
+})
 
 test('filtered moderation keeps city/source scope, cursor and snapshot across all pages, summing partial success', async () => {
   const calls: any[] = [], progress: any[] = []
@@ -32,6 +59,6 @@ test('batch rejection preserves completed counts on later RPC failure and never 
 
 test('SQL authorizes admins, skips conflicts, locks against ingestion, validates approval and uses bounded keyset scanning', () => {
   const sql = fs.readFileSync('docs/sql/ingest-moderation-batch.sql', 'utf8')
-  for (const pattern of [/is_admin\(\)/, /pg_advisory_xact_lock\(1760916000\)/, /fingerprint is distinct from/, /updated_at>snapshot/, /skipped:=skipped\+1; continue/, /limit 100 for update/, /e.id>p_after/, /e.city=p_city/, /e.source_id=any\(p_sources\)/, /item.starts_at<=now\(\)/, /char_length\(btrim\(item.title\)\)<3/, /d.dedup_hash=item.dedup_hash/, /security invoker/]) assert.match(sql, pattern)
+  for (const pattern of [/is_admin\(\)/, /pg_advisory_xact_lock\(1760916000\)/, /fingerprint is distinct from/, /updated_at>v_snapshot/, /v_skipped:=v_skipped\+1; continue/, /limit 100 for update/, /e.id>p_after/, /e.city=p_city/, /e.source_id=any\(p_sources\)/, /v_item.starts_at<=now\(\)/, /char_length\(btrim\(v_item.title\)\)<3/, /d.dedup_hash=v_item.dedup_hash/, /security invoker/]) assert.match(sql, pattern)
   assert.doesNotMatch(sql, /tow_leads|svoya_|offset /)
 })

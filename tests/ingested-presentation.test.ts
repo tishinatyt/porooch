@@ -44,7 +44,7 @@ test('Kyiv dates are numeric with minutes, never seconds, regardless of machine 
 test('category SQL copies match and extend the reviewed-version API without replacing the original overload', () => {
   const sql = fs.readFileSync('supabase/migrations/20261116110000_ingested_event_category.sql', 'utf8')
   assert.equal(sql, fs.readFileSync('docs/sql/ingested-event-category.sql', 'utf8'))
-  assert.match(sql, /n := poruch_private.ingest_moderate\(p_ids,p_status,p_versions\)/)
+  assert.match(sql, /n := poruch_private.ingest_moderate\(p_ids::uuid\[\],p_status::text,p_versions::jsonb\)/)
   assert.match(sql, /category=p_categories->>e.id::text/)
   assert.doesNotMatch(sql, /tow_leads|svoya_/)
 })

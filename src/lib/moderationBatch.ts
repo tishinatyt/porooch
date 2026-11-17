@@ -1,4 +1,9 @@
 export type ModerationResult = { processed: number; skipped: number }
+export function moderationErrorMessage(error: unknown): string {
+  const value = error as { message?: unknown; cause?: { message?: unknown } } | null
+  const message = value?.cause?.message ?? value?.message
+  return typeof message === 'string' ? message : ''
+}
 export async function runModerationBatches(rpc: (args: Record<string, unknown>) => PromiseLike<{ data: any; error: any }>, filters: Record<string, unknown>, progress?: (result: ModerationResult) => void) {
   const total = { processed: 0, skipped: 0 }
   let cursor: string | null = null, snapshot: string | null = null
